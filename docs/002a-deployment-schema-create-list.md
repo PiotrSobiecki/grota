@@ -1,8 +1,10 @@
-# 002: Operator Deployment CRUD
+# 002a: Deployment Schema, Create & List
 
 ## Goal
 
-Enable operators to create and manage deployments through a full vertical slice: Drizzle schema, Hono API endpoints, and TanStack Start dashboard pages.
+Set up the deployments data model (Drizzle schema, Zod validation, queries) and enable operators to create and list deployments through a vertical slice: data-ops, data-service, and user-application dashboard.
+
+> Replaces the first half of the original doc 002. Downstream docs (003-006) that reference "doc 002" depend on this doc for the deployments table and schema.
 
 ## Prerequisites
 
@@ -13,16 +15,19 @@ Enable operators to create and manage deployments through a full vertical slice:
 ### IN
 
 - `deployments` table in data-ops with Drizzle + Zod schemas + queries
-- Deployment CRUD endpoints in data-service (POST, GET list, GET by id, PUT)
-- Operator dashboard pages: list, create form, detail view
+- Deployment create + list endpoints in data-service (POST, GET list)
+- Operator dashboard pages: list + create form
 - Status enum with documented transition rules
 - Client admin fields on deployments table (resolves **B1**)
 - `b2_config` JSONB schema (resolves **B5**)
 - `server_config` JSONB schema (resolves **B6**)
 - Status transition rules (resolves **B7**)
+- Sidebar navigation update
 
 ### OUT
 
+- Deployment detail view (doc 002b)
+- Deployment update endpoint (doc 002b)
 - Magic link generation (doc 003)
 - Employees table (doc 003)
 - Google OAuth (doc 004)
@@ -261,6 +266,8 @@ export type DeploymentListRequest = z.infer<typeof DeploymentListRequestSchema>;
 
 ### New file: `packages/data-ops/src/deployment/queries.ts`
 
+All queries are included here since the file is small. Doc 002b will use `getDeployment` and `updateDeployment` -- no changes to this file needed later.
+
 ```ts
 import { and, count, eq } from "drizzle-orm";
 import { getDb } from "@/database/setup";
@@ -445,13 +452,13 @@ All endpoints require operator authentication via Better Auth session (accessed 
 
 ### New file: `apps/data-service/src/hono/handlers/deployment-handlers.ts`
 
+This doc adds the list and create handlers. Doc 002b extends this file with GET /:id and PUT /:id.
+
 ```ts
 import { zValidator } from "@hono/zod-validator";
 import {
   DeploymentCreateRequestSchema,
-  DeploymentIdParamSchema,
   DeploymentListRequestSchema,
-  DeploymentUpdateRequestSchema,
 } from "@repo/data-ops/deployment";
 import type { Context } from "hono";
 import { Hono } from "hono";
@@ -489,17 +496,6 @@ deploymentHandlers.get(
   },
 );
 
-// Get deployment by ID
-deploymentHandlers.get(
-  "/:id",
-  (c, next) => authMiddleware(c.env.API_TOKEN)(c, next),
-  zValidator("param", DeploymentIdParamSchema),
-  async (c) => {
-    const { id } = c.req.valid("param");
-    return resultToResponse(c, await deploymentService.getDeploymentById(id));
-  },
-);
-
 // Create deployment
 deploymentHandlers.post(
   "/",
@@ -516,23 +512,12 @@ deploymentHandlers.post(
   },
 );
 
-// Update deployment
-deploymentHandlers.put(
-  "/:id",
-  (c, next) => authMiddleware(c.env.API_TOKEN)(c, next),
-  zValidator("param", DeploymentIdParamSchema),
-  zValidator("json", DeploymentUpdateRequestSchema),
-  async (c) => {
-    const { id } = c.req.valid("param");
-    const data = c.req.valid("json");
-    return resultToResponse(c, await deploymentService.updateDeployment(id, data));
-  },
-);
-
 export default deploymentHandlers;
 ```
 
 ### New file: `apps/data-service/src/hono/services/deployment-service.ts`
+
+This doc adds list and create services. Doc 002b extends this file with getDeploymentById and updateDeployment.
 
 ```ts
 import {
@@ -540,11 +525,8 @@ import {
   type DeploymentCreateInput,
   type DeploymentListRequest,
   type DeploymentListResponse,
-  type DeploymentUpdateInput,
   createDeployment as createDeploymentQuery,
-  getDeployment,
   getDeployments as getDeploymentsQuery,
-  updateDeployment as updateDeploymentQuery,
 } from "@repo/data-ops/deployment";
 import type { Result } from "../types/result";
 
@@ -556,36 +538,11 @@ export async function getDeployments(
   return { ok: true, data };
 }
 
-export async function getDeploymentById(id: string): Promise<Result<Deployment>> {
-  const deployment = await getDeployment(id);
-  if (!deployment) {
-    return {
-      ok: false,
-      error: { code: "NOT_FOUND", message: "Wdrozenie nie zostalo znalezione", status: 404 },
-    };
-  }
-  return { ok: true, data: deployment };
-}
-
 export async function createDeployment(
   data: DeploymentCreateInput,
   operatorId: string,
 ): Promise<Result<Deployment>> {
   const deployment = await createDeploymentQuery({ ...data, createdBy: operatorId });
-  return { ok: true, data: deployment };
-}
-
-export async function updateDeployment(
-  id: string,
-  data: DeploymentUpdateInput,
-): Promise<Result<Deployment>> {
-  const deployment = await updateDeploymentQuery(id, data);
-  if (!deployment) {
-    return {
-      ok: false,
-      error: { code: "NOT_FOUND", message: "Wdrozenie nie zostalo znalezione", status: 404 },
-    };
-  }
   return { ok: true, data: deployment };
 }
 ```
@@ -615,31 +572,24 @@ App.route("/deployments", deployments);
 | Method | Path | Auth | Request | Response |
 |--------|------|------|---------|----------|
 | `GET` | `/deployments` | Bearer token | `?limit=20&offset=0&status=draft` | `DeploymentListResponse` |
-| `GET` | `/deployments/:id` | Bearer token | Param: uuid | `Deployment` |
 | `POST` | `/deployments` | Bearer token | `DeploymentCreateRequestSchema` body | `Deployment` (201) |
-| `PUT` | `/deployments/:id` | Bearer token | `DeploymentUpdateRequestSchema` body | `Deployment` |
 
 ## UI Pages & Components
 
 ### Server functions: `apps/user-application/src/core/functions/deployments/direct.ts`
 
-Uses direct DB access via data-ops (preferred for SSR):
+This doc adds list and create server functions. Doc 002b extends this file with getDeploymentById and updateExistingDeployment.
 
 ```ts
 import { createServerFn } from "@tanstack/react-start";
-import { z } from "zod";
 import {
   DeploymentCreateRequestSchema,
   DeploymentListRequestSchema,
-  DeploymentUpdateRequestSchema,
 } from "@repo/data-ops/deployment";
 import {
   createDeployment,
-  getDeployment,
   getDeployments,
-  updateDeployment,
 } from "@repo/data-ops/deployment";
-import { AppError } from "@/core/errors";
 
 export const listDeployments = createServerFn({ method: "GET" })
   .validator(DeploymentListRequestSchema)
@@ -649,36 +599,11 @@ export const listDeployments = createServerFn({ method: "GET" })
     return getDeployments(data, operatorId);
   });
 
-export const getDeploymentById = createServerFn({ method: "GET" })
-  .validator(z.object({ id: z.string().uuid() }))
-  .handler(async ({ data }) => {
-    const deployment = await getDeployment(data.id);
-    if (!deployment) {
-      throw new AppError("Wdrozenie nie zostalo znalezione", "NOT_FOUND", 404);
-    }
-    return deployment;
-  });
-
 export const createNewDeployment = createServerFn({ method: "POST" })
   .validator(DeploymentCreateRequestSchema)
   .handler(async ({ data }) => {
     const operatorId = ""; // TODO: extract from auth context
     return createDeployment({ ...data, createdBy: operatorId });
-  });
-
-export const updateExistingDeployment = createServerFn({ method: "POST" })
-  .validator(
-    z.object({
-      id: z.string().uuid(),
-      updates: DeploymentUpdateRequestSchema,
-    }),
-  )
-  .handler(async ({ data }) => {
-    const deployment = await updateDeployment(data.id, data.updates);
-    if (!deployment) {
-      throw new AppError("Wdrozenie nie zostalo znalezione", "NOT_FOUND", 404);
-    }
-    return deployment;
   });
 ```
 
@@ -688,13 +613,12 @@ Deployment list page:
 
 ```tsx
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useSuspenseQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { listDeployments } from "@/core/functions/deployments/direct";
 
-export const Route = createFileRoute("/_auth/dashboard/")({
+export const Route = createFileRoute("/_auth/dashboard/")({{
   loader: () => listDeployments({ data: { limit: 20, offset: 0 } }),
   component: DeploymentListPage,
 });
@@ -738,24 +662,17 @@ function DeploymentListPage() {
       ) : (
         <div className="grid gap-4">
           {deployments.data.map((deployment) => (
-            <Link
-              key={deployment.id}
-              to="/dashboard/$id"
-              params={{ id: deployment.id }}
-              className="block"
-            >
-              <Card className="hover:border-primary transition-colors">
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle className="text-lg">{deployment.clientName}</CardTitle>
-                  <Badge variant={STATUS_VARIANTS[deployment.status] ?? "outline"}>
-                    {STATUS_LABELS[deployment.status] ?? deployment.status}
-                  </Badge>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">{deployment.domain}</p>
-                </CardContent>
-              </Card>
-            </Link>
+            <Card key={deployment.id} className="hover:border-primary transition-colors">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-lg">{deployment.clientName}</CardTitle>
+                <Badge variant={STATUS_VARIANTS[deployment.status] ?? "outline"}>
+                  {STATUS_LABELS[deployment.status] ?? deployment.status}
+                </Badge>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">{deployment.domain}</p>
+              </CardContent>
+            </Card>
           ))}
         </div>
       )}
@@ -763,6 +680,8 @@ function DeploymentListPage() {
   );
 }
 ```
+
+**Note:** Deployment cards are not clickable links yet -- the detail page is added in doc 002b. Once 002b is implemented, cards become `<Link to="/dashboard/$id">` wrappers.
 
 ### Route: `apps/user-application/src/routes/_auth/dashboard/new.tsx`
 
@@ -799,13 +718,14 @@ function CreateDeploymentPage() {
     },
     onSubmit: async ({ value }) => {
       mutation.reset();
-      const result = await mutation.mutateAsync({
+      await mutation.mutateAsync({
         clientName: value.clientName,
         domain: value.domain,
         adminEmail: value.adminEmail || undefined,
         adminName: value.adminName || undefined,
       });
-      navigate({ to: "/dashboard/$id", params: { id: result.id } });
+      // Navigate to list page. Doc 002b changes this to navigate to detail page.
+      navigate({ to: "/dashboard" });
     },
   });
 
@@ -951,79 +871,6 @@ function CreateDeploymentPage() {
 }
 ```
 
-### Route: `apps/user-application/src/routes/_auth/dashboard/$id.tsx`
-
-Deployment detail page:
-
-```tsx
-import { createFileRoute } from "@tanstack/react-router";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getDeploymentById } from "@/core/functions/deployments/direct";
-
-export const Route = createFileRoute("/_auth/dashboard/$id")({
-  loader: ({ params }) => getDeploymentById({ data: { id: params.id } }),
-  component: DeploymentDetailPage,
-});
-
-const STATUS_LABELS: Record<string, string> = {
-  draft: "Szkic",
-  onboarding: "Onboarding",
-  employees_pending: "Oczekuje na pracownikow",
-  ready: "Gotowe",
-  active: "Aktywne",
-};
-
-function DeploymentDetailPage() {
-  const deployment = Route.useLoaderData();
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-foreground">
-          {deployment.clientName}
-        </h1>
-        <Badge>{STATUS_LABELS[deployment.status] ?? deployment.status}</Badge>
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Dane klienta</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <div>
-              <span className="text-sm text-muted-foreground">Domena: </span>
-              <span className="text-foreground">{deployment.domain}</span>
-            </div>
-            {deployment.adminEmail && (
-              <div>
-                <span className="text-sm text-muted-foreground">Admin: </span>
-                <span className="text-foreground">
-                  {deployment.adminName ?? ""} ({deployment.adminEmail})
-                </span>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Status wdrozenia</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground">
-              Utworzone: {new Date(deployment.createdAt).toLocaleDateString("pl-PL")}
-            </p>
-            {/* Employee progress and magic link generation added in doc 003 */}
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
-}
-```
-
 ### Update sidebar navigation
 
 Update `apps/user-application/src/components/layout/sidebar.tsx` to include a "Wdrozenia" link pointing to `/_auth/dashboard/`.
@@ -1039,17 +886,16 @@ Update `apps/user-application/src/components/layout/sidebar.tsx` to include a "W
    - Rebuild: `pnpm --filter @repo/data-ops build`
 
 2. **Create deployment API in data-service**
-   - Create `hono/handlers/deployment-handlers.ts`
-   - Create `hono/services/deployment-service.ts`
+   - Create `hono/handlers/deployment-handlers.ts` (list + create)
+   - Create `hono/services/deployment-service.ts` (list + create)
    - Update `hono/app.ts` to register `/deployments` route
 
 3. **Create server functions in user-application**
-   - Create `core/functions/deployments/direct.ts`
+   - Create `core/functions/deployments/direct.ts` (list + create)
 
 4. **Create dashboard pages**
    - Update `routes/_auth/dashboard/index.tsx` (deployment list)
    - Create `routes/_auth/dashboard/new.tsx` (create form)
-   - Create `routes/_auth/dashboard/$id.tsx` (detail view)
    - Update sidebar navigation
 
 5. **Regenerate and verify**
@@ -1075,12 +921,10 @@ No new environment variables required for this doc. All existing env vars from d
    - Domena: "firma.pl"
    - Email administratora: "admin@firma.pl" (optional)
    - Imie i nazwisko: "Jan Kowalski" (optional)
-8. Click "Utworz wdrozenie" -- should create and redirect to `/dashboard/{id}`
-9. On detail page, verify:
-   - Title shows "FirmaXYZ"
-   - Status badge shows "Szkic"
-   - Domain shows "firma.pl"
-   - Admin email/name shown if provided
-10. Navigate back to `/_auth/dashboard/` -- deployment should appear in the list
-11. Click the deployment card -- should navigate back to detail page
-12. Test API directly: `curl http://localhost:8788/deployments` with valid Bearer token -- should return list
+8. Click "Utworz wdrozenie" -- should create and redirect to `/dashboard` (list page)
+9. On list page, verify newly created deployment appears with:
+   - Title: "FirmaXYZ"
+   - Status badge: "Szkic"
+   - Domain: "firma.pl"
+10. Test API directly: `curl http://localhost:8788/deployments` with valid Bearer token -- should return list
+11. Test API: `curl -X POST http://localhost:8788/deployments -H "Content-Type: application/json" -d '{"clientName":"Test","domain":"test.pl"}'` with valid Bearer token -- should return 201

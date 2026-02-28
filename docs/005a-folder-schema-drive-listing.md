@@ -1,35 +1,37 @@
-# 005: Employee Folder Selection
+# 005a: Folder Schema & Drive Listing
 
 ## Goal
 
-Enable employees to see their Google Drive top-level folders, tag each folder by category, and confirm their selection -- with auto-suggestion and deployment status progression when all employees complete.
+Create the `folder_selections` data model and enable employees to fetch and view their Google Drive top-level folders with auto-suggested categories (employee flow step 2).
 
 ## Prerequisites
 
 - Doc 001 (Bootstrap & Cleanup)
-- Doc 002 (Operator Deployment CRUD)
-- Doc 003 (Client Onboarding Wizard)
-- Doc 004 (Google OAuth & Encryption)
+- Doc 002a/b (Operator Deployment CRUD)
+- Doc 003a/b (Client Onboarding Wizard)
+- Doc 004a/b (Google OAuth & Encryption)
 
 ## Scope
 
 ### IN
 
 - `folder_selections` table in data-ops (resolves **B9** -- no `size_bytes`)
+- Zod schemas for folder selections and Drive folder responses
+- Folder selection CRUD queries in data-ops
 - Google Drive API integration: list top-level folders via `fetch`
-- Folder selection CRUD endpoints in data-service
-- Employee flow steps 2-4: folder list, category tagging, confirm
 - Auto-suggestion: match folder name to category
-- Employee status updates: `pending` -> `in_progress` -> `completed`
-- Auto deployment status transition: when all employees completed -> `employees_pending` -> `ready`
-- Update operator dashboard detail page: per-employee completion status
+- `GET /folders/drive/:employeeId` endpoint (decrypt token, call Drive API, return folders)
+- Employee flow step 2: fetch and display folder list with loading/error states
+- Employee status update: `pending` -> `in_progress` on first folder fetch
 
 ### OUT
 
+- Category tagging UI (doc 005b)
+- Folder selection save/confirm (doc 005b)
+- Deployment auto-transition (doc 005b)
+- Operator dashboard employee status (doc 005b)
 - Google Drive file contents or nested folder traversal
 - Folder size calculation (removed from MVP -- resolves **B9**)
-- Config export (doc 006)
-- Shared Drive operations (server scripts, Phase 2)
 
 ## Decisions
 
@@ -266,7 +268,6 @@ pnpm --filter @repo/data-ops build
 
 ```ts
 import { zValidator } from "@hono/zod-validator";
-import { FolderSelectionBulkCreateRequestSchema } from "@repo/data-ops/folder-selection";
 import { z } from "zod";
 import type { Context } from "hono";
 import { Hono } from "hono";
@@ -302,33 +303,6 @@ folderHandlers.get(
   },
 );
 
-// Get existing folder selections for an employee
-folderHandlers.get(
-  "/selections/:employeeId",
-  zValidator("param", z.object({ employeeId: z.string().uuid() })),
-  async (c) => {
-    const { employeeId } = c.req.valid("param");
-    return resultToResponse(
-      c,
-      await folderService.getSelections(employeeId),
-    );
-  },
-);
-
-// Save folder selections (replaces existing)
-folderHandlers.post(
-  "/selections",
-  zValidator("json", FolderSelectionBulkCreateRequestSchema),
-  async (c) => {
-    const data = c.req.valid("json");
-    return resultToResponse(
-      c,
-      await folderService.saveSelections(data.employeeId, data.selections, c.env),
-      201,
-    );
-  },
-);
-
 export default folderHandlers;
 ```
 
@@ -337,16 +311,8 @@ export default folderHandlers;
 ```ts
 import { decrypt } from "@repo/data-ops/encryption";
 import { getDriveOAuthToken } from "@repo/data-ops/employee";
-import { getEmployeeById, getEmployeesByDeployment, updateEmployeeSelectionStatus } from "@repo/data-ops/employee";
-import {
-  type DriveFolder,
-  type FolderSelection,
-  type FolderSelectionCreateInput,
-  createFolderSelections,
-  deleteFolderSelectionsByEmployee,
-  getFolderSelectionsByEmployee,
-} from "@repo/data-ops/folder-selection";
-import { updateDeploymentStatus } from "@repo/data-ops/deployment";
+import { getEmployeeById, updateEmployeeSelectionStatus } from "@repo/data-ops/employee";
+import type { DriveFolder } from "@repo/data-ops/folder-selection";
 import type { Result } from "../types/result";
 
 // ============================================
@@ -526,52 +492,6 @@ export async function listDriveFolders(
   return { ok: true, data: { folders } };
 }
 
-export async function getSelections(
-  employeeId: string,
-): Promise<Result<{ data: FolderSelection[]; total: number }>> {
-  const selections = await getFolderSelectionsByEmployee(employeeId);
-  return { ok: true, data: { data: selections, total: selections.length } };
-}
-
-export async function saveSelections(
-  employeeId: string,
-  selections: FolderSelectionCreateInput[],
-  env: Env,
-): Promise<Result<FolderSelection[]>> {
-  const employee = await getEmployeeById(employeeId);
-  if (!employee) {
-    return {
-      ok: false,
-      error: { code: "NOT_FOUND", message: "Pracownik nie znaleziony", status: 404 },
-    };
-  }
-
-  // Replace existing selections (idempotent)
-  await deleteFolderSelectionsByEmployee(employeeId);
-  const created = await createFolderSelections(employeeId, selections);
-
-  // Mark employee as completed
-  await updateEmployeeSelectionStatus(employeeId, "completed");
-
-  // Check if all employees in the deployment are completed
-  await checkDeploymentCompletion(employee.deploymentId);
-
-  return { ok: true, data: created };
-}
-
-/** When all employees have completed, transition deployment to 'ready'. */
-async function checkDeploymentCompletion(deploymentId: string): Promise<void> {
-  const allEmployees = await getEmployeesByDeployment(deploymentId);
-
-  const allCompleted = allEmployees.every(
-    (emp) => emp.selectionStatus === "completed",
-  );
-
-  if (allCompleted && allEmployees.length > 0) {
-    await updateDeploymentStatus(deploymentId, "ready");
-  }
-}
-
 /** Refresh an expired Google access token using the refresh token. */
 async function refreshAccessToken(
   refreshToken: string,
@@ -627,29 +547,20 @@ App.route("/folders", folderHandlers);
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
-| `GET` | `/folders/drive/:employeeId` | Public (token-gated in UI) | List Drive top-level folders |
-| `GET` | `/folders/selections/:employeeId` | Public | Get existing folder selections |
-| `POST` | `/folders/selections` | Public | Save folder selections |
+| `GET` | `/folders/drive/:employeeId` | Public (token-gated in UI) | List Drive top-level folders with auto-suggestions |
 
 ## UI Pages & Components
 
 ### Update: `apps/user-application/src/routes/employee/$token.tsx`
 
-Replace the placeholder steps 2-4 with real folder selection UI:
+Add step 2 (folder fetching) to the existing employee flow. Step 1 (OAuth) is from doc 004b. Steps 3-4 will be placeholder cards pointing to doc 005b.
 
 ```tsx
-import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+// Add to existing imports:
+import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 
-export const Route = createFileRoute("/employee/$token")({
-  component: EmployeeFlow,
-});
-
-// Category metadata for display
+// Category metadata for display (used by step 2 loading and later by 005b)
 const CATEGORY_INFO: Record<string, { label: string; description: string }> = {
   dokumenty: {
     label: "Dokumenty",
@@ -680,17 +591,12 @@ interface FolderWithCategory extends DriveFolder {
   selectedCategory: string;
 }
 
+// Update EmployeeFlow to add step 2 state and rendering:
 function EmployeeFlow() {
   const { token } = Route.useParams();
   const [currentStep, setCurrentStep] = useState(1);
   const [employeeId, setEmployeeId] = useState<string | null>(null);
   const [folders, setFolders] = useState<FolderWithCategory[]>([]);
-
-  // Steps:
-  // 1 = OAuth (from doc 004)
-  // 2 = Folder list (fetch + display)
-  // 3 = Category tagging
-  // 4 = Confirm
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -728,32 +634,27 @@ function EmployeeFlow() {
             }}
           />
         )}
-        {currentStep === 3 && employeeId && (
-          <CategoryTaggingStep
-            folders={folders}
-            onFoldersUpdated={setFolders}
-            onNext={() => setCurrentStep(4)}
-          />
+        {currentStep === 3 && (
+          <Card>
+            <CardContent className="py-8 text-center">
+              <p className="text-muted-foreground">
+                Krok 3: Przypisywanie kategorii (doc 005b)
+              </p>
+            </CardContent>
+          </Card>
         )}
-        {currentStep === 4 && employeeId && (
-          <ConfirmStep
-            employeeId={employeeId}
-            folders={folders}
-          />
+        {currentStep === 4 && (
+          <Card>
+            <CardContent className="py-8 text-center">
+              <p className="text-muted-foreground">
+                Krok 4: Potwierdzenie (doc 005b)
+              </p>
+            </CardContent>
+          </Card>
         )}
       </div>
     </div>
   );
-}
-
-// Step 1: OAuth (from doc 004 -- DriveOAuthStep remains the same)
-function DriveOAuthStep({
-  token,
-  onNext,
-}: { token: string; onNext: (employeeId: string) => void }) {
-  // ... same as doc 004 implementation
-  // After OAuth success, resolve employeeId from token and call onNext(employeeId)
-  return null; // Implementation from doc 004
 }
 
 // Step 2: Fetch and display Drive folders
@@ -819,235 +720,6 @@ function FolderListStep({
 
   return null; // Will auto-advance via useEffect
 }
-
-// Step 3: Category tagging UI
-function CategoryTaggingStep({
-  folders,
-  onFoldersUpdated,
-  onNext,
-}: {
-  folders: FolderWithCategory[];
-  onFoldersUpdated: (folders: FolderWithCategory[]) => void;
-  onNext: () => void;
-}) {
-  const handleCategoryChange = (folderId: string, category: string) => {
-    const updated = folders.map((f) =>
-      f.id === folderId ? { ...f, selectedCategory: category } : f,
-    );
-    onFoldersUpdated(updated);
-  };
-
-  const nonPrivateCount = folders.filter(
-    (f) => f.selectedCategory !== "prywatne",
-  ).length;
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Krok 3: Przypisz kategorie</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <p className="text-muted-foreground">
-          Dla kazdego folderu wybierz kategorie. Foldery oznaczone jako
-          "Prywatne" nie beda backupowane.
-        </p>
-
-        <div className="space-y-3">
-          {folders.map((folder) => (
-            <div
-              key={folder.id}
-              className="flex items-center justify-between gap-4 rounded-lg border border-border p-3"
-            >
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-foreground truncate">
-                  {folder.name}
-                </p>
-                {folder.suggestedCategory && (
-                  <p className="text-xs text-muted-foreground">
-                    Sugerowana: {CATEGORY_INFO[folder.suggestedCategory]?.label}
-                  </p>
-                )}
-              </div>
-              <select
-                value={folder.selectedCategory}
-                onChange={(e) =>
-                  handleCategoryChange(folder.id, e.target.value)
-                }
-                className="rounded border border-input bg-background px-3 py-1.5 text-sm text-foreground"
-              >
-                {Object.entries(CATEGORY_INFO).map(([value, info]) => (
-                  <option key={value} value={value}>
-                    {info.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ))}
-        </div>
-
-        <div className="flex items-center justify-between pt-4">
-          <p className="text-sm text-muted-foreground">
-            {nonPrivateCount} z {folders.length} folderow do backupu
-          </p>
-          <Button onClick={onNext} disabled={nonPrivateCount === 0}>
-            Dalej
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-// Step 4: Confirm and save
-function ConfirmStep({
-  employeeId,
-  folders,
-}: {
-  employeeId: string;
-  folders: FolderWithCategory[];
-}) {
-  const dataServiceUrl = import.meta.env.VITE_DATA_SERVICE_URL;
-  const [saved, setSaved] = useState(false);
-
-  const saveMutation = useMutation({
-    mutationFn: async () => {
-      const selections = folders
-        .filter((f) => f.selectedCategory !== "prywatne")
-        .map((f) => ({
-          folderId: f.id,
-          folderName: f.name,
-          category: f.selectedCategory,
-        }));
-
-      // Also include prywatne folders so we have a complete record
-      const allSelections = folders.map((f) => ({
-        folderId: f.id,
-        folderName: f.name,
-        category: f.selectedCategory,
-      }));
-
-      const response = await fetch(`${dataServiceUrl}/folders/selections`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          employeeId,
-          selections: allSelections,
-        }),
-      });
-
-      if (!response.ok) throw new Error("Nie udalo sie zapisac wyboru");
-      return response.json();
-    },
-    onSuccess: () => setSaved(true),
-  });
-
-  const categoryCounts = folders.reduce<Record<string, number>>(
-    (acc, f) => {
-      acc[f.selectedCategory] = (acc[f.selectedCategory] ?? 0) + 1;
-      return acc;
-    },
-    {},
-  );
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Krok 4: Potwierdzenie</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {saved ? (
-          <div className="text-center space-y-4">
-            <p className="text-lg font-medium text-green-600 dark:text-green-400">
-              Wybor zapisany pomyslnie.
-            </p>
-            <p className="text-muted-foreground">
-              Dziekujemy! Mozesz zamknac ta strone.
-            </p>
-          </div>
-        ) : (
-          <>
-            <p className="text-muted-foreground">
-              Sprawdz podsumowanie przed zatwierdzeniem:
-            </p>
-
-            <div className="grid gap-2 sm:grid-cols-2">
-              {Object.entries(CATEGORY_INFO).map(([category, info]) => {
-                const count = categoryCounts[category] ?? 0;
-                if (count === 0) return null;
-                return (
-                  <div
-                    key={category}
-                    className="rounded-lg border border-border p-3"
-                  >
-                    <p className="font-medium text-foreground">{info.label}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {count} {count === 1 ? "folder" : "folderow"}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-
-            {saveMutation.isError && (
-              <p className="text-sm text-destructive">
-                {saveMutation.error.message}
-              </p>
-            )}
-
-            <Button
-              className="w-full"
-              onClick={() => saveMutation.mutate()}
-              disabled={saveMutation.isPending}
-            >
-              {saveMutation.isPending ? "Zapisywanie..." : "Zatwierdz wybor"}
-            </Button>
-          </>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-```
-
-### Update operator dashboard detail page
-
-Update `apps/user-application/src/routes/_auth/dashboard/$id.tsx` to show per-employee completion status:
-
-```tsx
-// Add an employee status section to the detail page:
-
-function EmployeeStatusSection({ deploymentId }: { deploymentId: string }) {
-  // Fetch employees for this deployment
-  // Show: name, email, OAuth status, selection status
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Pracownicy</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {/* Employee table/list with status badges */}
-        {/* Status badges:
-          - oauthStatus: pending (gray), authorized (green), failed (red)
-          - selectionStatus: pending (gray), in_progress (yellow), completed (green)
-        */}
-      </CardContent>
-    </Card>
-  );
-}
-
-// Status badge mapping:
-const OAUTH_STATUS_LABELS: Record<string, string> = {
-  pending: "Oczekuje",
-  authorized: "Autoryzowany",
-  failed: "Blad",
-};
-
-const SELECTION_STATUS_LABELS: Record<string, string> = {
-  pending: "Oczekuje",
-  in_progress: "W trakcie",
-  completed: "Ukonczony",
-};
 ```
 
 ## Implementation Steps
@@ -1064,18 +736,17 @@ const SELECTION_STATUS_LABELS: Record<string, string> = {
    - `pnpm --filter @repo/data-ops drizzle:dev:migrate`
    - `pnpm --filter @repo/data-ops build`
 
-4. **Create folder handlers and service in data-service**
-   - Create `hono/handlers/folder-handlers.ts`
-   - Create `hono/services/folder-service.ts`
+4. **Create folder service in data-service**
+   - Create `hono/services/folder-service.ts` (only `listDriveFolders` + `refreshAccessToken` + `suggestCategory`)
+   - Create `hono/handlers/folder-handlers.ts` (only `GET /drive/:employeeId`)
    - Update `hono/app.ts` with `/folders` route
 
 5. **Update employee flow UI**
-   - Replace placeholder steps 2-4 in `routes/employee/$token.tsx` with real folder selection UI
+   - Add `FolderListStep` component to `routes/employee/$token.tsx`
+   - Wire step 2 into the existing step flow
+   - Add placeholder cards for steps 3-4
 
-6. **Update operator dashboard detail page**
-   - Add employee completion status section to `routes/_auth/dashboard/$id.tsx`
-
-7. **Regenerate and verify**
+6. **Regenerate and verify**
    - `cd apps/user-application && npx @tanstack/router-cli generate`
    - `pnpm run lint:fix && pnpm run lint`
 
@@ -1091,32 +762,17 @@ No new environment variables. Uses `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, a
    - Open employee magic link: `/employee/{token}`
    - Complete OAuth step (if not already done)
    - Step 2 should auto-fetch and display top-level Drive folders
+   - Verify loading spinner appears while fetching
    - Verify folders match what's in the employee's Google Drive root
 4. **Test auto-suggestion:**
    - If the employee has a folder named "Faktury" -- should suggest "Dokumenty"
    - If the employee has a folder named "Projekty" -- should suggest "Projekty"
    - If the employee has a folder named "Film" or "Zdjecia" -- should suggest "Media"
    - Folders without matches should default to "Prywatne"
-5. **Test category selection:**
-   - Step 3: change some categories using the dropdown
-   - Verify counter updates ("X z Y folderow do backupu")
-   - Mark at least one folder as non-prywatne to enable "Dalej" button
-6. **Test confirmation:**
-   - Step 4: review summary, verify counts per category
-   - Click "Zatwierdz wybor"
-   - Should show success message: "Wybor zapisany pomyslnie"
-   - Verify in DB: `folder_selections` rows created for this employee
-7. **Test employee status progression:**
-   - Employee `selection_status` should be "completed" in DB
-   - Employee `oauth_status` should be "authorized"
-8. **Test deployment auto-transition:**
-   - Complete folder selection for ALL employees in a deployment
-   - Deployment `status` should auto-transition to "ready"
-   - Verify on operator dashboard detail page: status badge shows "Gotowe"
-9. **Test operator dashboard:**
-   - Open deployment detail page
-   - Should show employee list with:
-     - Name, email
-     - OAuth status badge (Autoryzowany/Oczekuje)
-     - Selection status badge (Ukonczony/W trakcie/Oczekuje)
-   - Should show completion count: "X/Y pracownikow ukonczylo"
+5. **Test error handling:**
+   - With an invalid/expired token: should show error message and retry button
+   - Retry button should re-attempt the fetch
+6. **Test employee status update:**
+   - After step 2 loads, employee `selection_status` should be "in_progress" in DB
+7. **Test auto-advance:**
+   - After folders load, the flow should auto-advance to step 3 (placeholder card)

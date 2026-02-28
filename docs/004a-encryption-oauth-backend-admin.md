@@ -1,14 +1,17 @@
-# 004: Google OAuth & Token Encryption
+# 004a: Encryption Module, OAuth Backend & Admin Consent Step
 
 ## Goal
 
-Implement the Google OAuth consent flow for client admins (Workspace scopes) and employees (Drive scope), with AES-256-GCM encryption for storing OAuth tokens at rest in the database.
+Implement AES-256-GCM encryption utilities, the Google OAuth callback endpoint in data-service, and replace the wizard step 2 placeholder with a real admin OAuth consent flow -- enabling end-to-end browser testing of client admin Google Workspace authorization.
+
+> Replaces the first half of the original doc 004. Doc 004b depends on this doc for the encryption module, OAuth handlers, and token storage pattern.
 
 ## Prerequisites
 
 - Doc 001 (Bootstrap & Cleanup)
-- Doc 002 (Operator Deployment CRUD)
-- Doc 003 (Client Onboarding Wizard)
+- Doc 002a (Deployment Schema, Create & List)
+- Doc 002b (Deployment Detail & Update)
+- Doc 003a (Magic Link & Wizard Shell)
 
 ## Scope
 
@@ -18,15 +21,16 @@ Implement the Google OAuth consent flow for client admins (Workspace scopes) and
 - Google OAuth callback endpoint in data-service (resolves **B3**)
 - Token exchange: authorization code to access + refresh token via raw `fetch`
 - Encrypt tokens before storage, decrypt on read
-- Add `workspace_oauth_token` (encrypted) to deployments table
-- Add `drive_oauth_token` (encrypted) to employees table -- column already exists from doc 003 but unused
+- Deployment token queries (`setWorkspaceOAuthToken`, `getWorkspaceOAuthToken`)
 - Client admin wizard step 2: trust panel + Google OAuth consent button
-- Employee flow step 1: trust panel + Google Drive OAuth consent button
 - OAuth state parameter encoding: `{type: "admin"|"employee", id: uuid}`
 - Note in wizard: consent must be granted by Workspace admin (resolves **C1**)
+- Environment variables: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `ENCRYPTION_KEY`
 
 ### OUT
 
+- Employee token queries (`setDriveOAuthToken`, `getDriveOAuthToken`) -- doc 004b
+- Employee OAuth page `/employee/$token` -- doc 004b
 - Google Drive API folder listing (doc 005)
 - Folder selection UI (doc 005)
 - Config export with token decryption (doc 006)
@@ -44,9 +48,8 @@ Implement the Google OAuth consent flow for client admins (Workspace scopes) and
 No new tables. Existing columns are used:
 
 - `deployments.workspace_oauth_token` -- already defined in doc 002 as `text` (nullable). Stores encrypted JSON: `{ access_token, refresh_token, scope, token_type, expiry_date }`.
-- `employees.drive_oauth_token` -- already defined in doc 003 as `text` (nullable). Stores encrypted JSON: `{ access_token, refresh_token, scope, token_type, expiry_date }`.
 
-The encrypted value format is: `{iv_hex}:{ciphertext_hex}:{tag_hex}` (all hex-encoded, colon-separated).
+The encrypted value format is: `{iv_hex}:{ciphertext_hex}` (all hex-encoded, colon-separated). AES-GCM appends the auth tag to the ciphertext automatically.
 
 ### New file: `packages/data-ops/src/encryption/index.ts`
 
@@ -195,63 +198,28 @@ export async function getWorkspaceOAuthToken(
 }
 ```
 
-### New file: `packages/data-ops/src/employee/token-queries.ts`
-
-Queries for encrypted token storage/retrieval on employees:
-
-```ts
-import { eq } from "drizzle-orm";
-import { getDb } from "@/database/setup";
-import { employees } from "./table";
-
-export async function setDriveOAuthToken(
-  employeeId: string,
-  encryptedToken: string,
-): Promise<void> {
-  const db = getDb();
-  await db
-    .update(employees)
-    .set({
-      driveOauthToken: encryptedToken,
-      oauthStatus: "authorized",
-    })
-    .where(eq(employees.id, employeeId));
-}
-
-export async function getDriveOAuthToken(
-  employeeId: string,
-): Promise<string | null> {
-  const db = getDb();
-  const result = await db
-    .select({ driveOauthToken: employees.driveOauthToken })
-    .from(employees)
-    .where(eq(employees.id, employeeId));
-  return result[0]?.driveOauthToken ?? null;
-}
-```
-
-Update barrel exports for both `deployment/index.ts` and `employee/index.ts` to include the new token query functions.
+Update barrel export in `deployment/index.ts` to include the new token query functions.
 
 ## API Endpoints
 
 ### Google OAuth Flow
 
 ```
-Client/Employee Browser
-  │
-  ├── 1. Click "Autoryzuj Google" button
-  │     → Redirects to Google OAuth consent URL
-  │
-  ├── 2. User grants consent on Google
-  │     → Google redirects to callback URL with `code` + `state`
-  │
-  ├── 3. GET /api/oauth/google/callback?code=xxx&state=yyy
-  │     → data-service exchanges code for tokens
-  │     → Encrypts tokens
-  │     → Stores in DB
-  │     → Redirects back to wizard/employee page
-  │
-  └── 4. Wizard/employee page reads updated OAuth status
+Client Browser
+  |
+  +-- 1. Click "Autoryzuj Google" button
+  |     -> Redirects to Google OAuth consent URL
+  |
+  +-- 2. User grants consent on Google
+  |     -> Google redirects to callback URL with `code` + `state`
+  |
+  +-- 3. GET /api/oauth/google/callback?code=xxx&state=yyy
+  |     -> data-service exchanges code for tokens
+  |     -> Encrypts tokens
+  |     -> Stores in DB
+  |     -> Redirects back to wizard page
+  |
+  +-- 4. Wizard page reads updated OAuth status from URL params
 ```
 
 ### OAuth state parameter
@@ -268,27 +236,6 @@ const state = btoa(JSON.stringify({ type: "employee", id: employeeId }));
 const { type, id } = JSON.parse(atob(state));
 ```
 
-### Google OAuth URL construction
-
-```ts
-function buildGoogleOAuthUrl(params: {
-  clientId: string;
-  redirectUri: string;
-  scope: string;
-  state: string;
-}): string {
-  const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
-  url.searchParams.set("client_id", params.clientId);
-  url.searchParams.set("redirect_uri", params.redirectUri);
-  url.searchParams.set("response_type", "code");
-  url.searchParams.set("scope", params.scope);
-  url.searchParams.set("state", params.state);
-  url.searchParams.set("access_type", "offline"); // get refresh_token
-  url.searchParams.set("prompt", "consent"); // force consent to get refresh_token
-  return url.toString();
-}
-```
-
 ### Scopes
 
 | Entity | Scopes | Reason |
@@ -299,7 +246,6 @@ function buildGoogleOAuthUrl(params: {
 ### New file: `apps/data-service/src/hono/handlers/oauth-handlers.ts`
 
 ```ts
-import { z } from "zod";
 import { Hono } from "hono";
 import * as oauthService from "../services/oauth-service";
 
@@ -353,11 +299,8 @@ export default oauthHandlers;
 ```ts
 import { encrypt } from "@repo/data-ops/encryption";
 import { setWorkspaceOAuthToken } from "@repo/data-ops/deployment";
-import { setDriveOAuthToken, updateEmployeeOAuthStatus } from "@repo/data-ops/employee";
+import { setDriveOAuthToken } from "@repo/data-ops/employee";
 import type { Result } from "../types/result";
-
-// Re-export token query functions from data-ops
-// Import them where needed in this service
 
 const ADMIN_SCOPES = [
   "https://www.googleapis.com/auth/admin.directory.group",
@@ -471,6 +414,8 @@ export async function handleCallback(
 }
 ```
 
+**Note:** The OAuth service handles both `admin` and `employee` types. The `setDriveOAuthToken` import will fail until doc 004b adds the employee token queries. For this doc, ensure the import is present but the employee branch is unreachable in testing (only admin flow is tested here). Alternatively, stub the employee token query in data-ops with a no-op that throws "Not implemented" -- doc 004b will replace it.
+
 ### Update `apps/data-service/src/hono/app.ts`
 
 ```ts
@@ -480,6 +425,10 @@ import oauthHandlers from "./handlers/oauth-handlers";
 App.route("/api/oauth", oauthHandlers);
 ```
 
+### Note on GOOGLE_CLIENT_ID in user-application
+
+**Approach A (chosen):** Redirect through data-service (`/api/oauth/google/authorize`). The client-side button links to the data-service endpoint which constructs the URL server-side. No `GOOGLE_CLIENT_ID` exposure on client.
+
 ### Endpoint summary
 
 | Method | Path | Auth | Purpose |
@@ -487,21 +436,11 @@ App.route("/api/oauth", oauthHandlers);
 | `GET` | `/api/oauth/google/authorize?type=admin&id={id}` | Public | Redirect to Google consent |
 | `GET` | `/api/oauth/google/callback?code=xxx&state=yyy` | Public | Handle Google callback, store token |
 
-### Note on GOOGLE_CLIENT_ID in user-application
-
-The `GOOGLE_CLIENT_ID` is needed in the user-application frontend to construct the OAuth URL on the client side. Two approaches:
-
-**Approach A (chosen):** Redirect through data-service (`/api/oauth/google/authorize`). The client-side button links to the data-service endpoint which constructs the URL server-side. No `GOOGLE_CLIENT_ID` exposure on client.
-
-**Approach B:** Expose `GOOGLE_CLIENT_ID` as `VITE_GOOGLE_CLIENT_ID` and build the URL client-side. Less secure but faster (one fewer redirect).
-
-We use Approach A -- the OAuth initiation goes through data-service via the service binding or direct URL.
-
 ## UI Pages & Components
 
 ### Update wizard step 2: `apps/user-application/src/routes/onboard/$token.tsx`
 
-Replace the `OAuthPlaceholderStep` from doc 003 with a real OAuth consent step:
+Replace the `OAuthPlaceholderStep` from doc 003a with a real OAuth consent step:
 
 ```tsx
 function OAuthConsentStep({
@@ -571,155 +510,35 @@ function OAuthConsentStep({
 }
 ```
 
-### Employee OAuth step: `apps/user-application/src/routes/employee/$token.tsx`
-
-```tsx
-import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
-export const Route = createFileRoute("/employee/$token")({
-  component: EmployeeFlow,
-});
-
-function EmployeeFlow() {
-  const { token } = Route.useParams();
-  // Steps: 1 = OAuth authorization, 2 = Folder list (doc 005), 3 = Category tagging (doc 005), 4 = Confirm (doc 005)
-  const [currentStep, setCurrentStep] = useState(1);
-
-  return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-2xl mx-auto space-y-6">
-        <h1 className="text-2xl font-bold text-foreground">
-          Grota — Autoryzacja Drive
-        </h1>
-
-        <div className="flex gap-2">
-          {[1, 2, 3, 4].map((step) => (
-            <div
-              key={step}
-              className={`h-2 flex-1 rounded ${
-                step <= currentStep ? "bg-primary" : "bg-muted"
-              }`}
-            />
-          ))}
-        </div>
-
-        {currentStep === 1 && (
-          <DriveOAuthStep
-            token={token}
-            onNext={() => setCurrentStep(2)}
-          />
-        )}
-        {currentStep >= 2 && (
-          <Card>
-            <CardContent className="py-8 text-center">
-              <p className="text-muted-foreground">
-                Autoryzacja zakonczona. Wybor folderow zostanie udostepniony wkrotce.
-              </p>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function DriveOAuthStep({
-  token,
-  onNext,
-}: { token: string; onNext: () => void }) {
-  const [oauthCompleted, setOauthCompleted] = useState(false);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("oauth") === "success") {
-      setOauthCompleted(true);
-    }
-  }, []);
-
-  const handleAuthorize = () => {
-    // Need to resolve employeeId from token first via API
-    // Then redirect to OAuth initiation
-    const dataServiceUrl = import.meta.env.VITE_DATA_SERVICE_URL;
-    // The token verification returns employeeId -- fetch it first
-    window.location.href = `${dataServiceUrl}/api/oauth/google/authorize?type=employee&id=${token}`;
-  };
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Krok 1: Autoryzacja Google Drive</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Trust panel */}
-        <div className="rounded-lg border border-border bg-muted/50 p-4 space-y-2">
-          <p className="font-medium text-foreground">Co zobaczy aplikacja:</p>
-          <ul className="list-disc list-inside text-sm text-muted-foreground">
-            <li>Nazwy folderow najwyzszego poziomu</li>
-          </ul>
-          <p className="font-medium text-foreground">Czego NIE zobaczy:</p>
-          <ul className="list-disc list-inside text-sm text-muted-foreground">
-            <li>Tresci plikow</li>
-            <li>Plikow wewnatrz folderow</li>
-          </ul>
-          <p className="text-sm text-muted-foreground">
-            Mozesz cofnac dostep w dowolnym momencie w ustawieniach Google
-            (myaccount.google.com/permissions).
-          </p>
-        </div>
-
-        {oauthCompleted ? (
-          <div className="space-y-2">
-            <p className="text-sm text-green-600 dark:text-green-400">
-              Autoryzacja zakonczona pomyslnie.
-            </p>
-            <Button onClick={onNext}>Dalej</Button>
-          </div>
-        ) : (
-          <Button onClick={handleAuthorize}>Autoryzuj Google Drive</Button>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-```
-
 ## Implementation Steps
 
 1. **Create encryption module in data-ops**
    - Create `packages/data-ops/src/encryption/index.ts`
    - Add `"./encryption"` export to `package.json`
 
-2. **Create token query files**
+2. **Create deployment token queries**
    - Create `packages/data-ops/src/deployment/token-queries.ts`
-   - Create `packages/data-ops/src/employee/token-queries.ts`
-   - Update barrel exports in both domains
+   - Update barrel export in `deployment/index.ts`
 
 3. **Build data-ops**
    - `pnpm --filter @repo/data-ops build`
 
-4. **Create OAuth handlers in data-service**
-   - Create `hono/handlers/oauth-handlers.ts`
-   - Create `hono/services/oauth-service.ts`
-   - Update `hono/app.ts` with `/api/oauth` route
-
-5. **Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to env**
+4. **Add env vars to data-service**
    - Set `GOOGLE_CLIENT_ID` in data-service `.dev.vars`
    - Set `GOOGLE_CLIENT_SECRET` in data-service `.dev.vars`
    - Set `ENCRYPTION_KEY` in data-service `.dev.vars`
    - Generate a key: `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`
    - Regenerate worker-configuration.d.ts: `cd apps/data-service && pnpm cf-typegen`
 
+5. **Create OAuth handlers in data-service**
+   - Create `hono/handlers/oauth-handlers.ts`
+   - Create `hono/services/oauth-service.ts`
+   - Update `hono/app.ts` with `/api/oauth` route
+
 6. **Update wizard step 2 in user-application**
    - Replace `OAuthPlaceholderStep` with `OAuthConsentStep` in `routes/onboard/$token.tsx`
 
-7. **Create employee OAuth page**
-   - Create `routes/employee/$token.tsx`
-
-8. **Regenerate and verify**
-   - `cd apps/user-application && npx @tanstack/router-cli generate`
+7. **Regenerate and verify**
    - `pnpm run lint:fix && pnpm run lint`
 
 ## Environment Variables
@@ -734,7 +553,7 @@ function DriveOAuthStep({
 
 Before testing, create a GCP OAuth 2.0 Client ID:
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com/) -> APIs & Services -> Credentials
+1. Go to Google Cloud Console -> APIs & Services -> Credentials
 2. Create OAuth 2.0 Client ID (Web application)
 3. Add authorized redirect URI: `http://localhost:8788/api/oauth/google/callback` (dev)
 4. Enable APIs: Google Drive API, Admin SDK API
@@ -755,23 +574,14 @@ Before testing, create a GCP OAuth 2.0 Client ID:
    - Grant access (must be Workspace admin)
    - Should redirect back with `?oauth=success`
    - Verify token is stored in DB: `SELECT workspace_oauth_token FROM deployments WHERE id = '{id}'`
-   - Token should be encrypted (hex format with colon separators)
-5. **Test employee OAuth:**
-   - From the onboarding wizard, create an employee
-   - Open employee magic link: `/employee/{token}`
-   - Click "Autoryzuj Google Drive"
-   - Should redirect to Google consent screen (Drive readonly scope)
-   - Grant access
-   - Should redirect back with `?oauth=success`
-   - Verify token in DB: `SELECT drive_oauth_token FROM employees WHERE id = '{id}'`
-   - Token should be encrypted
-6. **Test encryption roundtrip:**
+   - Token should be encrypted (hex format with colon separator)
+5. **Test encryption roundtrip:**
    - In a test script or console, verify:
      ```ts
      const encrypted = await encrypt("hello", ENCRYPTION_KEY);
      const decrypted = await decrypt(encrypted, ENCRYPTION_KEY);
      // decrypted === "hello"
      ```
-7. **Test error cases:**
+6. **Test error cases:**
    - Click "Autoryzuj" then deny consent on Google -> should redirect with error
    - Use expired/invalid state parameter -> should show error

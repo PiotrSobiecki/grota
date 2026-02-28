@@ -1,13 +1,16 @@
-# 003: Client Onboarding Wizard
+# 003a: Magic Link & Wizard Shell (Steps 1-3)
 
 ## Goal
 
-Enable the client admin to receive a magic link, complete a multi-step onboarding wizard, and add employees who then receive their own magic links via email -- covering the `employees` table, magic link mechanism, Resend email integration, and the client admin progress page.
+Set up the employee data model, magic-link utilities, admin magic link generation from the deployment detail page, and the onboarding wizard shell with steps 1-3 -- covering the full vertical slice from data-ops through data-service to user-application.
+
+> Replaces the first half of the original doc 003. Doc 003b depends on this doc for the employee table, magic-link utilities, and wizard route.
 
 ## Prerequisites
 
 - Doc 001 (Bootstrap & Cleanup)
-- Doc 002 (Operator Deployment CRUD)
+- Doc 002a (Deployment Schema, Create & List)
+- Doc 002b (Deployment Detail & Update)
 
 ## Scope
 
@@ -16,20 +19,25 @@ Enable the client admin to receive a magic link, complete a multi-step onboardin
 - `employees` table in data-ops (without `drive_oauth_token` -- that is doc 004)
 - Magic link token utilities: generate, verify, expire (resolves **B2**)
 - Magic link expiry: 7 days, resendable (resolves **B8**)
-- Resend email integration for magic link delivery
+- Resend email integration for magic link delivery (admin emails only in this doc)
+- `onboardingStep` column on deployments table (resolves **C3** partially)
+- `adminMagicLinkToken` and `adminMagicLinkExpiresAt` columns on deployments table
+- Admin magic link generation + verification API endpoints
 - Operator triggers magic link generation from deployment detail page
-- Client admin wizard route: `/onboard/$token` with steps 1, 3, 4 (step 2 is OAuth in doc 004, step 5 is B2/server config filled by operator on detail page)
-- Wizard state persistence in DB per step (resolves **C3**)
-- Client admin progress page: `/status/$token` (resolves **C4** with rate limit)
-- Remove `/magic/{token}` route -- links go directly to `/onboard/$token` or `/employee/$token` (resolves **B11**)
-- Deployment status transitions: `draft` -> `onboarding` (on link generation) and `onboarding` -> `employees_pending` (on employee list submission)
+- Client admin wizard route: `/onboard/$token` with steps 1-3 (step 2 is OAuth placeholder for doc 004, step 4 is employee list in doc 003b)
+- Deployment status transition: `draft` -> `onboarding` (on link generation)
+- Remove `/magic/{token}` route -- links go directly to `/onboard/$token` (resolves **B11** partially)
 
 ### OUT
 
-- Google OAuth consent step (doc 004 -- wizard step 2 skipped with placeholder)
+- Employee CRUD endpoints (doc 003b)
+- Wizard step 4: employee list form (doc 003b)
+- Status page `/status/$token` (doc 003b)
+- Employee magic link generation/resend (doc 003b)
+- Google OAuth consent step (doc 004)
 - Employee Google Drive authorization (doc 004)
-- Folder selection (doc 005)
 - `drive_oauth_token` column on employees (doc 004)
+- Folder selection (doc 005)
 - Config export (doc 006)
 
 ## Decisions
@@ -38,9 +46,8 @@ Enable the client admin to receive a magic link, complete a multi-step onboardin
 |---------|----------|
 | **B2** (magic link mechanism) | **Custom tokens, not Better Auth plugin.** Generate 64-char hex random token with `crypto.getRandomValues()`, store in DB, verify in route loader. Client admins and employees do not get Better Auth sessions -- they are identified solely by token validity. |
 | **B8** (magic link expiry) | **7-day expiry.** On generation, set `expires_at = now + 7 days`. Resending generates a new token and invalidates the old one. |
-| **B11** (`/magic/{token}` route) | **Removed.** Magic links are type-specific URLs: operator generates `/onboard/{token}` for client admin, `/employee/{token}` for employees. No ambiguous routing. |
+| **B11** (`/magic/{token}` route) | **Removed.** Magic links are type-specific URLs: operator generates `/onboard/{token}` for client admin. No ambiguous routing. |
 | **C3** (wizard persistence) | Wizard state persisted in DB per step. Each wizard step writes its data on completion. Client admin can close the browser and resume via the same token. The `onboarding_step` field on deployments tracks progress (1-4). |
-| **C4** (resend rate limit) | Resend button rate-limited to 1 per 5 minutes per employee. Tracked by `magic_link_sent_at` timestamp on the employees table. |
 
 ## Data Model Changes
 
@@ -366,16 +373,20 @@ export function canResendMagicLink(sentAt: Date | null): boolean {
 }
 ```
 
-### Add `onboardingStep` to deployments table
+### Add columns to deployments table
 
-Update `packages/data-ops/src/deployment/table.ts` to add a wizard progress tracker:
+Update `packages/data-ops/src/deployment/table.ts`:
 
 ```ts
 import { integer } from "drizzle-orm/pg-core";
 
 // Add to deployments table definition:
 onboardingStep: integer("onboarding_step").notNull().default(0),
+adminMagicLinkToken: text("admin_magic_link_token"),
+adminMagicLinkExpiresAt: timestamp("admin_magic_link_expires_at"),
 ```
+
+Update deployment Zod schema and types to include these new fields.
 
 ### Update `packages/data-ops/src/drizzle/relations.ts`
 
@@ -412,6 +423,8 @@ pnpm --filter @repo/data-ops build
 ## API Endpoints
 
 ### New file: `apps/data-service/src/hono/handlers/magic-link-handlers.ts`
+
+Only admin-related endpoints in this doc:
 
 ```ts
 import { zValidator } from "@hono/zod-validator";
@@ -452,33 +465,6 @@ magicLinkHandlers.post(
   },
 );
 
-// Generate/resend employee magic links for a deployment (operator or system action)
-magicLinkHandlers.post(
-  "/employees/:deploymentId",
-  (c, next) => authMiddleware(c.env.API_TOKEN)(c, next),
-  zValidator("param", z.object({ deploymentId: z.string().uuid() })),
-  async (c) => {
-    const { deploymentId } = c.req.valid("param");
-    return resultToResponse(
-      c,
-      await magicLinkService.generateEmployeeMagicLinks(deploymentId, c.env),
-    );
-  },
-);
-
-// Resend a single employee magic link
-magicLinkHandlers.post(
-  "/resend/:employeeId",
-  zValidator("param", z.object({ employeeId: z.string().uuid() })),
-  async (c) => {
-    const { employeeId } = c.req.valid("param");
-    return resultToResponse(
-      c,
-      await magicLinkService.resendEmployeeMagicLink(employeeId, c.env),
-    );
-  },
-);
-
 // Verify admin token (public -- no auth required)
 magicLinkHandlers.get(
   "/verify/admin/:token",
@@ -489,81 +475,16 @@ magicLinkHandlers.get(
   },
 );
 
-// Verify employee token (public -- no auth required)
-magicLinkHandlers.get(
-  "/verify/employee/:token",
-  zValidator("param", z.object({ token: z.string().min(1) })),
-  async (c) => {
-    const { token } = c.req.valid("param");
-    return resultToResponse(c, await magicLinkService.verifyEmployeeToken(token));
-  },
-);
-
 export default magicLinkHandlers;
-```
-
-### New file: `apps/data-service/src/hono/handlers/employee-handlers.ts`
-
-```ts
-import { zValidator } from "@hono/zod-validator";
-import { EmployeeBulkCreateRequestSchema } from "@repo/data-ops/employee";
-import { z } from "zod";
-import type { Context } from "hono";
-import { Hono } from "hono";
-import type { ContentfulStatusCode } from "hono/utils/http-status";
-import * as employeeService from "../services/employee-service";
-import type { Result } from "../types/result";
-
-function resultToResponse<T>(
-  c: Context,
-  result: Result<T>,
-  successStatus: ContentfulStatusCode = 200,
-) {
-  if (!result.ok)
-    return c.json(
-      { error: result.error.message, code: result.error.code },
-      result.error.status as ContentfulStatusCode,
-    );
-  return c.json(result.data, successStatus);
-}
-
-const employeeHandlers = new Hono<{ Bindings: Env }>();
-
-// List employees for a deployment (public -- token-gated in the frontend)
-employeeHandlers.get(
-  "/deployment/:deploymentId",
-  zValidator("param", z.object({ deploymentId: z.string().uuid() })),
-  async (c) => {
-    const { deploymentId } = c.req.valid("param");
-    return resultToResponse(c, await employeeService.getEmployeesByDeployment(deploymentId));
-  },
-);
-
-// Bulk create employees (called from onboarding wizard step 4)
-employeeHandlers.post(
-  "/bulk",
-  zValidator("json", EmployeeBulkCreateRequestSchema),
-  async (c) => {
-    const data = c.req.valid("json");
-    return resultToResponse(
-      c,
-      await employeeService.bulkCreateEmployees(data.deploymentId, data.employees, c.env),
-      201,
-    );
-  },
-);
-
-export default employeeHandlers;
 ```
 
 ### New file: `apps/data-service/src/hono/services/magic-link-service.ts`
 
+Only admin-related service functions in this doc:
+
 ```ts
 import { getDeployment, updateDeploymentStatus } from "@repo/data-ops/deployment";
-import { getEmployeeById, getEmployeesByDeployment, updateEmployeeMagicLink } from "@repo/data-ops/employee";
-import { canResendMagicLink, generateMagicLinkToken, getMagicLinkExpiry, isMagicLinkValid } from "@repo/data-ops/magic-link";
-import type { Deployment } from "@repo/data-ops/deployment";
-import type { Employee } from "@repo/data-ops/employee";
+import { generateMagicLinkToken, getMagicLinkExpiry, isMagicLinkValid } from "@repo/data-ops/magic-link";
 import type { Result } from "../types/result";
 
 interface MagicLinkResult {
@@ -598,9 +519,6 @@ export async function generateAdminMagicLink(
   const token = generateMagicLinkToken();
   const expiresAt = getMagicLinkExpiry(7);
 
-  // Update deployment with admin magic link token
-  const { updateDeployment } = await import("@repo/data-ops/deployment");
-  await updateDeployment(deploymentId, {});
   // Direct DB update for admin token fields
   const { getDb } = await import("@repo/data-ops/database/setup");
   const { eq } = await import("drizzle-orm");
@@ -635,55 +553,6 @@ export async function generateAdminMagicLink(
       url: `/onboard/${token}`,
     },
   };
-}
-
-export async function generateEmployeeMagicLinks(
-  deploymentId: string,
-  env: Env,
-): Promise<Result<{ sent: number }>> {
-  const employeeList = await getEmployeesByDeployment(deploymentId);
-
-  let sent = 0;
-  for (const employee of employeeList) {
-    const token = generateMagicLinkToken();
-    const expiresAt = getMagicLinkExpiry(7);
-    await updateEmployeeMagicLink(employee.id, token, expiresAt);
-    await sendMagicLinkEmail(employee.email, employee.name, token, "employee", env);
-    sent++;
-  }
-
-  return { ok: true, data: { sent } };
-}
-
-export async function resendEmployeeMagicLink(
-  employeeId: string,
-  env: Env,
-): Promise<Result<{ sent: boolean }>> {
-  const employee = await getEmployeeById(employeeId);
-  if (!employee) {
-    return {
-      ok: false,
-      error: { code: "NOT_FOUND", message: "Pracownik nie znaleziony", status: 404 },
-    };
-  }
-
-  if (!canResendMagicLink(employee.magicLinkSentAt)) {
-    return {
-      ok: false,
-      error: {
-        code: "RATE_LIMITED",
-        message: "Mozna wyslac ponownie za 5 minut",
-        status: 429,
-      },
-    };
-  }
-
-  const token = generateMagicLinkToken();
-  const expiresAt = getMagicLinkExpiry(7);
-  await updateEmployeeMagicLink(employee.id, token, expiresAt);
-  await sendMagicLinkEmail(employee.email, employee.name, token, "employee", env);
-
-  return { ok: true, data: { sent: true } };
 }
 
 export async function verifyAdminToken(
@@ -723,37 +592,8 @@ export async function verifyAdminToken(
   };
 }
 
-export async function verifyEmployeeToken(
-  token: string,
-): Promise<Result<{ employeeId: string; deploymentId: string }>> {
-  const { getEmployeeByToken } = await import("@repo/data-ops/employee");
-  const employee = await getEmployeeByToken(token);
-
-  if (!employee) {
-    return {
-      ok: false,
-      error: { code: "INVALID_TOKEN", message: "Nieprawidlowy lub wygasly link", status: 401 },
-    };
-  }
-
-  if (!isMagicLinkValid(employee.magicLinkExpiresAt)) {
-    return {
-      ok: false,
-      error: { code: "TOKEN_EXPIRED", message: "Link wygasl. Popros o ponowne wyslanie.", status: 401 },
-    };
-  }
-
-  return {
-    ok: true,
-    data: {
-      employeeId: employee.id,
-      deploymentId: employee.deploymentId,
-    },
-  };
-}
-
 /** Send magic link email via Resend API. */
-async function sendMagicLinkEmail(
+export async function sendMagicLinkEmail(
   to: string,
   name: string,
   token: string,
@@ -797,46 +637,11 @@ async function sendMagicLinkEmail(
 }
 ```
 
-### New file: `apps/data-service/src/hono/services/employee-service.ts`
-
-```ts
-import {
-  type Employee,
-  type EmployeeCreateInput,
-  createEmployees,
-  getEmployeesByDeployment as getEmployeesQuery,
-} from "@repo/data-ops/employee";
-import { updateDeploymentStatus } from "@repo/data-ops/deployment";
-import { generateMagicLinkToken, getMagicLinkExpiry } from "@repo/data-ops/magic-link";
-import type { Result } from "../types/result";
-
-export async function getEmployeesByDeployment(
-  deploymentId: string,
-): Promise<Result<{ data: Employee[]; total: number }>> {
-  const data = await getEmployeesQuery(deploymentId);
-  return { ok: true, data: { data, total: data.length } };
-}
-
-export async function bulkCreateEmployees(
-  deploymentId: string,
-  employeeData: EmployeeCreateInput[],
-  env: Env,
-): Promise<Result<Employee[]>> {
-  const created = await createEmployees(deploymentId, employeeData);
-
-  // Transition deployment status
-  await updateDeploymentStatus(deploymentId, "employees_pending");
-
-  return { ok: true, data: created };
-}
-```
-
 ### Update `apps/data-service/src/hono/app.ts`
 
 ```ts
 import { Hono } from "hono";
 import deployments from "./handlers/deployment-handlers";
-import employeeHandlers from "./handlers/employee-handlers";
 import health from "./handlers/health-handlers";
 import magicLinkHandlers from "./handlers/magic-link-handlers";
 import { createCorsMiddleware } from "./middleware/cors";
@@ -851,36 +656,36 @@ App.use("*", createCorsMiddleware());
 
 App.route("/health", health);
 App.route("/deployments", deployments);
-App.route("/employees", employeeHandlers);
 App.route("/magic-links", magicLinkHandlers);
 ```
 
-### Endpoint summary
+### Endpoint summary (this doc only)
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
 | `POST` | `/magic-links/admin/:deploymentId` | Bearer | Generate admin magic link |
-| `POST` | `/magic-links/employees/:deploymentId` | Bearer | Send magic links to all employees |
-| `POST` | `/magic-links/resend/:employeeId` | Public | Resend single employee link (rate-limited) |
 | `GET` | `/magic-links/verify/admin/:token` | Public | Verify admin token, return deploymentId + step |
-| `GET` | `/magic-links/verify/employee/:token` | Public | Verify employee token |
-| `GET` | `/employees/deployment/:deploymentId` | Public | List employees for deployment |
-| `POST` | `/employees/bulk` | Public | Bulk create employees (from wizard) |
 
 ## UI Pages & Components
 
+### Update deployment detail page
+
+Update `apps/user-application/src/routes/_auth/dashboard/$id.tsx` to add:
+
+- "Generuj link" button (triggers admin magic link generation via server function -> API call)
+- Display generated link URL (copyable) after generation
+- Show current deployment status badge reflecting `onboarding` transition
+
 ### Route: `apps/user-application/src/routes/onboard/$token.tsx`
 
-Client admin onboarding wizard:
+Client admin onboarding wizard (steps 1-3 only, step 4 added in doc 003b):
 
 ```tsx
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { useForm } from "@tanstack/react-form";
 import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 
 export const Route = createFileRoute("/onboard/$token")({
   component: OnboardingWizard,
@@ -888,9 +693,9 @@ export const Route = createFileRoute("/onboard/$token")({
 
 function OnboardingWizard() {
   const { token } = Route.useParams();
-  // Step management: fetch current step from backend
+  // Step management: fetch current step from backend via verify/admin/:token
   // Steps: 1 = Company info, 2 = OAuth (placeholder, doc 004),
-  //        3 = Delegate checklist, 4 = Employee list
+  //        3 = Delegate checklist, 4 = Employee list (doc 003b)
   const [currentStep, setCurrentStep] = useState(1);
 
   return (
@@ -922,7 +727,7 @@ function OnboardingWizard() {
           <DelegateChecklistStep onNext={() => setCurrentStep(4)} />
         )}
         {currentStep === 4 && (
-          <EmployeeListStep token={token} />
+          <EmployeePlaceholderStep />
         )}
       </div>
     </div>
@@ -1005,72 +810,22 @@ function DelegateChecklistStep({ onNext }: { onNext: () => void }) {
   );
 }
 
-// Step 4: Employee list form
-function EmployeeListStep({ token }: { token: string }) {
-  // Dynamic form: add/remove employee rows
-  // Each row: email, name, role (dropdown)
-  // On submit: POST /employees/bulk, then send magic links
+// Step 4: Placeholder -- replaced with real employee form in doc 003b
+function EmployeePlaceholderStep() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Krok 4: Lista pracownikow</CardTitle>
+        <CardTitle>Krok 4: Lista pracownikow (wkrotce)</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-muted-foreground">
-          Dodaj pracownikow, ktorzy powinni autoryzowac dostep do Google Drive.
-          Kazdy otrzyma link email z instrukcjami.
+          Ten krok zostanie udostepniony w kolejnej aktualizacji.
         </p>
-        {/* Dynamic employee row form */}
-        {/* Role dropdown: zarzad, ksiegowosc, projekty, media */}
-        {/* Submit button */}
       </CardContent>
     </Card>
   );
 }
 ```
-
-### Route: `apps/user-application/src/routes/status/$token.tsx`
-
-Client admin progress page:
-
-```tsx
-import { createFileRoute } from "@tanstack/react-router";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
-export const Route = createFileRoute("/status/$token")({
-  component: StatusPage,
-});
-
-function StatusPage() {
-  const { token } = Route.useParams();
-  // Verify token, fetch deployment + employee data
-  // Show completion count: "X/Y pracownikow ukonczylo"
-  // Per-employee: name, email, status, "Wyslij ponownie" button
-
-  return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-2xl mx-auto space-y-6">
-        <h1 className="text-2xl font-bold text-foreground">
-          Status onboardingu
-        </h1>
-        {/* Employee completion list */}
-        {/* Resend buttons with 5-min rate limit feedback */}
-      </div>
-    </div>
-  );
-}
-```
-
-### Update deployment detail page
-
-Update `apps/user-application/src/routes/_auth/dashboard/$id.tsx` to add:
-
-- "Generuj link" button (triggers admin magic link generation)
-- Display generated link URL (copyable)
-- Employee list section (shows employees with their statuses)
-- "Wyslij linki pracownikom" button (sends magic links to all employees)
 
 ## Implementation Steps
 
@@ -1083,7 +838,7 @@ Update `apps/user-application/src/routes/_auth/dashboard/$id.tsx` to add:
    - Add `"./magic-link"` export to `package.json`
 
 3. **Update deployment table**
-   - Add `onboardingStep` column to `deployments` table
+   - Add `onboardingStep`, `adminMagicLinkToken`, `adminMagicLinkExpiresAt` columns
    - Update deployment schema and types
 
 4. **Update relations**
@@ -1095,16 +850,13 @@ Update `apps/user-application/src/routes/_auth/dashboard/$id.tsx` to add:
    - `pnpm --filter @repo/data-ops build`
 
 6. **Create data-service endpoints**
-   - Create `handlers/magic-link-handlers.ts`
-   - Create `handlers/employee-handlers.ts`
-   - Create `services/magic-link-service.ts`
-   - Create `services/employee-service.ts`
-   - Update `app.ts` with new routes
+   - Create `handlers/magic-link-handlers.ts` (admin endpoints only)
+   - Create `services/magic-link-service.ts` (admin functions + email helper)
+   - Update `app.ts` with `/magic-links` route
 
 7. **Create user-application pages**
-   - Create `routes/onboard/$token.tsx` (wizard)
-   - Create `routes/status/$token.tsx` (progress page)
-   - Update `routes/_auth/dashboard/$id.tsx` (magic link button, employee list)
+   - Create `routes/onboard/$token.tsx` (wizard with steps 1-3 + step 4 placeholder)
+   - Update `routes/_auth/dashboard/$id.tsx` ("Generuj link" button + link display)
 
 8. **Regenerate and verify**
    - `cd apps/user-application && npx @tanstack/router-cli generate`
@@ -1127,21 +879,11 @@ For local development without Resend, the magic link token is returned in the AP
 3. Create a new deployment (if none exists): "FirmaXYZ", domain "firma.pl", admin email "admin@firma.pl", admin name "Jan Kowalski"
 4. Open deployment detail page
 5. Click "Generuj link" -- should display a URL like `/onboard/abc123...`
-6. Copy the URL and open in a new browser tab (or incognito)
-7. Should see onboarding wizard with step indicator (1 of 4)
-8. **Step 1**: Confirm company info, click "Dalej"
-9. **Step 2**: OAuth placeholder, click "Dalej"
-10. **Step 3**: Read delegate instructions, check "Dodalem/am delegata", click "Dalej"
-11. **Step 4**: Add 3 employees:
-    - jan@gmail.com, Jan Nowak, ksiegowosc
-    - anna@gmail.com, Anna Wisniewska, zarzad
-    - piotr@gmail.com, Piotr Zielinski, projekty
-12. Click "Wyslij" -- employees created in DB
-13. Go back to operator dashboard, open deployment detail
-14. Should see 3 employees listed with status "Oczekuje"
-15. Deployment status should be "Oczekuje na pracownikow"
-16. Open `/status/{admin-token}` in new tab
-17. Should see "0/3 pracownikow ukonczylo" with list of employees
-18. Click "Wyslij ponownie" on one employee -- should succeed
-19. Click "Wyslij ponownie" again immediately -- should show rate limit message
-20. Wait 5 minutes, click again -- should succeed
+6. Deployment status should change to "Onboarding"
+7. Copy the URL and open in a new browser tab (or incognito)
+8. Should see onboarding wizard with step indicator (1 of 4)
+9. **Step 1**: Confirm company info, click "Dalej"
+10. **Step 2**: OAuth placeholder, click "Dalej"
+11. **Step 3**: Read delegate instructions, check "Dodalem/am delegata", click "Dalej"
+12. **Step 4**: Should see placeholder message "Ten krok zostanie udostepniony w kolejnej aktualizacji"
+13. Close browser, re-open the same `/onboard/{token}` URL -- wizard should resume at last completed step
