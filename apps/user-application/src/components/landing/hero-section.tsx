@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowRight, Shield, Sparkles, Zap } from "lucide-react";
+import { ArrowRight, Lock, RefreshCw, Shield } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -9,34 +9,33 @@ export function HeroSection() {
 			<div className="mx-auto max-w-4xl text-center">
 				<div className="mb-8 flex flex-wrap justify-center gap-2">
 					<Badge variant="secondary" className="mb-4">
-						<Sparkles className="mr-1 h-3 w-3" />
-						Production-Ready
+						<Lock className="mr-1 h-3 w-3" />
+						Szyfrowanie AES-256
 					</Badge>
 					<Badge variant="secondary" className="mb-4">
-						<Zap className="mr-1 h-3 w-3" />
-						Edge-Optimized
+						<RefreshCw className="mr-1 h-3 w-3" />
+						Backup 3-2-1
 					</Badge>
 					<Badge variant="secondary" className="mb-4">
 						<Shield className="mr-1 h-3 w-3" />
-						Type-Safe
+						Google Workspace
 					</Badge>
 				</div>
 
 				<h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-6xl lg:text-7xl">
-					Modern SaaS
-					<span className="block text-primary">Starter Kit</span>
+					Grota
+					<span className="block text-primary">Google Reorganize, Onboard, Transfer, Archive</span>
 				</h1>
 
 				<p className="mt-6 text-lg leading-8 text-muted-foreground max-w-2xl mx-auto">
-					Ship your SaaS faster with pre-configured authentication, database, and payments. Built on
-					TanStack Start with React 19, TypeScript, and edge-ready infrastructure. Everything you
-					need to launch your next project.
+					Portal onboardingu klientow - reorganizacja dostepu Google, backup dokumentow i mediow z
+					prywatnych kont Google.
 				</p>
 
 				<div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
 					<Button variant="default" size="lg" asChild>
 						<Link to="/dashboard" className="inline-flex items-center">
-							Go to Dashboard
+							Panel operatora
 							<ArrowRight className="ml-2 h-4 w-4" />
 						</Link>
 					</Button>

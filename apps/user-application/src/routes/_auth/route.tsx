@@ -40,14 +40,14 @@ function RouteComponent() {
 			<div className="min-h-screen flex items-center justify-center bg-background p-4">
 				<Card className="w-full max-w-md">
 					<CardHeader className="text-center">
-						<CardTitle className="text-2xl font-bold">Account Pending</CardTitle>
+						<CardTitle className="text-2xl font-bold">Konto oczekuje</CardTitle>
 						<CardDescription>
-							Your account is awaiting admin approval. You'll gain access once approved.
+							Twoje konto oczekuje na zatwierdzenie przez administratora.
 						</CardDescription>
 					</CardHeader>
 					<CardContent className="space-y-4">
 						<div className="text-center text-sm text-muted-foreground">
-							Signed in as {session.data.user.email}
+							Zalogowano jako {session.data.user.email}
 						</div>
 						<Button
 							variant="outline"
@@ -57,7 +57,7 @@ function RouteComponent() {
 								navigate({ to: "/" });
 							}}
 						>
-							Sign Out
+							Wyloguj sie
 						</Button>
 					</CardContent>
 				</Card>

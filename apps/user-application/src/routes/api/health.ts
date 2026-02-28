@@ -26,7 +26,7 @@ export const Route = createFileRoute("/api/health")({
 				const response: HealthResponse = {
 					status: dbStatus === "connected" ? "ok" : "degraded",
 					env: env.CLOUDFLARE_ENV,
-					service: "saas-on-cf-ua",
+					service: "grota-ua",
 					time: new Date().toISOString(),
 					database: dbStatus,
 					dataServiceBinding: dsResult,

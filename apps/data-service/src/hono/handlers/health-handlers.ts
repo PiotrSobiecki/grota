@@ -18,7 +18,7 @@ health.get("/ready", rateLimiter({ windowMs: 60000, maxRequests: 10 }), async (c
 	const response: ReadinessResponse = {
 		status: dbStatus === "connected" ? "ok" : "degraded",
 		env: c.env.CLOUDFLARE_ENV,
-		service: "saas-on-cf",
+		service: "grota-ds",
 		time: new Date().toISOString(),
 		database: dbStatus,
 	};

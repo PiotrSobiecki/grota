@@ -1,4 +1,2 @@
-/***
-import { relations } from "drizzle-orm/relations";
-import { auth_user } from "./auth-schema.js";
-*/
+// Reserved for cross-domain relation definitions.
+// Added when doc 002+ introduces tables with foreign keys.

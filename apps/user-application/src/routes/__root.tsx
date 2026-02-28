@@ -24,8 +24,9 @@ export const Route = createRootRouteWithContext<{
 				content: "width=device-width, initial-scale=1",
 			},
 			...seo({
-				title: "TanStack Start | Type-Safe, Client-First, Full-Stack React Framework",
-				description: `TanStack Start is a type-safe, client-first, full-stack React framework. `,
+				title: "Grota | Google Reorganize, Onboard, Transfer, Archive",
+				description:
+					"Portal onboardingu klientow - reorganizacja dostepu Google, backup i archiwizacja.",
 			}),
 		],
 		links: [
@@ -67,7 +68,7 @@ function RootComponent() {
 
 function RootDocument({ children }: { children: React.ReactNode }) {
 	return (
-		<html>
+		<html lang="pl">
 			<head>
 				<HeadContent />
 			</head>

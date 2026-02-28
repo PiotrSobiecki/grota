@@ -1,6 +1,6 @@
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "saas-on-cf-ua",
+	"name": "grota-ua",
 	"compatibility_date": "2025-09-02",
 	"compatibility_flags": ["nodejs_compat"],
 	"observability": {
@@ -10,7 +10,7 @@
 	"services": [
 		{
 			"binding": "DATA_SERVICE",
-			"service": "saas-on-cf-ds-dev"
+			"service": "grota-ds-dev"
 		}
 	],
 	"env": {
@@ -18,11 +18,11 @@
 		 * Local / Development environment
 		 */
 		"dev": {
-			"name": "saas-on-cf-ua-dev",
+			"name": "grota-ua-dev",
 			"services": [
 				{
 					"binding": "DATA_SERVICE",
-					"service": "saas-on-cf-ds-dev"
+					"service": "grota-ds-dev"
 				}
 			]
 		},
@@ -30,7 +30,7 @@
 		 * Remote / Staging environment
 		 */
 		"staging": {
-			"name": "saas-on-cf-ua-staging",
+			"name": "grota-ua-staging",
 			// "routes": [
 			//   {
 			//     "custom_domain": true,
@@ -40,7 +40,7 @@
 			"services": [
 				{
 					"binding": "DATA_SERVICE",
-					"service": "saas-on-cf-ds-staging"
+					"service": "grota-ds-staging"
 				}
 			]
 		},
@@ -48,7 +48,7 @@
 		 * Remote / Production environment
 		 */
 		"production": {
-			"name": "saas-on-cf-ua-production",
+			"name": "grota-ua-production",
 			// "routes": [
 			//   {
 			//     "custom_domain": true,
@@ -58,7 +58,7 @@
 			"services": [
 				{
 					"binding": "DATA_SERVICE",
-					"service": "saas-on-cf-ds-production"
+					"service": "grota-ds-production"
 				}
 			]
 		}

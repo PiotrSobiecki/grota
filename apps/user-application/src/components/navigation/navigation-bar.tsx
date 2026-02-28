@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { ExternalLink, Github, LogIn, Menu } from "lucide-react";
+import { ExternalLink, LogIn, Menu } from "lucide-react";
 import * as React from "react";
 import { AccountDialog } from "@/components/auth/account-dialog";
 import { ThemeToggle } from "@/components/theme";
@@ -24,8 +24,8 @@ interface NavigationItem {
 }
 
 const navigationItems: NavigationItem[] = [
-	{ label: "Features", href: "/#features", scrollTo: "features" },
-	{ label: "Dashboard", href: "/dashboard" },
+	{ label: "Funkcje", href: "/#features", scrollTo: "features" },
+	{ label: "Panel", href: "/dashboard" },
 ];
 
 export function NavigationBar() {
@@ -66,10 +66,7 @@ export function NavigationBar() {
 					<Link to="/" className="group flex items-center space-x-3 no-underline">
 						<div className="flex flex-col">
 							<span className="text-lg lg:text-xl font-bold bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent group-hover:from-primary group-hover:to-primary/80 transition-all duration-300">
-								SaaS Starter Kit
-							</span>
-							<span className="text-xs text-muted-foreground font-medium tracking-wider">
-								on CLOUDFLARE
+								Grota
 							</span>
 						</div>
 					</Link>
@@ -105,18 +102,7 @@ export function NavigationBar() {
 							</div>
 						))}
 
-						{/* GitHub + Theme Toggle */}
 						<div className="ml-2 pl-2 border-l border-border/30 flex items-center gap-1">
-							<Button variant="ghost" size="icon" asChild>
-								<a
-									href="https://github.com/auditmos/saas-on-cf"
-									target="_blank"
-									rel="noopener noreferrer"
-								>
-									<Github className="h-4 w-4 text-foreground" />
-									<span className="sr-only">GitHub</span>
-								</a>
-							</Button>
 							<ThemeToggle variant="ghost" align="end" />
 						</div>
 					</div>
@@ -141,7 +127,7 @@ export function NavigationBar() {
 							<Link to="/signin">
 								<Button variant="default" className="gap-2">
 									<LogIn className="h-4 w-4" />
-									Sign In
+									Zaloguj sie
 								</Button>
 							</Link>
 						)}
@@ -149,16 +135,6 @@ export function NavigationBar() {
 
 					{/* Mobile Menu Button + Theme Toggle */}
 					<div className="lg:hidden flex items-center space-x-1">
-						<Button variant="ghost" size="icon" asChild>
-							<a
-								href="https://github.com/auditmos/saas-on-cf"
-								target="_blank"
-								rel="noopener noreferrer"
-							>
-								<Github className="h-4 w-4 text-foreground" />
-								<span className="sr-only">GitHub</span>
-							</a>
-						</Button>
 						<ThemeToggle variant="ghost" align="end" />
 						<Sheet open={isOpen} onOpenChange={setIsOpen}>
 							<SheetTrigger asChild>
@@ -177,10 +153,10 @@ export function NavigationBar() {
 							>
 								<SheetHeader className="text-left space-y-1 pb-6">
 									<SheetTitle className="text-xl font-bold bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">
-										Navigation
+										Nawigacja
 									</SheetTitle>
 									<SheetDescription className="text-muted-foreground">
-										Explore TanStack Start
+										Grota - portal operatora
 									</SheetDescription>
 								</SheetHeader>
 
@@ -234,7 +210,7 @@ export function NavigationBar() {
 										<Link to="/signin" onClick={() => setIsOpen(false)}>
 											<Button variant="default" className="w-full gap-2">
 												<LogIn className="h-4 w-4" />
-												Sign In
+												Zaloguj sie
 											</Button>
 										</Link>
 									)}

@@ -1,6 +1,6 @@
 {
 	"$schema": "./node_modules/wrangler/config-schema.json",
-	"name": "saas-on-cf-ds",
+	"name": "grota-ds",
 	"main": "./src/index.ts",
 	"compatibility_date": "2025-04-01",
 	"compatibility_flags": ["nodejs_compat"],
@@ -17,7 +17,7 @@
 		 * Local / Development environment
 		 */
 		"dev": {
-			"name": "saas-on-cf-ds-dev"
+			"name": "grota-ds-dev"
 			// "kv_namespaces": [
 			//   {
 			//     "binding": "CACHE",
@@ -53,7 +53,7 @@
 			//     "custom_domain": true
 			//   }
 			// ],
-			"name": "saas-on-cf-ds-staging"
+			"name": "grota-ds-staging"
 			// "kv_namespaces": [
 			//   {
 			//     "binding": "CACHE",
@@ -89,7 +89,7 @@
 			//     "custom_domain": true
 			//   }
 			// ],
-			"name": "saas-on-cf-ds-production"
+			"name": "grota-ds-production"
 			// "kv_namespaces": [
 			//   {
 			//     "binding": "CACHE",

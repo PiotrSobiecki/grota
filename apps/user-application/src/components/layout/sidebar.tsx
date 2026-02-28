@@ -14,12 +14,12 @@ interface NavigationItem {
 
 const navigationItems: NavigationItem[] = [
 	{
-		name: "Home",
+		name: "Strona glowna",
 		icon: Home,
 		href: "/",
 	},
 	{
-		name: "Dashboard",
+		name: "Panel",
 		icon: Globe,
 		href: "/dashboard",
 	},
@@ -48,7 +48,7 @@ export function Sidebar({ className }: SidebarProps) {
 			>
 				<div className="flex h-16 items-center justify-between px-6 border-b border-border">
 					{!isCollapsed && (
-						<h1 className="text-xl font-semibold tracking-tight text-foreground">Dashboard</h1>
+						<h1 className="text-xl font-semibold tracking-tight text-foreground">Grota</h1>
 					)}
 					<Button
 						variant="ghost"
