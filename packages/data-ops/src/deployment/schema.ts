@@ -38,6 +38,7 @@ export const DeploymentSchema = z.object({
 	clientName: z.string(),
 	domain: z.string(),
 	status: DeploymentStatusSchema,
+	onboardingStep: z.number(),
 	adminEmail: z.string().email().nullable(),
 	adminName: z.string().nullable(),
 	adminMagicLinkToken: z.string().nullable(),

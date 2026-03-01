@@ -7,6 +7,14 @@
 			"types": "./dist/deployment/index.d.ts",
 			"default": "./dist/deployment/index.js"
 		},
+		"./employee": {
+			"types": "./dist/employee/index.d.ts",
+			"default": "./dist/employee/index.js"
+		},
+		"./magic-link": {
+			"types": "./dist/magic-link/index.d.ts",
+			"default": "./dist/magic-link/index.js"
+		},
 		"./health": {
 			"types": "./dist/health/index.d.ts",
 			"default": "./dist/health/index.js"

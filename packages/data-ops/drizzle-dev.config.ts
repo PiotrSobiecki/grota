@@ -7,6 +7,7 @@ const config: Config = {
 		"./src/drizzle/auth-schema.ts",
 		"./src/drizzle/relations.ts",
 		"./src/deployment/table.ts",
+		"./src/employee/table.ts",
 	],
 	dialect: "postgresql",
 	dbCredentials: {

@@ -1,4 +1,4 @@
-import { jsonb, pgEnum, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { integer, jsonb, pgEnum, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { auth_user } from "../drizzle/auth-schema";
 import type { B2Config, ServerConfig } from "./schema";
 
@@ -15,6 +15,9 @@ export const deployments = pgTable("deployments", {
 	clientName: text("client_name").notNull(),
 	domain: text("domain").notNull(),
 	status: deploymentStatusEnum("status").notNull().default("draft"),
+
+	// Onboarding wizard progress (resolves C3)
+	onboardingStep: integer("onboarding_step").notNull().default(0),
 
 	// Client admin (resolves B1)
 	adminEmail: text("admin_email"),
