@@ -1,7 +1,9 @@
 import { zValidator } from "@hono/zod-validator";
 import {
 	DeploymentCreateRequestSchema,
+	DeploymentIdParamSchema,
 	DeploymentListRequestSchema,
+	DeploymentUpdateRequestSchema,
 } from "@repo/data-ops/deployment";
 import type { Context } from "hono";
 import { Hono } from "hono";
@@ -48,6 +50,30 @@ deploymentHandlers.post(
 		const data = c.req.valid("json");
 		const operatorId = c.req.header("X-Operator-Id") ?? "";
 		return resultToResponse(c, await deploymentService.createDeployment(data, operatorId), 201);
+	},
+);
+
+// Get deployment by ID
+deploymentHandlers.get(
+	"/:id",
+	(c, next) => authMiddleware(c.env.API_TOKEN)(c, next),
+	zValidator("param", DeploymentIdParamSchema),
+	async (c) => {
+		const { id } = c.req.valid("param");
+		return resultToResponse(c, await deploymentService.getDeploymentById(id));
+	},
+);
+
+// Update deployment
+deploymentHandlers.put(
+	"/:id",
+	(c, next) => authMiddleware(c.env.API_TOKEN)(c, next),
+	zValidator("param", DeploymentIdParamSchema),
+	zValidator("json", DeploymentUpdateRequestSchema),
+	async (c) => {
+		const { id } = c.req.valid("param");
+		const data = c.req.valid("json");
+		return resultToResponse(c, await deploymentService.updateDeployment(id, data));
 	},
 );
 

@@ -1,3 +1,4 @@
+import type { DeploymentResponse } from "@repo/data-ops/deployment";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -47,18 +48,25 @@ function DeploymentListPage() {
 				</Card>
 			) : (
 				<div className="grid gap-4">
-					{deployments.data.map((deployment) => (
-						<Card key={deployment.id} className="hover:border-primary transition-colors">
-							<CardHeader className="flex flex-row items-center justify-between">
-								<CardTitle className="text-lg">{deployment.clientName}</CardTitle>
-								<Badge variant={STATUS_VARIANTS[deployment.status] ?? "outline"}>
-									{STATUS_LABELS[deployment.status] ?? deployment.status}
-								</Badge>
-							</CardHeader>
-							<CardContent>
-								<p className="text-sm text-muted-foreground">{deployment.domain}</p>
-							</CardContent>
-						</Card>
+					{deployments.data.map((deployment: DeploymentResponse) => (
+						<Link
+							key={deployment.id}
+							to="/dashboard/$id"
+							params={{ id: deployment.id }}
+							className="block"
+						>
+							<Card className="hover:border-primary transition-colors">
+								<CardHeader className="flex flex-row items-center justify-between">
+									<CardTitle className="text-lg">{deployment.clientName}</CardTitle>
+									<Badge variant={STATUS_VARIANTS[deployment.status] ?? "outline"}>
+										{STATUS_LABELS[deployment.status] ?? deployment.status}
+									</Badge>
+								</CardHeader>
+								<CardContent>
+									<p className="text-sm text-muted-foreground">{deployment.domain}</p>
+								</CardContent>
+							</Card>
+						</Link>
 					))}
 				</div>
 			)}

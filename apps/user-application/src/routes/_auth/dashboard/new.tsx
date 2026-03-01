@@ -32,14 +32,13 @@ function CreateDeploymentPage() {
 		},
 		onSubmit: async ({ value }) => {
 			mutation.reset();
-			await mutation.mutateAsync({
+			const result = await mutation.mutateAsync({
 				clientName: value.clientName,
 				domain: value.domain,
 				adminEmail: value.adminEmail || undefined,
 				adminName: value.adminName || undefined,
 			});
-			// Navigate to list page. Doc 002b changes this to navigate to detail page.
-			navigate({ to: "/dashboard" });
+			navigate({ to: "/dashboard/$id", params: { id: result.id } });
 		},
 	});
 
