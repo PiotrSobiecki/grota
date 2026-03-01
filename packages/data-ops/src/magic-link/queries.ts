@@ -20,9 +20,7 @@ export async function updateAdminMagicLink(
 	return result[0] ?? null;
 }
 
-export async function getDeploymentByAdminToken(
-	token: string,
-): Promise<Deployment | null> {
+export async function getDeploymentByAdminToken(token: string): Promise<Deployment | null> {
 	const db = getDb();
 	const result = await db
 		.select()

@@ -8,9 +8,21 @@ import {
 } from "@repo/data-ops/magic-link";
 import type { Result } from "../types/result";
 
+interface ResendSuccessResponse {
+	id: string;
+}
+
+interface ResendErrorResponse {
+	statusCode: number;
+	message: string;
+	name: string;
+}
+
 interface MagicLinkResult {
 	token: string;
 	url: string;
+	emailSent: boolean;
+	emailError?: string;
 }
 
 export async function generateAdminMagicLink(
@@ -48,7 +60,7 @@ export async function generateAdminMagicLink(
 	}
 
 	// Send email via Resend
-	await sendMagicLinkEmail(
+	const emailResult = await sendMagicLinkEmail(
 		deployment.adminEmail,
 		deployment.adminName ?? "Administrator",
 		token,
@@ -61,6 +73,8 @@ export async function generateAdminMagicLink(
 		data: {
 			token,
 			url: `/onboard/${token}`,
+			emailSent: emailResult.ok,
+			emailError: emailResult.ok ? undefined : emailResult.error.message,
 		},
 	};
 }
@@ -96,6 +110,27 @@ export async function verifyAdminToken(
 	};
 }
 
+/** Map Resend error name to a user-friendly Polish message. */
+function getResendErrorMessage(error: ResendErrorResponse): string {
+	switch (error.name) {
+		case "missing_api_key":
+		case "invalid_api_key":
+		case "restricted_api_key":
+			return "Blad konfiguracji serwera email. Skontaktuj sie z administratorem.";
+		case "validation_error":
+			return `Blad walidacji email: ${error.message}`;
+		case "rate_limit_exceeded":
+		case "daily_quota_exceeded":
+		case "monthly_quota_exceeded":
+			return "Przekroczono limit wysylki email. Sprobuj ponownie pozniej.";
+		case "application_error":
+		case "internal_server_error":
+			return "Serwer email jest chwilowo niedostepny. Sprobuj ponownie pozniej.";
+		default:
+			return `Blad wysylki email: ${error.message}`;
+	}
+}
+
 /** Send magic link email via Resend API. */
 export async function sendMagicLinkEmail(
 	to: string,
@@ -103,7 +138,7 @@ export async function sendMagicLinkEmail(
 	token: string,
 	type: "onboard" | "employee",
 	env: Env,
-): Promise<void> {
+): Promise<Result<{ emailId: string }>> {
 	const baseUrl = env.ALLOWED_ORIGINS?.split(",")[0] ?? "http://localhost:3000";
 	const path = type === "onboard" ? `/onboard/${token}` : `/employee/${token}`;
 	const url = `${baseUrl}${path}`;
@@ -123,17 +158,72 @@ export async function sendMagicLinkEmail(
     <p>-- Grota</p>
   `;
 
-	await fetch("https://api.resend.com/emails", {
-		method: "POST",
-		headers: {
-			Authorization: `Bearer ${env.RESEND_API_KEY}`,
-			"Content-Type": "application/json",
-		},
-		body: JSON.stringify({
-			from: "Grota <noreply@auditmos.com>",
-			to: [to],
-			subject,
-			html,
-		}),
-	});
+	let response: Response;
+	try {
+		response = await fetch("https://api.resend.com/emails", {
+			method: "POST",
+			headers: {
+				Authorization: `Bearer ${env.RESEND_API_KEY}`,
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({
+				from: "Grota <noreply@auditmos.com>",
+				to: [to],
+				subject,
+				html,
+			}),
+		});
+	} catch (err) {
+		const message = err instanceof Error ? err.message : "Nieznany blad sieci";
+		// biome-ignore lint/suspicious/noConsole: Worker logs for email delivery diagnostics
+		console.error("[sendMagicLinkEmail] Network error:", message);
+		return {
+			ok: false,
+			error: {
+				code: "EMAIL_NETWORK_ERROR",
+				message: `Nie udalo sie polaczyc z serwisem email: ${message}`,
+				status: 502,
+			},
+		};
+	}
+
+	if (!response.ok) {
+		let resendError: ResendErrorResponse | undefined;
+		try {
+			resendError = (await response.json()) as ResendErrorResponse;
+		} catch {
+			// Response body is not valid JSON
+		}
+
+		const errorName = resendError?.name ?? "unknown";
+		const errorMessage = resendError
+			? getResendErrorMessage(resendError)
+			: `Resend API zwrocil status ${response.status}`;
+
+		// biome-ignore lint/suspicious/noConsole: Worker logs for email delivery diagnostics
+		console.error("[sendMagicLinkEmail] Resend API error:", {
+			status: response.status,
+			name: errorName,
+			message: resendError?.message,
+			to,
+		});
+
+		return {
+			ok: false,
+			error: {
+				code: `EMAIL_${errorName.toUpperCase()}`,
+				message: errorMessage,
+				status: response.status,
+			},
+		};
+	}
+
+	const data = (await response.json()) as ResendSuccessResponse;
+	// biome-ignore lint/suspicious/noConsole: Worker logs for email delivery diagnostics
+	console.info("[sendMagicLinkEmail] Email sent successfully:", { emailId: data.id, to });
+
+	return {
+		ok: true,
+		data: { emailId: data.id },
+	};
 }
