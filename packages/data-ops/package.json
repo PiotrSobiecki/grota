@@ -3,6 +3,10 @@
 	"version": "1.0.0",
 	"description": "Manage auth, database, schemas, and queries",
 	"exports": {
+		"./deployment": {
+			"types": "./dist/deployment/index.d.ts",
+			"default": "./dist/deployment/index.js"
+		},
 		"./health": {
 			"types": "./dist/health/index.d.ts",
 			"default": "./dist/health/index.js"

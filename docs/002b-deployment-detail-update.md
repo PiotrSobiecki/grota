@@ -151,7 +151,7 @@ import { AppError } from "@/core/errors";
 
 ```ts
 export const getDeploymentById = createServerFn({ method: "GET" })
-  .validator(z.object({ id: z.string().uuid() }))
+  .inputValidator(z.object({ id: z.string().uuid() }))
   .handler(async ({ data }) => {
     const deployment = await getDeployment(data.id);
     if (!deployment) {
@@ -161,7 +161,7 @@ export const getDeploymentById = createServerFn({ method: "GET" })
   });
 
 export const updateExistingDeployment = createServerFn({ method: "POST" })
-  .validator(
+  .inputValidator(
     z.object({
       id: z.string().uuid(),
       updates: DeploymentUpdateRequestSchema,

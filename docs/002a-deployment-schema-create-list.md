@@ -592,7 +592,7 @@ import {
 } from "@repo/data-ops/deployment";
 
 export const listDeployments = createServerFn({ method: "GET" })
-  .validator(DeploymentListRequestSchema)
+  .inputValidator(DeploymentListRequestSchema)
   .handler(async ({ data, context }) => {
     // context.session.user.id from auth middleware
     const operatorId = ""; // TODO: extract from auth context in doc 003+
@@ -600,7 +600,7 @@ export const listDeployments = createServerFn({ method: "GET" })
   });
 
 export const createNewDeployment = createServerFn({ method: "POST" })
-  .validator(DeploymentCreateRequestSchema)
+  .inputValidator(DeploymentCreateRequestSchema)
   .handler(async ({ data }) => {
     const operatorId = ""; // TODO: extract from auth context
     return createDeployment({ ...data, createdBy: operatorId });

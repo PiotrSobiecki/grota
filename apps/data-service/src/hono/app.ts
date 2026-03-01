@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import deployments from "./handlers/deployment-handlers";
 import health from "./handlers/health-handlers";
 import { createCorsMiddleware } from "./middleware/cors";
 import { onErrorHandler } from "./middleware/error-handler";
@@ -11,3 +12,4 @@ App.onError(onErrorHandler);
 App.use("*", createCorsMiddleware());
 
 App.route("/health", health);
+App.route("/deployments", deployments);
