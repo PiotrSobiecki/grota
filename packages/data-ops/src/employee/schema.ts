@@ -29,6 +29,22 @@ export const EmployeeSchema = z.object({
 });
 
 // ============================================
+// Param Schemas
+// ============================================
+
+export const EmployeeDeploymentParamSchema = z.object({
+	deploymentId: z.string().uuid("Nieprawidlowy format ID"),
+});
+
+export const EmployeeIdParamSchema = z.object({
+	employeeId: z.string().uuid("Nieprawidlowy format ID"),
+});
+
+export const EmployeeTokenParamSchema = z.object({
+	token: z.string().min(1, "Token jest wymagany"),
+});
+
+// ============================================
 // Request Schemas
 // ============================================
 

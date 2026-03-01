@@ -49,13 +49,14 @@ No new tables. Uses existing `r2_config_key` field on deployments to track the R
 Add the export endpoint to the existing config handlers from doc 006a:
 
 ```ts
+import { EmployeeDeploymentParamSchema } from "@repo/data-ops/employee";
 import * as configService from "../services/config-service";
 
 // Export config JSON to R2 + send notifications
 configHandlers.post(
   "/export/:deploymentId",
   (c, next) => authMiddleware(c.env.API_TOKEN)(c, next),
-  zValidator("param", z.object({ deploymentId: z.string().uuid() })),
+  zValidator("param", EmployeeDeploymentParamSchema),
   async (c) => {
     const { deploymentId } = c.req.valid("param");
     return resultToResponse(

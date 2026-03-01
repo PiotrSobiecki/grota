@@ -34,12 +34,13 @@ Enable employees to tag folders by category (step 3), confirm and save selection
 Add two more routes to the existing folder handlers from doc 005a:
 
 ```ts
+import { EmployeeIdParamSchema } from "@repo/data-ops/employee";
 import { FolderSelectionBulkCreateRequestSchema } from "@repo/data-ops/folder-selection";
 
 // Get existing folder selections for an employee
 folderHandlers.get(
   "/selections/:employeeId",
-  zValidator("param", z.object({ employeeId: z.string().uuid() })),
+  zValidator("param", EmployeeIdParamSchema),
   async (c) => {
     const { employeeId } = c.req.valid("param");
     return resultToResponse(

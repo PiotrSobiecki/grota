@@ -1,5 +1,12 @@
 import { getDeployment, updateDeploymentStatus } from "@repo/data-ops/deployment";
 import {
+	getEmployeeById,
+	getEmployeeByToken,
+	getEmployeesByDeployment,
+	updateEmployeeMagicLink,
+} from "@repo/data-ops/employee";
+import {
+	canResendMagicLink,
 	generateMagicLinkToken,
 	getDeploymentByAdminToken,
 	getMagicLinkExpiry,
@@ -225,5 +232,109 @@ export async function sendMagicLinkEmail(
 	return {
 		ok: true,
 		data: { emailId: data.id },
+	};
+}
+
+export async function generateEmployeeMagicLinks(
+	deploymentId: string,
+	env: Env,
+): Promise<Result<{ sent: number }>> {
+	const employeeList = await getEmployeesByDeployment(deploymentId);
+
+	let sent = 0;
+	const errors: string[] = [];
+	for (const employee of employeeList) {
+		const token = generateMagicLinkToken();
+		const expiresAt = getMagicLinkExpiry(7);
+		await updateEmployeeMagicLink(employee.id, token, expiresAt);
+		const emailResult = await sendMagicLinkEmail(employee.email, employee.name, token, "employee", env);
+		if (emailResult.ok) {
+			sent++;
+		} else {
+			errors.push(`${employee.email}: ${emailResult.error.message}`);
+		}
+	}
+
+	if (sent === 0 && errors.length > 0) {
+		return {
+			ok: false,
+			error: {
+				code: "EMAIL_SEND_FAILED",
+				message: errors[0] ?? "Nie udalo sie wyslac zadnego emaila",
+				status: 502,
+			},
+		};
+	}
+
+	return { ok: true, data: { sent } };
+}
+
+export async function resendEmployeeMagicLink(
+	employeeId: string,
+	env: Env,
+): Promise<Result<{ sent: boolean }>> {
+	const employee = await getEmployeeById(employeeId);
+	if (!employee) {
+		return {
+			ok: false,
+			error: { code: "NOT_FOUND", message: "Pracownik nie znaleziony", status: 404 },
+		};
+	}
+
+	if (!canResendMagicLink(employee.magicLinkSentAt)) {
+		return {
+			ok: false,
+			error: {
+				code: "RATE_LIMITED",
+				message: "Mozna wyslac ponownie za 5 minut",
+				status: 429,
+			},
+		};
+	}
+
+	const token = generateMagicLinkToken();
+	const expiresAt = getMagicLinkExpiry(7);
+	await updateEmployeeMagicLink(employee.id, token, expiresAt);
+	const emailResult = await sendMagicLinkEmail(employee.email, employee.name, token, "employee", env);
+
+	if (!emailResult.ok) {
+		return {
+			ok: false,
+			error: emailResult.error,
+		};
+	}
+
+	return { ok: true, data: { sent: true } };
+}
+
+export async function verifyEmployeeToken(
+	token: string,
+): Promise<Result<{ employeeId: string; deploymentId: string }>> {
+	const employee = await getEmployeeByToken(token);
+
+	if (!employee) {
+		return {
+			ok: false,
+			error: { code: "INVALID_TOKEN", message: "Nieprawidlowy lub wygasly link", status: 401 },
+		};
+	}
+
+	if (!isMagicLinkValid(employee.magicLinkExpiresAt)) {
+		return {
+			ok: false,
+			error: {
+				code: "TOKEN_EXPIRED",
+				message: "Link wygasl. Popros o ponowne wyslanie.",
+				status: 401,
+			},
+		};
+	}
+
+	return {
+		ok: true,
+		data: {
+			employeeId: employee.id,
+			deploymentId: employee.deploymentId,
+		},
 	};
 }

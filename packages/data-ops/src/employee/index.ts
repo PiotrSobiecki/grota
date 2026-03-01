@@ -20,10 +20,13 @@ export type {
 export {
 	EmployeeBulkCreateRequestSchema,
 	EmployeeCreateRequestSchema,
+	EmployeeDeploymentParamSchema,
+	EmployeeIdParamSchema,
 	EmployeeListResponseSchema,
 	EmployeeResponseSchema,
 	EmployeeRoleSchema,
 	EmployeeSchema,
+	EmployeeTokenParamSchema,
 	OAuthStatusSchema,
 	SelectionStatusSchema,
 } from "./schema";

@@ -268,7 +268,7 @@ pnpm --filter @repo/data-ops build
 
 ```ts
 import { zValidator } from "@hono/zod-validator";
-import { z } from "zod";
+import { EmployeeIdParamSchema } from "@repo/data-ops/employee";
 import type { Context } from "hono";
 import { Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
@@ -293,7 +293,7 @@ const folderHandlers = new Hono<{ Bindings: Env }>();
 // List Drive folders for an employee (requires valid OAuth token)
 folderHandlers.get(
   "/drive/:employeeId",
-  zValidator("param", z.object({ employeeId: z.string().uuid() })),
+  zValidator("param", EmployeeIdParamSchema),
   async (c) => {
     const { employeeId } = c.req.valid("param");
     return resultToResponse(

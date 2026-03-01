@@ -207,7 +207,7 @@ Build: `pnpm --filter @repo/data-ops build`
 
 ```ts
 import { zValidator } from "@hono/zod-validator";
-import { z } from "zod";
+import { EmployeeDeploymentParamSchema } from "@repo/data-ops/employee";
 import type { Context } from "hono";
 import { Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
@@ -234,7 +234,7 @@ const configHandlers = new Hono<{ Bindings: Env }>();
 configHandlers.get(
   "/preview/:deploymentId",
   (c, next) => authMiddleware(c.env.API_TOKEN)(c, next),
-  zValidator("param", z.object({ deploymentId: z.string().uuid() })),
+  zValidator("param", EmployeeDeploymentParamSchema),
   async (c) => {
     const { deploymentId } = c.req.valid("param");
     return resultToResponse(
