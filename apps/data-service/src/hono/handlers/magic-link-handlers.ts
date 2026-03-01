@@ -8,25 +8,10 @@ import {
 	MagicLinkDeploymentParamSchema,
 	MagicLinkTokenParamSchema,
 } from "@repo/data-ops/magic-link";
-import type { Context } from "hono";
 import { Hono } from "hono";
-import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { authMiddleware } from "../middleware/auth";
 import * as magicLinkService from "../services/magic-link-service";
-import type { Result } from "../types/result";
-
-function resultToResponse<T>(
-	c: Context,
-	result: Result<T>,
-	successStatus: ContentfulStatusCode = 200,
-) {
-	if (!result.ok)
-		return c.json(
-			{ error: result.error.message, code: result.error.code },
-			result.error.status as ContentfulStatusCode,
-		);
-	return c.json(result.data, successStatus);
-}
+import { resultToResponse } from "../utils/result-to-response";
 
 const magicLinkHandlers = new Hono<{ Bindings: Env }>();
 
