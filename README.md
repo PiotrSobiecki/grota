@@ -1,16 +1,49 @@
-# SaaS-on-CF (Software as a Service on Cloudflare)
+# Grota
 
-Modular web application template
+**G**oogle **R**eorganize, **O**nboard, **T**ransfer, **A**rchive
 
-## Architecture
+Portal onboardingowy do migracji i backupu danych firmowych rozproszonych po prywatnych kontach Google.
 
-Monorepo using [pnpm workspace](https://pnpm.io/workspaces):
+## Problem
 
-- [apps/user-application](./apps/user-application/) - TanStack Start consumer-facing app
-- [apps/data-service](./apps/data-service/) - Backend service for long-running tasks
-- [packages/data-ops](./packages/data-ops/) - Shared DB layer (schemas, queries, auth)
+Firmy z 5-15 prywatnymi kontami Google mają dokumenty firmowe (faktury, umowy, projekty) rozsiane po osobistych Dyskach. Brak centralnego dostępu, brak backupu, brak kontroli uprawnień. Migracja do Workspace wymaga ręcznej koordynacji z każdym pracownikiem.
 
-Stack: [Better Auth](https://www.better-auth.com/docs/introduction), [Drizzle ORM](https://orm.drizzle.team/docs/overview), [Cloudflare Workers](https://developers.cloudflare.com/workers/), [Neon Postgres](https://neon.tech).
+## Rozwiązanie
+
+Grota automatyzuje cały proces onboardingu — od autoryzacji kont, przez kategoryzację folderów, po wygenerowanie gotowej konfiguracji do backupu i migracji.
+
+### Dla operatora (Auditmos)
+- Tworzenie wdrożeń klienckich z jednego dashboardu
+- Śledzenie postępu: kto autoryzował, kto jeszcze nie
+- Eksport gotowej konfiguracji do skryptów backupowych
+- Powiadomienia Telegram o ukończeniu onboardingu
+
+### Dla administratora klienta
+- Kreator krok-po-kroku: dane firmy, autoryzacja Workspace, dodanie pracowników
+- Podgląd statusu: ilu pracowników ukończyło, wysyłka przypomnień
+- Pełna transparentność: jasna informacja co aplikacja widzi, a czego nie
+
+### Dla pracownika
+- Jedno kliknięcie w magic link, autoryzacja Google Drive, otagowanie folderów (~2 min)
+- Automatyczne sugestie kategorii na podstawie nazw folderów
+- Podział na: dokumenty, projekty, media, prywatne (pomijane)
+
+### Bezpieczeństwo
+- Tokeny OAuth szyfrowane AES-256 w bazie
+- Aplikacja widzi nazwy folderów — nie czyta treści plików
+- Pracownik może cofnąć dostęp w dowolnym momencie
+
+## Architektura
+
+Monorepo ([pnpm workspace](https://pnpm.io/workspaces)):
+
+| Moduł | Rola |
+|-------|------|
+| [apps/user-application](./apps/user-application/) | Frontend SSR (TanStack Start) |
+| [apps/data-service](./apps/data-service/) | Backend API (Hono) |
+| [packages/data-ops](./packages/data-ops/) | Warstwa danych (Drizzle, Zod, Auth) |
+
+Stack: Cloudflare Workers, Neon Postgres, Better Auth, Resend.
 
 ## Setup
 
@@ -18,33 +51,31 @@ Stack: [Better Auth](https://www.better-auth.com/docs/introduction), [Drizzle OR
 pnpm run setup
 ```
 
-Installs all dependencies and builds data-ops package.
-
 ## Development
 
 ```bash
-pnpm run dev:user-application  # TanStack Start app (port 3000)
-pnpm run dev:data-service      # Hono backend service (port 8788)
+pnpm run dev:user-application  # frontend (port 3000)
+pnpm run dev:data-service      # API (port 8788)
 ```
 
-### Database Migrations
+### Migracje
 
-From `packages/data-ops/` directory:
+Z katalogu `packages/data-ops/`:
 
 ```bash
-pnpm run drizzle:dev:generate  # Generate migration
-pnpm run drizzle:dev:migrate   # Apply to database
+pnpm run drizzle:dev:generate
+pnpm run drizzle:dev:migrate
 ```
 
-Replace `dev` with `staging` or `production`.
+Zamień `dev` na `staging` lub `production`.
 
-### Environment Variables
+### Zmienne środowiskowe
 
-- `packages/data-ops/` — `.env.dev`, `.env.staging`, `.env.production` (see [.env.example](./packages/data-ops/.env.example))
-- `apps/user-application/` — `.env` files per Vite mode
+- `packages/data-ops/` — `.env.dev`, `.env.staging`, `.env.production` ([.env.example](./packages/data-ops/.env.example))
+- `apps/user-application/` — `.env` per Vite mode
 - `apps/data-service/` — `.dev.vars` (local), Cloudflare dashboard (remote)
 
-## Deployment
+## Deploy
 
 ```bash
 pnpm run deploy:staging:user-application
@@ -53,12 +84,7 @@ pnpm run deploy:production:user-application
 pnpm run deploy:production:data-service
 ```
 
-Secrets sync: `bash apps/{app}/sync-secrets.sh {env}`
+## Dokumentacja
 
-### Cloudflare Account Override
-
-To deploy to a different CF account, copy `.env.example` to `.env` and fill in `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFLARE_API_TOKEN`.
-
-## Package Docs
-
-Each package has its own `CLAUDE.md` with detailed structure, patterns, and workflows.
+- `/docs` — design docs (source of truth)
+- Każdy package ma własny `CLAUDE.md` z detalami technicznymi

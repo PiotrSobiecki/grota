@@ -1,4 +1,5 @@
 import { type ConfigJson, getConfigAssemblyData } from "@repo/data-ops/config";
+import { getDeployment, updateDeployment, updateDeploymentStatus } from "@repo/data-ops/deployment";
 import { decrypt } from "@repo/data-ops/encryption";
 import type { Result } from "../types/result";
 
@@ -73,4 +74,128 @@ export async function buildConfigJson(
 
 export async function previewConfig(deploymentId: string, env: Env): Promise<Result<ConfigJson>> {
 	return buildConfigJson(deploymentId, env.ENCRYPTION_KEY);
+}
+
+interface ExportResult {
+	r2Key: string;
+	status: string;
+}
+
+export async function exportConfig(deploymentId: string, env: Env): Promise<Result<ExportResult>> {
+	const deployment = await getDeployment(deploymentId);
+	if (!deployment) {
+		return {
+			ok: false,
+			error: { code: "NOT_FOUND", message: "Wdrozenie nie znalezione", status: 404 },
+		};
+	}
+
+	if (deployment.status !== "ready" && deployment.status !== "active") {
+		return {
+			ok: false,
+			error: {
+				code: "INVALID_STATUS",
+				message: `Eksport mozliwy tylko ze statusu 'ready' lub 'active'. Obecny status: ${deployment.status}`,
+				status: 400,
+			},
+		};
+	}
+
+	const configResult = await buildConfigJson(deploymentId, env.ENCRYPTION_KEY);
+	if (!configResult.ok) return configResult;
+
+	const r2Key = `configs/${deploymentId}/config.json`;
+	const configJson = JSON.stringify(configResult.data, null, 2);
+
+	await env.CONFIG_BUCKET.put(r2Key, configJson, {
+		httpMetadata: { contentType: "application/json" },
+	});
+
+	await updateDeployment(deploymentId, { r2ConfigKey: r2Key });
+
+	if (deployment.status === "ready") {
+		await updateDeploymentStatus(deploymentId, "active");
+	}
+
+	sendTelegramNotification(deployment.clientName, deploymentId, env).catch((err) =>
+		// biome-ignore lint/suspicious/noConsole: Worker logs for notification diagnostics
+		console.error("Telegram notification failed:", err),
+	);
+
+	if (deployment.adminEmail) {
+		sendEmailSummary(
+			deployment.adminEmail,
+			deployment.adminName ?? "Administrator",
+			deployment.clientName,
+			configResult.data.accounts.length,
+			configResult.data.accounts.reduce(
+				(sum, a) => sum + a.folders.filter((f) => f.category !== "prywatne").length,
+				0,
+			),
+			env,
+		).catch((err) =>
+			// biome-ignore lint/suspicious/noConsole: Worker logs for notification diagnostics
+			console.error("Email summary failed:", err),
+		);
+	}
+
+	return { ok: true, data: { r2Key, status: "active" } };
+}
+
+async function sendTelegramNotification(
+	clientName: string,
+	deploymentId: string,
+	env: Env,
+): Promise<void> {
+	const message = [
+		"Grota: Eksport konfiguracji zakonczony",
+		`Klient: ${clientName}`,
+		`Deployment: ${deploymentId}`,
+		`Plik: configs/${deploymentId}/config.json`,
+		"Status: active",
+	].join("\n");
+
+	await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({
+			chat_id: env.TELEGRAM_CHAT_ID,
+			text: message,
+			parse_mode: "HTML",
+		}),
+	});
+}
+
+async function sendEmailSummary(
+	to: string,
+	name: string,
+	clientName: string,
+	employeeCount: number,
+	folderCount: number,
+	env: Env,
+): Promise<void> {
+	const html = `
+		<p>Czesc ${name},</p>
+		<p>Onboarding dla <strong>${clientName}</strong> zostal zakonczony.</p>
+		<ul>
+			<li>Liczba pracownikow: ${employeeCount}</li>
+			<li>Liczba folderow do backupu: ${folderCount}</li>
+		</ul>
+		<p>Operator rozpocznie konfiguracje backupu wkrotce.</p>
+		<p>-- Grota</p>
+	`;
+
+	await fetch("https://api.resend.com/emails", {
+		method: "POST",
+		headers: {
+			Authorization: `Bearer ${env.RESEND_API_KEY}`,
+			"Content-Type": "application/json",
+		},
+		body: JSON.stringify({
+			from: "Grota <noreply@grota.app>",
+			to: [to],
+			subject: `Grota: Onboarding ${clientName} zakonczony`,
+			html,
+		}),
+	});
 }

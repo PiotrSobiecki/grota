@@ -134,7 +134,7 @@ function DeploymentDetailPage() {
 
 			<DepartmentSection deploymentId={deployment.id} deploymentStatus={deployment.status} />
 
-			{showEmployeeSection && <EmployeeSection deploymentId={deployment.id} />}
+			{showEmployeeSection && <EmployeeSection deploymentId={deployment.id} deploymentStatus={deployment.status} />}
 		</div>
 	);
 }
@@ -171,7 +171,7 @@ function MagicLinkCard({ deployment, magicLinkMutation, onCopyLink }: MagicLinkC
 						<div className="flex items-center gap-2">
 							<Button
 								onClick={() => magicLinkMutation.mutate()}
-								disabled={magicLinkMutation.isPending}
+								disabled={magicLinkMutation.isPending || deployment.status === "active"}
 								variant={deployment.status !== "draft" ? "outline" : "default"}
 							>
 								{magicLinkMutation.isPending ? (
@@ -336,7 +336,7 @@ function DepartmentSection({
 	);
 }
 
-function EmployeeSection({ deploymentId }: { deploymentId: string }) {
+function EmployeeSection({ deploymentId, deploymentStatus }: { deploymentId: string; deploymentStatus: string }) {
 	const employeesQuery = useQuery({
 		queryKey: ["employees", deploymentId],
 		queryFn: () => getEmployeesByDeployment({ data: { deploymentId } }),
@@ -365,7 +365,7 @@ function EmployeeSection({ deploymentId }: { deploymentId: string }) {
 					<Button
 						variant="outline"
 						onClick={() => sendLinksMutation.mutate()}
-						disabled={sendLinksMutation.isPending || employeeTotal === 0}
+						disabled={sendLinksMutation.isPending || employeeTotal === 0 || deploymentStatus === "active"}
 					>
 						{sendLinksMutation.isPending ? (
 							<>

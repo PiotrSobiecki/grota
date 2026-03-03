@@ -17,4 +17,14 @@ configHandlers.get(
 	},
 );
 
+configHandlers.post(
+	"/export/:deploymentId",
+	(c, next) => authMiddleware(c.env.API_TOKEN)(c, next),
+	zValidator("param", EmployeeDeploymentParamSchema),
+	async (c) => {
+		const { deploymentId } = c.req.valid("param");
+		return resultToResponse(c, await configService.exportConfig(deploymentId, c.env));
+	},
+);
+
 export default configHandlers;

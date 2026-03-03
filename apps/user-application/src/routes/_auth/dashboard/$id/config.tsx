@@ -1,7 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, Loader2 } from "lucide-react";
+import { useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -23,6 +25,11 @@ interface ConfigPreview {
 	server: unknown;
 }
 
+interface ExportResult {
+	r2Key: string;
+	status: string;
+}
+
 export const Route = createFileRoute("/_auth/dashboard/$id/config")({
 	component: ConfigPage,
 });
@@ -31,6 +38,7 @@ function ConfigPage() {
 	const { id: deploymentId } = Route.useParams();
 	const dataServiceUrl = import.meta.env.VITE_DATA_SERVICE_URL;
 	const apiToken = import.meta.env.VITE_API_TOKEN;
+	const [exportResult, setExportResult] = useState<ExportResult | null>(null);
 
 	const previewQuery = useQuery({
 		queryKey: ["config-preview", deploymentId],
@@ -41,6 +49,21 @@ function ConfigPage() {
 			if (!response.ok) throw new Error("Nie udalo sie pobrac podgladu");
 			return response.json() as Promise<ConfigPreview>;
 		},
+	});
+
+	const exportMutation = useMutation({
+		mutationFn: async () => {
+			const response = await fetch(`${dataServiceUrl}/config/export/${deploymentId}`, {
+				method: "POST",
+				headers: { Authorization: `Bearer ${apiToken}` },
+			});
+			if (!response.ok) {
+				const body = (await response.json()) as { error?: string };
+				throw new Error(body.error ?? "Eksport nie powiodl sie");
+			}
+			return response.json() as Promise<ExportResult>;
+		},
+		onSuccess: (data) => setExportResult(data),
 	});
 
 	if (previewQuery.isPending) {
@@ -74,7 +97,10 @@ function ConfigPage() {
 		<div className="space-y-6">
 			<BackHeader />
 
-			<h1 className="text-2xl font-bold text-foreground">Konfiguracja eksportu</h1>
+			<div className="flex items-center justify-between">
+				<h1 className="text-2xl font-bold text-foreground">Konfiguracja eksportu</h1>
+				{exportResult && <Badge variant="default">Wyeksportowano</Badge>}
+			</div>
 
 			<Alert variant="warning">
 				<AlertTitle>Bezpieczenstwo tokenow</AlertTitle>
@@ -106,6 +132,78 @@ function ConfigPage() {
 					<div className="text-sm text-muted-foreground">
 						Foldery (bez prywatnych): {folderCount}
 					</div>
+				</CardContent>
+			</Card>
+
+			<Card>
+				<CardHeader>
+					<CardTitle>Eksport do R2</CardTitle>
+				</CardHeader>
+				<CardContent className="space-y-4">
+					{exportResult ? (
+						<div className="space-y-2">
+							<p className="text-sm text-green-600 dark:text-green-400">
+								Konfiguracja wyeksportowana pomyslnie.
+							</p>
+							<p className="text-sm text-muted-foreground">
+								Klucz R2: <code className="text-foreground">{exportResult.r2Key}</code>
+							</p>
+							<p className="text-sm text-muted-foreground">
+								Status wdrozenia: {exportResult.status}
+							</p>
+							<Button
+								variant="outline"
+								onClick={() => {
+									setExportResult(null);
+									exportMutation.reset();
+								}}
+							>
+								Eksportuj ponownie
+							</Button>
+						</div>
+					) : (
+						<>
+							{exportMutation.isError && (
+								<Alert variant="destructive">
+									<p className="text-sm">{exportMutation.error.message}</p>
+								</Alert>
+							)}
+							<p className="text-sm text-muted-foreground">
+								Plik zostanie zapisany w R2 jako:{" "}
+								<code className="text-foreground">configs/{deploymentId}/config.json</code>
+							</p>
+							<Button onClick={() => exportMutation.mutate()} disabled={exportMutation.isPending}>
+								{exportMutation.isPending ? "Eksportowanie..." : "Eksportuj do R2"}
+							</Button>
+						</>
+					)}
+				</CardContent>
+			</Card>
+
+			<Card>
+				<CardHeader>
+					<CardTitle>Dostep z serwera (S3 API)</CardTitle>
+				</CardHeader>
+				<CardContent className="space-y-2">
+					<p className="text-sm text-muted-foreground">
+						Skrypty serwerowe moga pobrac konfiguracje z R2 za pomoca S3-compatible API:
+					</p>
+					<pre className="overflow-x-auto rounded bg-muted p-4 text-xs text-foreground">
+						{[
+							"# Ustaw zmienne srodowiskowe:",
+							'export R2_ACCESS_KEY_ID="..."',
+							'export R2_SECRET_ACCESS_KEY="..."',
+							'export R2_ENDPOINT="https://{account_id}.r2.cloudflarestorage.com"',
+							"",
+							"# Pobierz konfiguracje za pomoca rclone:",
+							`rclone copy r2:grota-configs/configs/${deploymentId}/config.json ./`,
+							"",
+							"# Lub za pomoca curl + AWS Signature V4:",
+							`curl "$R2_ENDPOINT/grota-configs/configs/${deploymentId}/config.json" \\`,
+							'  --aws-sigv4 "aws:amz:auto:s3" \\',
+							'  --user "$R2_ACCESS_KEY_ID:$R2_SECRET_ACCESS_KEY"',
+						].join("\n")}
+					</pre>
 				</CardContent>
 			</Card>
 		</div>
