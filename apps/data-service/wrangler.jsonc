@@ -47,12 +47,12 @@
 		 * Remote / Staging environment
 		 */
 		"staging": {
-			// "routes": [
-			//   {
-			//     "pattern": "api-staging.YOUR_DOMAIN.COM",
-			//     "custom_domain": true
-			//   }
-			// ],
+			"routes": [
+			  {
+			    "pattern": "staging-api-grota.auditmos.com",
+			    "custom_domain": true
+			  }
+			],
 			"name": "grota-ds-staging"
 			// "kv_namespaces": [
 			//   {
@@ -83,12 +83,12 @@
 		 * Remote / Production environment
 		 */
 		"production": {
-			// "routes": [
-			//   {
-			//     "pattern": "api.YOUR_DOMAIN.COM",
-			//     "custom_domain": true
-			//   }
-			// ],
+			"routes": [
+			  {
+			    "pattern": "api-grota.auditmos.com",
+			    "custom_domain": true
+			  }
+			],
 			"name": "grota-ds-production"
 			// "kv_namespaces": [
 			//   {

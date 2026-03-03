@@ -31,12 +31,12 @@
 		 */
 		"staging": {
 			"name": "grota-ua-staging",
-			// "routes": [
-			//   {
-			//     "custom_domain": true,
-			//     "pattern": "staging.YOUR_DOMAIN.COM"
-			//   }
-			// ],
+			"routes": [
+			  {
+			    "custom_domain": true,
+			    "pattern": "staging-grota.auditmos.com"
+			  }
+			],
 			"services": [
 				{
 					"binding": "DATA_SERVICE",
@@ -49,12 +49,12 @@
 		 */
 		"production": {
 			"name": "grota-ua-production",
-			// "routes": [
-			//   {
-			//     "custom_domain": true,
-			//     "pattern": "YOUR_DOMAIN.COM"
-			//   }
-			// ],
+			"routes": [
+			  {
+			    "custom_domain": true,
+			    "pattern": "grota.auditmos.com"
+			  }
+			],
 			"services": [
 				{
 					"binding": "DATA_SERVICE",
