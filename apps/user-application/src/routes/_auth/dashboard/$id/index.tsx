@@ -30,7 +30,7 @@ import {
 } from "@/core/functions/employees/binding";
 import { generateAdminMagicLink } from "@/core/functions/magic-links/binding";
 
-export const Route = createFileRoute("/_auth/dashboard/$id")({
+export const Route = createFileRoute("/_auth/dashboard/$id/")({
 	loader: ({ params }) => getDeploymentById({ data: { id: params.id } }),
 	component: DeploymentDetailPage,
 });
@@ -92,7 +92,16 @@ function DeploymentDetailPage() {
 					</Button>
 					<h1 className="text-2xl font-bold text-foreground">{deployment.clientName}</h1>
 				</div>
-				<Badge>{STATUS_LABELS[deployment.status] ?? deployment.status}</Badge>
+				<div className="flex items-center gap-3">
+					{(deployment.status === "ready" || deployment.status === "active") && (
+						<Button asChild variant="outline">
+							<Link to="/dashboard/$id/config" params={{ id: deployment.id }}>
+								{deployment.status === "active" ? "Zobacz konfiguracje" : "Eksportuj konfiguracje"}
+							</Link>
+						</Button>
+					)}
+					<Badge>{STATUS_LABELS[deployment.status] ?? deployment.status}</Badge>
+				</div>
 			</div>
 
 			<div className="grid gap-6 md:grid-cols-2">

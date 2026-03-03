@@ -22,7 +22,8 @@ import { Route as AuthDashboardIndexRouteImport } from './routes/_auth/dashboard
 import { Route as AuthAppIndexRouteImport } from './routes/_auth/app/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
 import { Route as AuthDashboardNewRouteImport } from './routes/_auth/dashboard/new'
-import { Route as AuthDashboardIdRouteImport } from './routes/_auth/dashboard/$id'
+import { Route as AuthDashboardIdIndexRouteImport } from './routes/_auth/dashboard/$id/index'
+import { Route as AuthDashboardIdConfigRouteImport } from './routes/_auth/dashboard/$id/config'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -88,9 +89,14 @@ const AuthDashboardNewRoute = AuthDashboardNewRouteImport.update({
   path: '/new',
   getParentRoute: () => AuthDashboardRouteRoute,
 } as any)
-const AuthDashboardIdRoute = AuthDashboardIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
+const AuthDashboardIdIndexRoute = AuthDashboardIdIndexRouteImport.update({
+  id: '/$id/',
+  path: '/$id/',
+  getParentRoute: () => AuthDashboardRouteRoute,
+} as any)
+const AuthDashboardIdConfigRoute = AuthDashboardIdConfigRouteImport.update({
+  id: '/$id/config',
+  path: '/$id/config',
   getParentRoute: () => AuthDashboardRouteRoute,
 } as any)
 
@@ -103,11 +109,12 @@ export interface FileRoutesByFullPath {
   '/employee/$token': typeof EmployeeTokenRoute
   '/onboard/$token': typeof OnboardTokenRoute
   '/status/$token': typeof StatusTokenRoute
-  '/dashboard/$id': typeof AuthDashboardIdRoute
   '/dashboard/new': typeof AuthDashboardNewRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/app/': typeof AuthAppIndexRoute
   '/dashboard/': typeof AuthDashboardIndexRoute
+  '/dashboard/$id/config': typeof AuthDashboardIdConfigRoute
+  '/dashboard/$id/': typeof AuthDashboardIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -117,11 +124,12 @@ export interface FileRoutesByTo {
   '/employee/$token': typeof EmployeeTokenRoute
   '/onboard/$token': typeof OnboardTokenRoute
   '/status/$token': typeof StatusTokenRoute
-  '/dashboard/$id': typeof AuthDashboardIdRoute
   '/dashboard/new': typeof AuthDashboardNewRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/app': typeof AuthAppIndexRoute
   '/dashboard': typeof AuthDashboardIndexRoute
+  '/dashboard/$id/config': typeof AuthDashboardIdConfigRoute
+  '/dashboard/$id': typeof AuthDashboardIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -134,11 +142,12 @@ export interface FileRoutesById {
   '/employee/$token': typeof EmployeeTokenRoute
   '/onboard/$token': typeof OnboardTokenRoute
   '/status/$token': typeof StatusTokenRoute
-  '/_auth/dashboard/$id': typeof AuthDashboardIdRoute
   '/_auth/dashboard/new': typeof AuthDashboardNewRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/_auth/app/': typeof AuthAppIndexRoute
   '/_auth/dashboard/': typeof AuthDashboardIndexRoute
+  '/_auth/dashboard/$id/config': typeof AuthDashboardIdConfigRoute
+  '/_auth/dashboard/$id/': typeof AuthDashboardIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -151,11 +160,12 @@ export interface FileRouteTypes {
     | '/employee/$token'
     | '/onboard/$token'
     | '/status/$token'
-    | '/dashboard/$id'
     | '/dashboard/new'
     | '/api/auth/$'
     | '/app/'
     | '/dashboard/'
+    | '/dashboard/$id/config'
+    | '/dashboard/$id/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -165,11 +175,12 @@ export interface FileRouteTypes {
     | '/employee/$token'
     | '/onboard/$token'
     | '/status/$token'
-    | '/dashboard/$id'
     | '/dashboard/new'
     | '/api/auth/$'
     | '/app'
     | '/dashboard'
+    | '/dashboard/$id/config'
+    | '/dashboard/$id'
   id:
     | '__root__'
     | '/'
@@ -181,11 +192,12 @@ export interface FileRouteTypes {
     | '/employee/$token'
     | '/onboard/$token'
     | '/status/$token'
-    | '/_auth/dashboard/$id'
     | '/_auth/dashboard/new'
     | '/api/auth/$'
     | '/_auth/app/'
     | '/_auth/dashboard/'
+    | '/_auth/dashboard/$id/config'
+    | '/_auth/dashboard/$id/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -293,26 +305,35 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthDashboardNewRouteImport
       parentRoute: typeof AuthDashboardRouteRoute
     }
-    '/_auth/dashboard/$id': {
-      id: '/_auth/dashboard/$id'
+    '/_auth/dashboard/$id/': {
+      id: '/_auth/dashboard/$id/'
       path: '/$id'
-      fullPath: '/dashboard/$id'
-      preLoaderRoute: typeof AuthDashboardIdRouteImport
+      fullPath: '/dashboard/$id/'
+      preLoaderRoute: typeof AuthDashboardIdIndexRouteImport
+      parentRoute: typeof AuthDashboardRouteRoute
+    }
+    '/_auth/dashboard/$id/config': {
+      id: '/_auth/dashboard/$id/config'
+      path: '/$id/config'
+      fullPath: '/dashboard/$id/config'
+      preLoaderRoute: typeof AuthDashboardIdConfigRouteImport
       parentRoute: typeof AuthDashboardRouteRoute
     }
   }
 }
 
 interface AuthDashboardRouteRouteChildren {
-  AuthDashboardIdRoute: typeof AuthDashboardIdRoute
   AuthDashboardNewRoute: typeof AuthDashboardNewRoute
   AuthDashboardIndexRoute: typeof AuthDashboardIndexRoute
+  AuthDashboardIdConfigRoute: typeof AuthDashboardIdConfigRoute
+  AuthDashboardIdIndexRoute: typeof AuthDashboardIdIndexRoute
 }
 
 const AuthDashboardRouteRouteChildren: AuthDashboardRouteRouteChildren = {
-  AuthDashboardIdRoute: AuthDashboardIdRoute,
   AuthDashboardNewRoute: AuthDashboardNewRoute,
   AuthDashboardIndexRoute: AuthDashboardIndexRoute,
+  AuthDashboardIdConfigRoute: AuthDashboardIdConfigRoute,
+  AuthDashboardIdIndexRoute: AuthDashboardIdIndexRoute,
 }
 
 const AuthDashboardRouteRouteWithChildren =

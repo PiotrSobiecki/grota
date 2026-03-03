@@ -17,7 +17,13 @@
 		 * Local / Development environment
 		 */
 		"dev": {
-			"name": "grota-ds-dev"
+			"name": "grota-ds-dev",
+			"r2_buckets": [
+				{
+					"binding": "CONFIG_BUCKET",
+					"bucket_name": "grota-configs-dev"
+				}
+			]
 			// "kv_namespaces": [
 			//   {
 			//     "binding": "CACHE",
@@ -53,7 +59,13 @@
 					"custom_domain": true
 				}
 			],
-			"name": "grota-ds-staging"
+			"name": "grota-ds-staging",
+			"r2_buckets": [
+				{
+					"binding": "CONFIG_BUCKET",
+					"bucket_name": "grota-configs-staging"
+				}
+			]
 			// "kv_namespaces": [
 			//   {
 			//     "binding": "CACHE",
@@ -89,7 +101,13 @@
 					"custom_domain": true
 				}
 			],
-			"name": "grota-ds-production"
+			"name": "grota-ds-production",
+			"r2_buckets": [
+				{
+					"binding": "CONFIG_BUCKET",
+					"bucket_name": "grota-configs-production"
+				}
+			]
 			// "kv_namespaces": [
 			//   {
 			//     "binding": "CACHE",
