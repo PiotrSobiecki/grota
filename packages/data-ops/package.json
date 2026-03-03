@@ -7,6 +7,10 @@
 			"types": "./dist/deployment/index.d.ts",
 			"default": "./dist/deployment/index.js"
 		},
+		"./department": {
+			"types": "./dist/department/index.d.ts",
+			"default": "./dist/department/index.js"
+		},
 		"./employee": {
 			"types": "./dist/employee/index.d.ts",
 			"default": "./dist/employee/index.js"

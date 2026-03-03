@@ -13,7 +13,6 @@ export type {
 	EmployeeCreateInput,
 	EmployeeListResponse,
 	EmployeeResponse,
-	EmployeeRole,
 	OAuthStatus,
 	SelectionStatus,
 } from "./schema";
@@ -24,15 +23,9 @@ export {
 	EmployeeIdParamSchema,
 	EmployeeListResponseSchema,
 	EmployeeResponseSchema,
-	EmployeeRoleSchema,
 	EmployeeSchema,
 	EmployeeTokenParamSchema,
 	OAuthStatusSchema,
 	SelectionStatusSchema,
 } from "./schema";
-export {
-	employeeRoleEnum,
-	employees,
-	oauthStatusEnum,
-	selectionStatusEnum,
-} from "./table";
+export { employees, oauthStatusEnum, selectionStatusEnum } from "./table";

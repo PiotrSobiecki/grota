@@ -1,10 +1,28 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import { ArrowLeft, Copy, Info, Loader2, Mail, Send, Users } from "lucide-react";
+import {
+	ArrowLeft,
+	Copy,
+	FolderTree,
+	Info,
+	Loader2,
+	Mail,
+	Plus,
+	Send,
+	Trash2,
+	Users,
+} from "lucide-react";
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+	createDepartment,
+	deleteDepartment,
+	getDepartments,
+} from "@/core/functions/departments/binding";
 import { getDeploymentById } from "@/core/functions/deployments/direct";
 import {
 	getEmployeesByDeployment,
@@ -41,7 +59,6 @@ function DeploymentDetailPage() {
 	const magicLinkMutation = useMutation({
 		mutationFn: () => generateAdminMagicLink({ data: { deploymentId: deployment.id } }),
 		onSuccess: () => {
-			// Invalidate the router to reload deployment (status change to onboarding)
 			router.invalidate();
 		},
 	});
@@ -96,6 +113,8 @@ function DeploymentDetailPage() {
 					onCopyLink={handleCopyLink}
 				/>
 			</div>
+
+			<DepartmentSection deploymentId={deployment.id} deploymentStatus={deployment.status} />
 
 			{showEmployeeSection && <EmployeeSection deploymentId={deployment.id} />}
 		</div>
@@ -181,6 +200,124 @@ function MagicLinkCard({ deployment, magicLinkMutation, onCopyLink }: MagicLinkC
 	);
 }
 
+function DepartmentSection({
+	deploymentId,
+	deploymentStatus,
+}: {
+	deploymentId: string;
+	deploymentStatus: string;
+}) {
+	const [newDeptName, setNewDeptName] = useState("");
+
+	const departmentsQuery = useQuery({
+		queryKey: ["departments", deploymentId],
+		queryFn: () => getDepartments({ data: { deploymentId } }),
+	});
+
+	const createMutation = useMutation({
+		mutationFn: (name: string) => createDepartment({ data: { deploymentId, name } }),
+		onSuccess: () => {
+			departmentsQuery.refetch();
+			setNewDeptName("");
+		},
+	});
+
+	const deleteMutation = useMutation({
+		mutationFn: (departmentId: string) => deleteDepartment({ data: { departmentId } }),
+		onSuccess: () => {
+			departmentsQuery.refetch();
+		},
+	});
+
+	const departments = departmentsQuery.data?.data ?? [];
+	const canEdit = deploymentStatus === "draft" || deploymentStatus === "onboarding";
+
+	const handleAdd = () => {
+		const trimmed = newDeptName.trim();
+		if (!trimmed) return;
+		createMutation.mutate(trimmed);
+	};
+
+	return (
+		<Card>
+			<CardHeader>
+				<CardTitle className="flex items-center gap-2">
+					<FolderTree className="h-5 w-5" />
+					Dzialy wdrozenia
+					{departments.length > 0 && (
+						<span className="text-sm font-normal text-muted-foreground">
+							({departments.length})
+						</span>
+					)}
+				</CardTitle>
+			</CardHeader>
+			<CardContent className="space-y-3">
+				{createMutation.isError && (
+					<p className="text-sm text-destructive">{createMutation.error.message}</p>
+				)}
+				{deleteMutation.isError && (
+					<p className="text-sm text-destructive">{deleteMutation.error.message}</p>
+				)}
+
+				{departmentsQuery.isPending ? (
+					<div className="flex items-center gap-2 text-muted-foreground">
+						<Loader2 className="h-4 w-4 animate-spin" />
+						Ladowanie dzialow...
+					</div>
+				) : departments.length === 0 ? (
+					<p className="text-muted-foreground">Brak dzialow.</p>
+				) : (
+					<div className="flex flex-wrap gap-2">
+						{departments.map((dept) => (
+							<span
+								key={dept.id}
+								className="flex items-center gap-1 rounded-md border border-border bg-muted px-2 py-1 text-sm text-foreground"
+							>
+								{dept.name}
+								{canEdit && (
+									<button
+										type="button"
+										onClick={() => deleteMutation.mutate(dept.id)}
+										disabled={deleteMutation.isPending}
+										className="text-muted-foreground hover:text-destructive"
+										title="Usun dzial"
+									>
+										<Trash2 className="h-3 w-3" />
+									</button>
+								)}
+							</span>
+						))}
+					</div>
+				)}
+
+				{canEdit && (
+					<div className="flex gap-2">
+						<Input
+							placeholder="Nowy dzial..."
+							value={newDeptName}
+							onChange={(e) => setNewDeptName(e.target.value)}
+							onKeyDown={(e) => {
+								if (e.key === "Enter") {
+									e.preventDefault();
+									handleAdd();
+								}
+							}}
+						/>
+						<Button
+							variant="outline"
+							size="icon"
+							onClick={handleAdd}
+							disabled={createMutation.isPending}
+						>
+							<Plus className="h-4 w-4" />
+						</Button>
+					</div>
+				)}
+			</CardContent>
+		</Card>
+	);
+}
+
 function EmployeeSection({ deploymentId }: { deploymentId: string }) {
 	const employeesQuery = useQuery({
 		queryKey: ["employees", deploymentId],
@@ -248,6 +385,7 @@ interface EmployeeListItem {
 	name: string;
 	email: string;
 	oauthStatus: string;
+	departments: Array<{ id: string; name: string; slug: string }>;
 }
 
 function EmployeeList({
@@ -277,6 +415,7 @@ function EmployeeList({
 					label: employee.oauthStatus,
 					variant: "outline" as const,
 				};
+				const deptNames = employee.departments.map((d) => d.name).join(", ");
 				return (
 					<div
 						key={employee.id}
@@ -285,6 +424,7 @@ function EmployeeList({
 						<div>
 							<p className="text-sm font-medium text-foreground">{employee.name}</p>
 							<p className="text-xs text-muted-foreground">{employee.email}</p>
+							{deptNames && <p className="text-xs text-muted-foreground mt-0.5">{deptNames}</p>}
 						</div>
 						<Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
 					</div>

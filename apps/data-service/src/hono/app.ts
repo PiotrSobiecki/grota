@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import departmentHandlers from "./handlers/department-handlers";
 import deployments from "./handlers/deployment-handlers";
 import employeeHandlers from "./handlers/employee-handlers";
 import health from "./handlers/health-handlers";
@@ -14,6 +15,7 @@ App.onError(onErrorHandler);
 App.use("*", createCorsMiddleware());
 
 App.route("/health", health);
+App.route("/departments", departmentHandlers);
 App.route("/deployments", deployments);
 App.route("/employees", employeeHandlers);
 App.route("/magic-links", magicLinkHandlers);

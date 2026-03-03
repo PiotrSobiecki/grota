@@ -1,3 +1,4 @@
+import { type Department, getEmployeeDepartments } from "@repo/data-ops/department";
 import { updateDeploymentStatus } from "@repo/data-ops/deployment";
 import {
 	createEmployees,
@@ -7,10 +8,22 @@ import {
 } from "@repo/data-ops/employee";
 import type { Result } from "../types/result";
 
+interface EmployeeWithDepartments extends Employee {
+	departments: Department[];
+}
+
 export async function getEmployeesByDeployment(
 	deploymentId: string,
-): Promise<Result<{ data: Employee[]; total: number }>> {
-	const data = await getEmployeesQuery(deploymentId);
+): Promise<Result<{ data: EmployeeWithDepartments[]; total: number }>> {
+	const employees = await getEmployeesQuery(deploymentId);
+
+	const data = await Promise.all(
+		employees.map(async (emp) => {
+			const departments = await getEmployeeDepartments(emp.id);
+			return { ...emp, departments };
+		}),
+	);
+
 	return { ok: true, data: { data, total: data.length } };
 }
 

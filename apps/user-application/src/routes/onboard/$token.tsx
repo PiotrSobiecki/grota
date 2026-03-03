@@ -1,12 +1,23 @@
+import type { Department } from "@repo/data-ops/department";
 import { useForm } from "@tanstack/react-form";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { ArrowLeft, CheckCircle2, Copy, ExternalLink, Loader2, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import {
+	ArrowLeft,
+	CheckCircle2,
+	ChevronDown,
+	Copy,
+	ExternalLink,
+	Loader2,
+	Plus,
+	Trash2,
+} from "lucide-react";
+import { useRef, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { getDepartments } from "@/core/functions/departments/binding";
 import { bulkCreateEmployees } from "@/core/functions/employees/binding";
 import { verifyAdminToken } from "@/core/functions/magic-links/binding";
 
@@ -214,21 +225,21 @@ function DelegateChecklistStep({ operatorEmail, onNext, onBack }: DelegateCheckl
 	);
 }
 
-const ROLE_OPTIONS = [
-	{ value: "zarzad", label: "Zarzad" },
-	{ value: "ksiegowosc", label: "Ksiegowosc" },
-	{ value: "projekty", label: "Projekty" },
-	{ value: "media", label: "Media" },
-] as const;
-
 interface EmployeeRow {
 	email: string;
 	name: string;
-	role: "zarzad" | "ksiegowosc" | "projekty" | "media";
+	departmentIds: string[];
 }
 
 function EmployeeListStep({ deploymentId, onBack }: { deploymentId: string; onBack: () => void }) {
 	const [submitted, setSubmitted] = useState(false);
+
+	const departmentsQuery = useQuery({
+		queryKey: ["departments", deploymentId],
+		queryFn: () => getDepartments({ data: { deploymentId } }),
+	});
+
+	const departments = departmentsQuery.data?.data ?? [];
 
 	const mutation = useMutation({
 		mutationFn: (data: { deploymentId: string; employees: EmployeeRow[] }) =>
@@ -237,7 +248,7 @@ function EmployeeListStep({ deploymentId, onBack }: { deploymentId: string; onBa
 
 	const form = useForm({
 		defaultValues: {
-			employees: [{ email: "", name: "", role: "projekty" }] as EmployeeRow[],
+			employees: [{ email: "", name: "", departmentIds: [] as string[] }] as EmployeeRow[],
 		},
 		onSubmit: async ({ value }) => {
 			mutation.reset();
@@ -269,6 +280,22 @@ function EmployeeListStep({ deploymentId, onBack }: { deploymentId: string; onBa
 		);
 	}
 
+	if (departmentsQuery.isPending) {
+		return (
+			<Card>
+				<CardHeader>
+					<CardTitle>Krok 4: Lista pracownikow</CardTitle>
+				</CardHeader>
+				<CardContent>
+					<div className="flex items-center gap-2 text-muted-foreground">
+						<Loader2 className="h-4 w-4 animate-spin" />
+						Ladowanie dzialow...
+					</div>
+				</CardContent>
+			</Card>
+		);
+	}
+
 	return (
 		<Card>
 			<CardHeader>
@@ -295,96 +322,89 @@ function EmployeeListStep({ deploymentId, onBack }: { deploymentId: string; onBa
 								{arrayField.state.value.map((_, i) => (
 									<div
 										key={`employee-${i.toString()}`}
-										className="flex items-start gap-2 rounded-md border border-border p-3"
+										className="rounded-md border border-border p-3 space-y-2"
 									>
-										<div className="flex-1 space-y-2">
-											<div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-												<form.Field
-													name={`employees[${i}].email`}
-													validators={{
-														onChange: ({ value }: { value: string }) => {
-															if (!value) return "Email jest wymagany";
-															if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))
-																return "Nieprawidlowy format email";
-															return undefined;
-														},
-													}}
-												>
-													{(field) => (
-														<div>
-															<Input
-																placeholder="email@firma.pl"
-																type="email"
-																value={field.state.value}
-																onChange={(e) => field.handleChange(e.target.value)}
-																onBlur={field.handleBlur}
-															/>
-															{field.state.meta.errors.length > 0 && (
-																<p className="mt-1 text-xs text-destructive">
-																	{field.state.meta.errors[0]}
-																</p>
-															)}
-														</div>
-													)}
-												</form.Field>
+										<div className="flex items-start gap-2">
+											<div className="flex-1 space-y-2">
+												<div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+													<form.Field
+														name={`employees[${i}].email`}
+														validators={{
+															onChange: ({ value }: { value: string }) => {
+																if (!value) return "Email jest wymagany";
+																if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))
+																	return "Nieprawidlowy format email";
+																return undefined;
+															},
+														}}
+													>
+														{(field) => (
+															<div>
+																<Input
+																	placeholder="email@firma.pl"
+																	type="email"
+																	value={field.state.value}
+																	onChange={(e) => field.handleChange(e.target.value)}
+																	onBlur={field.handleBlur}
+																/>
+																{field.state.meta.errors.length > 0 && (
+																	<p className="mt-1 text-xs text-destructive">
+																		{field.state.meta.errors[0]}
+																	</p>
+																)}
+															</div>
+														)}
+													</form.Field>
 
-												<form.Field
-													name={`employees[${i}].name`}
-													validators={{
-														onChange: ({ value }: { value: string }) =>
-															!value ? "Imie i nazwisko jest wymagane" : undefined,
-													}}
-												>
-													{(field) => (
-														<div>
-															<Input
-																placeholder="Jan Kowalski"
-																value={field.state.value}
-																onChange={(e) => field.handleChange(e.target.value)}
-																onBlur={field.handleBlur}
-															/>
-															{field.state.meta.errors.length > 0 && (
-																<p className="mt-1 text-xs text-destructive">
-																	{field.state.meta.errors[0]}
-																</p>
-															)}
-														</div>
-													)}
-												</form.Field>
+													<form.Field
+														name={`employees[${i}].name`}
+														validators={{
+															onChange: ({ value }: { value: string }) =>
+																!value ? "Imie i nazwisko jest wymagane" : undefined,
+														}}
+													>
+														{(field) => (
+															<div>
+																<Input
+																	placeholder="Jan Kowalski"
+																	value={field.state.value}
+																	onChange={(e) => field.handleChange(e.target.value)}
+																	onBlur={field.handleBlur}
+																/>
+																{field.state.meta.errors.length > 0 && (
+																	<p className="mt-1 text-xs text-destructive">
+																		{field.state.meta.errors[0]}
+																	</p>
+																)}
+															</div>
+														)}
+													</form.Field>
+												</div>
 
-												<form.Field name={`employees[${i}].role`}>
+												<form.Field name={`employees[${i}].departmentIds`}>
 													{(field) => (
-														<select
-															value={field.state.value}
-															onChange={(e) =>
-																field.handleChange(e.target.value as EmployeeRow["role"])
-															}
-															onBlur={field.handleBlur}
-															className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm text-foreground shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
-														>
-															{ROLE_OPTIONS.map((opt) => (
-																<option key={opt.value} value={opt.value}>
-																	{opt.label}
-																</option>
-															))}
-														</select>
+														<DepartmentMultiSelect
+															departments={departments}
+															selectedIds={field.state.value}
+															onChange={(ids) => field.handleChange(ids)}
+														/>
 													)}
 												</form.Field>
 											</div>
-										</div>
 
-										{arrayField.state.value.length > 1 && (
-											<Button
-												type="button"
-												variant="ghost"
-												size="icon"
-												onClick={() => arrayField.removeValue(i)}
-												className="mt-0 shrink-0"
-												title="Usun pracownika"
-											>
-												<Trash2 className="h-4 w-4 text-muted-foreground" />
-											</Button>
-										)}
+											{arrayField.state.value.length > 1 && (
+												<Button
+													type="button"
+													variant="ghost"
+													size="icon"
+													onClick={() => arrayField.removeValue(i)}
+													className="mt-0 shrink-0"
+													title="Usun pracownika"
+												>
+													<Trash2 className="h-4 w-4 text-muted-foreground" />
+												</Button>
+											)}
+										</div>
 									</div>
 								))}
 
@@ -395,7 +415,7 @@ function EmployeeListStep({ deploymentId, onBack }: { deploymentId: string; onBa
 										arrayField.pushValue({
 											email: "",
 											name: "",
-											role: "projekty",
+											departmentIds: [],
 										})
 									}
 									className="w-full"
@@ -434,5 +454,68 @@ function EmployeeListStep({ deploymentId, onBack }: { deploymentId: string; onBa
 				</form>
 			</CardContent>
 		</Card>
+	);
+}
+
+interface DepartmentMultiSelectProps {
+	departments: Department[];
+	selectedIds: string[];
+	onChange: (ids: string[]) => void;
+}
+
+function DepartmentMultiSelect({ departments, selectedIds, onChange }: DepartmentMultiSelectProps) {
+	const [isOpen, setIsOpen] = useState(false);
+	const containerRef = useRef<HTMLDivElement>(null);
+
+	const toggleDepartment = (id: string) => {
+		if (selectedIds.includes(id)) {
+			onChange(selectedIds.filter((sid) => sid !== id));
+		} else {
+			onChange([...selectedIds, id]);
+		}
+	};
+
+	const selectedNames = departments.filter((d) => selectedIds.includes(d.id)).map((d) => d.name);
+
+	return (
+		<div ref={containerRef} className="relative">
+			<button
+				type="button"
+				onClick={() => setIsOpen(!isOpen)}
+				onBlur={(e) => {
+					if (!containerRef.current?.contains(e.relatedTarget)) {
+						setIsOpen(false);
+					}
+				}}
+				className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-1 text-sm text-foreground shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+			>
+				<span className={selectedNames.length === 0 ? "text-muted-foreground" : ""}>
+					{selectedNames.length === 0 ? "Wybierz dzialy..." : selectedNames.join(", ")}
+				</span>
+				<ChevronDown className="h-4 w-4 text-muted-foreground" />
+			</button>
+			{isOpen && (
+				<div className="absolute z-10 mt-1 w-full rounded-md border border-border bg-background shadow-lg">
+					{departments.length === 0 ? (
+						<p className="px-3 py-2 text-sm text-muted-foreground">Brak dzialow</p>
+					) : (
+						departments.map((dept) => (
+							<label
+								key={dept.id}
+								className="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted cursor-pointer"
+							>
+								<input
+									type="checkbox"
+									checked={selectedIds.includes(dept.id)}
+									onChange={() => toggleDepartment(dept.id)}
+									className="rounded"
+								/>
+								{dept.name}
+							</label>
+						))
+					)}
+				</div>
+			)}
+		</div>
 	);
 }

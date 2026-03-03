@@ -1,13 +1,6 @@
 import { pgEnum, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { deployments } from "../deployment/table";
 
-export const employeeRoleEnum = pgEnum("employee_role", [
-	"zarzad",
-	"ksiegowosc",
-	"projekty",
-	"media",
-]);
-
 export const oauthStatusEnum = pgEnum("oauth_status", ["pending", "authorized", "failed"]);
 
 export const selectionStatusEnum = pgEnum("selection_status", [
@@ -23,7 +16,6 @@ export const employees = pgTable("employees", {
 		.references(() => deployments.id, { onDelete: "cascade" }),
 	email: text("email").notNull(),
 	name: text("name").notNull(),
-	role: employeeRoleEnum("role").notNull(),
 	oauthStatus: oauthStatusEnum("oauth_status").notNull().default("pending"),
 	selectionStatus: selectionStatusEnum("selection_status").notNull().default("pending"),
 

@@ -1,10 +1,36 @@
 import { env } from "cloudflare:workers";
-import type { EmployeeCreateInput, EmployeeListResponse } from "@repo/data-ops/employee";
+import type { EmployeeCreateInput } from "@repo/data-ops/employee";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { AppError } from "@/core/errors";
 import { protectedFunctionMiddleware } from "@/core/middleware/auth";
 import { fetchDataService } from "@/lib/data-service";
+
+interface EmployeeWithDepartments {
+	id: string;
+	deploymentId: string;
+	email: string;
+	name: string;
+	oauthStatus: string;
+	selectionStatus: string;
+	magicLinkExpiresAt: string | null;
+	magicLinkSentAt: string | null;
+	createdAt: string;
+	updatedAt: string;
+	departments: Array<{
+		id: string;
+		deploymentId: string;
+		name: string;
+		slug: string;
+		sortOrder: number;
+		createdAt: string;
+	}>;
+}
+
+interface EmployeeListWithDepartments {
+	data: EmployeeWithDepartments[];
+	total: number;
+}
 
 /** List employees for a deployment (called from status page and deployment detail). */
 export const getEmployeesByDeployment = createServerFn({ method: "GET" })
@@ -21,7 +47,7 @@ export const getEmployeesByDeployment = createServerFn({ method: "GET" })
 			);
 		}
 
-		return (await response.json()) as EmployeeListResponse;
+		return (await response.json()) as EmployeeListWithDepartments;
 	});
 
 /** Bulk create employees (called from wizard step 4). */
@@ -33,7 +59,7 @@ export const bulkCreateEmployees = createServerFn({ method: "POST" })
 				z.object({
 					email: z.string().email(),
 					name: z.string().min(1),
-					role: z.enum(["zarzad", "ksiegowosc", "projekty", "media"]),
+					departmentIds: z.array(z.string().uuid()).min(1),
 				}),
 			),
 		}),

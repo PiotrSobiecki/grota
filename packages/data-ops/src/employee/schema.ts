@@ -4,7 +4,6 @@ import { z } from "zod";
 // Enums
 // ============================================
 
-export const EmployeeRoleSchema = z.enum(["zarzad", "ksiegowosc", "projekty", "media"]);
 export const OAuthStatusSchema = z.enum(["pending", "authorized", "failed"]);
 export const SelectionStatusSchema = z.enum(["pending", "in_progress", "completed"]);
 
@@ -17,7 +16,6 @@ export const EmployeeSchema = z.object({
 	deploymentId: z.string().uuid(),
 	email: z.string().email(),
 	name: z.string(),
-	role: EmployeeRoleSchema,
 	oauthStatus: OAuthStatusSchema,
 	selectionStatus: SelectionStatusSchema,
 	driveOauthToken: z.string().nullable(),
@@ -51,7 +49,7 @@ export const EmployeeTokenParamSchema = z.object({
 export const EmployeeCreateRequestSchema = z.object({
 	email: z.string().email("Nieprawidlowy format email"),
 	name: z.string().min(1, "Imie i nazwisko jest wymagane").max(100, "Maksymalnie 100 znakow"),
-	role: EmployeeRoleSchema,
+	departmentIds: z.array(z.string().uuid()).min(1, "Przynajmniej jeden dzial wymagany"),
 });
 
 export const EmployeeBulkCreateRequestSchema = z.object({
@@ -80,7 +78,6 @@ export const EmployeeListResponseSchema = z.object({
 // Types
 // ============================================
 
-export type EmployeeRole = z.infer<typeof EmployeeRoleSchema>;
 export type OAuthStatus = z.infer<typeof OAuthStatusSchema>;
 export type SelectionStatus = z.infer<typeof SelectionStatusSchema>;
 export type Employee = z.infer<typeof EmployeeSchema>;
