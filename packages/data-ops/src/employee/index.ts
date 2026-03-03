@@ -3,6 +3,7 @@ export {
 	getEmployeeById,
 	getEmployeeByToken,
 	getEmployeesByDeployment,
+	setDriveOAuthToken,
 	updateEmployeeMagicLink,
 	updateEmployeeOAuthStatus,
 	updateEmployeeSelectionStatus,

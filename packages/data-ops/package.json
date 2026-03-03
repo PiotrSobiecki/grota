@@ -3,6 +3,10 @@
 	"version": "1.0.0",
 	"description": "Manage auth, database, schemas, and queries",
 	"exports": {
+		"./encryption": {
+			"types": "./dist/encryption/index.d.ts",
+			"default": "./dist/encryption/index.js"
+		},
 		"./deployment": {
 			"types": "./dist/deployment/index.d.ts",
 			"default": "./dist/deployment/index.js"

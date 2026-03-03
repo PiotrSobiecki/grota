@@ -29,3 +29,4 @@ export {
 	ServerConfigSchema,
 } from "./schema";
 export { deploymentStatusEnum, deployments } from "./table";
+export { getWorkspaceOAuthToken, setWorkspaceOAuthToken } from "./token-queries";

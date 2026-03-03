@@ -12,7 +12,7 @@ import {
 	Plus,
 	Trash2,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,7 +28,12 @@ export const Route = createFileRoute("/onboard/$token")({
 
 function OnboardingWizard() {
 	const loaderData = Route.useLoaderData();
-	const [currentStep, setCurrentStep] = useState(loaderData.step > 0 ? loaderData.step : 1);
+	const { token } = Route.useParams();
+	const [currentStep, setCurrentStep] = useState(() => {
+		const params = new URLSearchParams(window.location.search);
+		if (params.get("oauth") === "success") return 2;
+		return loaderData.step > 0 ? loaderData.step : 1;
+	});
 
 	return (
 		<div className="min-h-screen bg-background p-6">
@@ -54,7 +59,12 @@ function OnboardingWizard() {
 					/>
 				)}
 				{currentStep === 2 && (
-					<OAuthPlaceholderStep onNext={() => setCurrentStep(3)} onBack={() => setCurrentStep(1)} />
+					<OAuthConsentStep
+						deploymentId={loaderData.deploymentId}
+						magicLinkToken={token}
+						onNext={() => setCurrentStep(3)}
+						onBack={() => setCurrentStep(1)}
+					/>
 				)}
 				{currentStep === 3 && (
 					<DelegateChecklistStep
@@ -122,23 +132,83 @@ function CompanyInfoStep({
 	);
 }
 
-function OAuthPlaceholderStep({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
+function OAuthConsentStep({
+	deploymentId,
+	magicLinkToken,
+	onNext,
+	onBack,
+}: {
+	deploymentId: string;
+	magicLinkToken: string;
+	onNext: () => void;
+	onBack: () => void;
+}) {
+	const [oauthCompleted, setOauthCompleted] = useState(false);
+
+	useEffect(() => {
+		const params = new URLSearchParams(window.location.search);
+		if (params.get("oauth") === "success") {
+			setOauthCompleted(true);
+		}
+	}, []);
+
+	const handleAuthorize = () => {
+		const dataServiceUrl = import.meta.env.VITE_DATA_SERVICE_URL;
+		window.location.href = `${dataServiceUrl}/api/oauth/google/authorize?type=admin&id=${deploymentId}&token=${magicLinkToken}`;
+	};
+
 	return (
 		<Card>
 			<CardHeader>
-				<CardTitle>Krok 2: Autoryzacja Google (wkrotce)</CardTitle>
+				<CardTitle>Krok 2: Autoryzacja Google Workspace</CardTitle>
 			</CardHeader>
 			<CardContent className="space-y-4">
-				<p className="text-muted-foreground">
-					Ten krok zostanie udostepniony w kolejnej aktualizacji. Na razie przejdz dalej.
-				</p>
-				<div className="flex gap-2">
-					<Button variant="outline" onClick={onBack}>
-						<ArrowLeft className="mr-2 h-4 w-4" />
-						Wstecz
-					</Button>
-					<Button onClick={onNext}>Dalej</Button>
+				<div className="rounded-lg border border-border bg-muted/50 p-4 space-y-2">
+					<p className="font-medium text-foreground">Co zobaczymy:</p>
+					<ul className="list-disc list-inside text-sm text-muted-foreground">
+						<li>Liste folderow i nazwy plikow</li>
+						<li>Grupy Google w Workspace</li>
+					</ul>
+					<p className="font-medium text-foreground">Czego NIE zobaczymy:</p>
+					<ul className="list-disc list-inside text-sm text-muted-foreground">
+						<li>Tresci dokumentow</li>
+						<li>Prywatnych wiadomosci</li>
+					</ul>
+					<p className="text-sm text-muted-foreground">
+						Tokeny szyfrowane AES-256-GCM, usuwane na zadanie.
+					</p>
 				</div>
+
+				<div className="rounded-lg border border-amber-500/50 bg-amber-50 dark:bg-amber-950/20 p-3">
+					<p className="text-sm text-foreground">
+						<strong>Uwaga:</strong> Osoba autoryzujaca musi byc administratorem Google Workspace.
+						Jezeli nie jestes administratorem, popros odpowiednia osobe o przeprowadzenie tego
+						kroku.
+					</p>
+				</div>
+
+				{oauthCompleted ? (
+					<div className="space-y-2">
+						<p className="text-sm text-green-600 dark:text-green-400">
+							Autoryzacja zakonczona pomyslnie.
+						</p>
+						<div className="flex gap-2">
+							<Button variant="outline" onClick={onBack}>
+								<ArrowLeft className="mr-2 h-4 w-4" />
+								Wstecz
+							</Button>
+							<Button onClick={onNext}>Dalej</Button>
+						</div>
+					</div>
+				) : (
+					<div className="flex gap-2">
+						<Button variant="outline" onClick={onBack}>
+							<ArrowLeft className="mr-2 h-4 w-4" />
+							Wstecz
+						</Button>
+						<Button onClick={handleAuthorize}>Autoryzuj Google Workspace</Button>
+					</div>
+				)}
 			</CardContent>
 		</Card>
 	);
