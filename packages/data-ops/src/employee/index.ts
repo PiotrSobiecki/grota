@@ -1,5 +1,6 @@
 export {
 	createEmployees,
+	getDriveOAuthToken,
 	getEmployeeById,
 	getEmployeeByToken,
 	getEmployeesByDeployment,

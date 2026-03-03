@@ -76,7 +76,6 @@ export async function updateEmployeeOAuthStatus(
 	return result[0] ?? null;
 }
 
-// Stub for doc 004a -- full implementation in doc 004b
 export async function setDriveOAuthToken(
 	employeeId: string,
 	encryptedToken: string,
@@ -84,8 +83,20 @@ export async function setDriveOAuthToken(
 	const db = getDb();
 	await db
 		.update(employees)
-		.set({ driveOauthToken: encryptedToken })
+		.set({
+			driveOauthToken: encryptedToken,
+			oauthStatus: "authorized",
+		})
 		.where(eq(employees.id, employeeId));
+}
+
+export async function getDriveOAuthToken(employeeId: string): Promise<string | null> {
+	const db = getDb();
+	const result = await db
+		.select({ driveOauthToken: employees.driveOauthToken })
+		.from(employees)
+		.where(eq(employees.id, employeeId));
+	return result[0]?.driveOauthToken ?? null;
 }
 
 export async function updateEmployeeSelectionStatus(

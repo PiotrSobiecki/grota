@@ -1,5 +1,5 @@
 import { setWorkspaceOAuthToken } from "@repo/data-ops/deployment";
-import { setDriveOAuthToken } from "@repo/data-ops/employee";
+import { getEmployeeByToken, setDriveOAuthToken } from "@repo/data-ops/employee";
 import { encrypt } from "@repo/data-ops/encryption";
 import type { Result } from "../types/result";
 
@@ -110,10 +110,18 @@ export async function handleCallback(
 		};
 	}
 
-	await setDriveOAuthToken(state.id, encryptedToken);
-	const redirectPath = state.token ? `/employee/${state.token}` : `/employee/${state.id}`;
+	// state.id is the magic link token hash, resolve to actual employee
+	const employee = await getEmployeeByToken(state.id);
+	if (!employee) {
+		return {
+			ok: false,
+			error: { code: "EMPLOYEE_NOT_FOUND", message: "Nie znaleziono pracownika", status: 404 },
+		};
+	}
+
+	await setDriveOAuthToken(employee.id, encryptedToken);
 	return {
 		ok: true,
-		data: { redirectTo: `${frontendOrigin}${redirectPath}?oauth=success` },
+		data: { redirectTo: `${frontendOrigin}/employee/${state.id}?oauth=success` },
 	};
 }
