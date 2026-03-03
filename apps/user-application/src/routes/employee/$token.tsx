@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -26,8 +26,10 @@ interface DriveFolder {
 	suggestedCategory: string | null;
 }
 
-// Used by step 3 (doc 005b)
-// biome-ignore lint/correctness/noUnusedVariables: pre-defined for 005b
+interface FolderWithCategory extends DriveFolder {
+	selectedCategory: string;
+}
+
 const CATEGORY_INFO: Record<string, { label: string; description: string }> = {
 	dokumenty: { label: "Dokumenty", description: "Faktury, umowy, ksiegowosc" },
 	projekty: { label: "Projekty", description: "Dokumentacja projektowa" },
@@ -39,8 +41,32 @@ function EmployeeFlow() {
 	const { token } = Route.useParams();
 	const { step, oauth, employeeId } = Route.useSearch();
 	const navigate = Route.useNavigate();
+	const dataServiceUrl = import.meta.env.VITE_DATA_SERVICE_URL;
+	const [folders, setFolders] = useState<FolderWithCategory[]>([]);
 
 	const effectiveStep = step >= 2 && !employeeId ? 1 : step;
+
+	// Hydrate folders from Drive if navigated directly to step 3+
+	const foldersHydration = useQuery({
+		queryKey: ["drive-folders", employeeId],
+		queryFn: async () => {
+			const response = await fetch(`${dataServiceUrl}/folders/drive/${employeeId}`);
+			if (!response.ok) throw new Error("Nie udalo sie pobrac folderow");
+			return response.json() as Promise<{ folders: DriveFolder[] }>;
+		},
+		enabled: !!employeeId && effectiveStep >= 3 && folders.length === 0,
+	});
+
+	useEffect(() => {
+		if (foldersHydration.data && folders.length === 0) {
+			setFolders(
+				foldersHydration.data.folders.map((f) => ({
+					...f,
+					selectedCategory: f.suggestedCategory ?? "dokumenty",
+				})),
+			);
+		}
+	}, [foldersHydration.data, folders.length]);
 
 	return (
 		<div className="min-h-screen bg-background p-6">
@@ -68,7 +94,12 @@ function EmployeeFlow() {
 				{effectiveStep === 2 && employeeId && (
 					<FolderListStep
 						employeeId={employeeId}
-						onLoaded={() => {
+						onLoaded={(driveFolders) => {
+							const withCategories: FolderWithCategory[] = driveFolders.map((f) => ({
+								...f,
+								selectedCategory: f.suggestedCategory ?? "dokumenty",
+							}));
+							setFolders(withCategories);
 							navigate({
 								search: (prev) => ({
 									step: 3,
@@ -78,19 +109,22 @@ function EmployeeFlow() {
 						}}
 					/>
 				)}
-				{effectiveStep === 3 && (
-					<Card>
-						<CardContent className="py-8 text-center">
-							<p className="text-muted-foreground">Krok 3: Przypisywanie kategorii (doc 005b)</p>
-						</CardContent>
-					</Card>
+				{effectiveStep === 3 && employeeId && (
+					<CategoryTaggingStep
+						folders={folders}
+						onFoldersUpdated={setFolders}
+						onNext={() => {
+							navigate({
+								search: (prev) => ({
+									step: 4,
+									employeeId: prev.employeeId,
+								}),
+							});
+						}}
+					/>
 				)}
-				{effectiveStep === 4 && (
-					<Card>
-						<CardContent className="py-8 text-center">
-							<p className="text-muted-foreground">Krok 4: Potwierdzenie (doc 005b)</p>
-						</CardContent>
-					</Card>
+				{effectiveStep === 4 && employeeId && (
+					<ConfirmStep employeeId={employeeId} folders={folders} />
 				)}
 			</div>
 		</div>
@@ -158,7 +192,13 @@ function DriveOAuthStep({ token, oauthSuccess, onNext }: DriveOAuthStepProps) {
 	);
 }
 
-function FolderListStep({ employeeId, onLoaded }: { employeeId: string; onLoaded: () => void }) {
+function FolderListStep({
+	employeeId,
+	onLoaded,
+}: {
+	employeeId: string;
+	onLoaded: (folders: DriveFolder[]) => void;
+}) {
 	const dataServiceUrl = import.meta.env.VITE_DATA_SERVICE_URL;
 
 	const foldersQuery = useQuery({
@@ -172,7 +212,7 @@ function FolderListStep({ employeeId, onLoaded }: { employeeId: string; onLoaded
 
 	useEffect(() => {
 		if (foldersQuery.data) {
-			onLoaded();
+			onLoaded(foldersQuery.data.folders);
 		}
 	}, [foldersQuery.data, onLoaded]);
 
@@ -201,4 +241,163 @@ function FolderListStep({ employeeId, onLoaded }: { employeeId: string; onLoaded
 	}
 
 	return null;
+}
+
+function CategoryTaggingStep({
+	folders,
+	onFoldersUpdated,
+	onNext,
+}: {
+	folders: FolderWithCategory[];
+	onFoldersUpdated: (folders: FolderWithCategory[]) => void;
+	onNext: () => void;
+}) {
+	const handleCategoryChange = (folderId: string, category: string) => {
+		const updated = folders.map((f) =>
+			f.id === folderId ? { ...f, selectedCategory: category } : f,
+		);
+		onFoldersUpdated(updated);
+	};
+
+	const nonPrivateCount = folders.filter((f) => f.selectedCategory !== "prywatne").length;
+
+	return (
+		<Card>
+			<CardHeader>
+				<CardTitle>Krok 3: Przypisz kategorie</CardTitle>
+			</CardHeader>
+			<CardContent className="space-y-4">
+				<p className="text-muted-foreground">
+					Dla kazdego folderu wybierz kategorie. Foldery oznaczone jako "Prywatne" nie beda
+					backupowane.
+				</p>
+
+				<div className="space-y-3">
+					{folders.map((folder) => (
+						<div
+							key={folder.id}
+							className="flex items-center justify-between gap-4 rounded-lg border border-border p-3"
+						>
+							<div className="min-w-0 flex-1">
+								<p className="truncate font-medium text-foreground">{folder.name}</p>
+								{folder.suggestedCategory && (
+									<p className="text-xs text-muted-foreground">
+										Sugerowana: {CATEGORY_INFO[folder.suggestedCategory]?.label}
+									</p>
+								)}
+							</div>
+							<select
+								value={folder.selectedCategory}
+								onChange={(e) => handleCategoryChange(folder.id, e.target.value)}
+								className="rounded border border-input bg-background px-3 py-1.5 text-sm text-foreground"
+							>
+								{Object.entries(CATEGORY_INFO).map(([value, info]) => (
+									<option key={value} value={value}>
+										{info.label}
+									</option>
+								))}
+							</select>
+						</div>
+					))}
+				</div>
+
+				<div className="flex items-center justify-between pt-4">
+					<p className="text-sm text-muted-foreground">
+						{nonPrivateCount} z {folders.length} folderow do backupu
+					</p>
+					<Button onClick={onNext} disabled={nonPrivateCount === 0}>
+						Dalej
+					</Button>
+				</div>
+			</CardContent>
+		</Card>
+	);
+}
+
+function ConfirmStep({
+	employeeId,
+	folders,
+}: {
+	employeeId: string;
+	folders: FolderWithCategory[];
+}) {
+	const dataServiceUrl = import.meta.env.VITE_DATA_SERVICE_URL;
+	const [saved, setSaved] = useState(false);
+
+	const saveMutation = useMutation({
+		mutationFn: async () => {
+			const allSelections = folders.map((f) => ({
+				folderId: f.id,
+				folderName: f.name,
+				category: f.selectedCategory,
+			}));
+
+			const response = await fetch(`${dataServiceUrl}/folders/selections`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					employeeId,
+					selections: allSelections,
+				}),
+			});
+
+			if (!response.ok) throw new Error("Nie udalo sie zapisac wyboru");
+			return response.json();
+		},
+		onSuccess: () => setSaved(true),
+	});
+
+	const categoryCounts = folders.reduce<Record<string, number>>((acc, f) => {
+		acc[f.selectedCategory] = (acc[f.selectedCategory] ?? 0) + 1;
+		return acc;
+	}, {});
+
+	return (
+		<Card>
+			<CardHeader>
+				<CardTitle>Krok 4: Potwierdzenie</CardTitle>
+			</CardHeader>
+			<CardContent className="space-y-4">
+				{saved ? (
+					<div className="space-y-4 text-center">
+						<p className="text-lg font-medium text-green-600 dark:text-green-400">
+							Wybor zapisany pomyslnie.
+						</p>
+						<p className="text-muted-foreground">Dziekujemy! Mozesz zamknac ta strone.</p>
+					</div>
+				) : (
+					<>
+						<p className="text-muted-foreground">Sprawdz podsumowanie przed zatwierdzeniem:</p>
+
+						<div className="grid gap-2 sm:grid-cols-2">
+							{Object.entries(CATEGORY_INFO).map(([category, info]) => {
+								const count = categoryCounts[category] ?? 0;
+								if (count === 0) return null;
+								return (
+									<div key={category} className="rounded-lg border border-border p-3">
+										<p className="font-medium text-foreground">{info.label}</p>
+										<p className="text-sm text-muted-foreground">
+											{count} {count === 1 ? "folder" : "folderow"}
+										</p>
+									</div>
+								);
+							})}
+						</div>
+
+						{saveMutation.isError && (
+							<p className="text-sm text-destructive">{saveMutation.error.message}</p>
+						)}
+
+						<Button
+							className="w-full"
+							onClick={() => saveMutation.mutate()}
+							disabled={saveMutation.isPending}
+						>
+							{saveMutation.isPending ? "Zapisywanie..." : "Zatwierdz wybor"}
+						</Button>
+					</>
+				)}
+			</CardContent>
+		</Card>
+	);
 }

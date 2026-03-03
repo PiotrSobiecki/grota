@@ -1,10 +1,21 @@
+import { updateDeploymentStatus } from "@repo/data-ops/deployment";
 import {
 	getDriveOAuthToken,
 	getEmployeeById,
+	getEmployeesByDeployment,
 	updateEmployeeSelectionStatus,
 } from "@repo/data-ops/employee";
 import { decrypt } from "@repo/data-ops/encryption";
-import type { DriveFolder } from "@repo/data-ops/folder-selection";
+import type {
+	DriveFolder,
+	FolderSelection,
+	FolderSelectionCreateInput,
+} from "@repo/data-ops/folder-selection";
+import {
+	createFolderSelections,
+	deleteFolderSelectionsByEmployee,
+	getFolderSelectionsByEmployee,
+} from "@repo/data-ops/folder-selection";
 import type { Result } from "../types/result";
 
 // ============================================
@@ -171,6 +182,44 @@ export async function listDriveFolders(
 	}
 
 	return { ok: true, data: { folders } };
+}
+
+export async function getSelections(
+	employeeId: string,
+): Promise<Result<{ data: FolderSelection[]; total: number }>> {
+	const selections = await getFolderSelectionsByEmployee(employeeId);
+	return { ok: true, data: { data: selections, total: selections.length } };
+}
+
+export async function saveSelections(
+	employeeId: string,
+	selections: FolderSelectionCreateInput[],
+	_env: Env,
+): Promise<Result<FolderSelection[]>> {
+	const employee = await getEmployeeById(employeeId);
+	if (!employee) {
+		return {
+			ok: false,
+			error: { code: "NOT_FOUND", message: "Pracownik nie znaleziony", status: 404 },
+		};
+	}
+
+	await deleteFolderSelectionsByEmployee(employeeId);
+	const created = await createFolderSelections(employeeId, selections);
+
+	await updateEmployeeSelectionStatus(employeeId, "completed");
+	await checkDeploymentCompletion(employee.deploymentId);
+
+	return { ok: true, data: created };
+}
+
+async function checkDeploymentCompletion(deploymentId: string): Promise<void> {
+	const allEmployees = await getEmployeesByDeployment(deploymentId);
+	const allCompleted = allEmployees.every((emp) => emp.selectionStatus === "completed");
+
+	if (allCompleted && allEmployees.length > 0) {
+		await updateDeploymentStatus(deploymentId, "ready");
+	}
 }
 
 async function refreshAccessToken(

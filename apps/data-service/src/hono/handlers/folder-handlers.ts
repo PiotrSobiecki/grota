@@ -1,5 +1,6 @@
 import { zValidator } from "@hono/zod-validator";
 import { EmployeeIdParamSchema } from "@repo/data-ops/employee";
+import { FolderSelectionBulkCreateRequestSchema } from "@repo/data-ops/folder-selection";
 import { Hono } from "hono";
 import * as folderService from "../services/folder-service";
 import { resultToResponse } from "../utils/result-to-response";
@@ -10,5 +11,27 @@ folderHandlers.get("/drive/:employeeId", zValidator("param", EmployeeIdParamSche
 	const { employeeId } = c.req.valid("param");
 	return resultToResponse(c, await folderService.listDriveFolders(employeeId, c.env));
 });
+
+folderHandlers.get(
+	"/selections/:employeeId",
+	zValidator("param", EmployeeIdParamSchema),
+	async (c) => {
+		const { employeeId } = c.req.valid("param");
+		return resultToResponse(c, await folderService.getSelections(employeeId));
+	},
+);
+
+folderHandlers.post(
+	"/selections",
+	zValidator("json", FolderSelectionBulkCreateRequestSchema),
+	async (c) => {
+		const data = c.req.valid("json");
+		return resultToResponse(
+			c,
+			await folderService.saveSelections(data.employeeId, data.selections, c.env),
+			201,
+		);
+	},
+);
 
 export default folderHandlers;

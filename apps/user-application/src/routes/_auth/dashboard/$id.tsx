@@ -52,6 +52,15 @@ const OAUTH_STATUS_LABELS: Record<
 	failed: { label: "Blad", variant: "destructive" },
 };
 
+const SELECTION_STATUS_LABELS: Record<
+	string,
+	{ label: string; variant: "default" | "secondary" | "destructive" | "outline" }
+> = {
+	pending: { label: "Oczekuje", variant: "secondary" },
+	in_progress: { label: "W trakcie", variant: "outline" },
+	completed: { label: "Ukonczony", variant: "default" },
+};
+
 function DeploymentDetailPage() {
 	const deployment = Route.useLoaderData();
 	const router = useRouter();
@@ -385,6 +394,7 @@ interface EmployeeListItem {
 	name: string;
 	email: string;
 	oauthStatus: string;
+	selectionStatus: string;
 	departments: Array<{ id: string; name: string; slug: string }>;
 }
 
@@ -408,28 +418,44 @@ function EmployeeList({
 		return <p className="text-muted-foreground">Brak pracownikow.</p>;
 	}
 
+	const completedCount = employees.filter((e) => e.selectionStatus === "completed").length;
+
 	return (
-		<div className="space-y-2">
-			{employees.map((employee) => {
-				const statusInfo = OAUTH_STATUS_LABELS[employee.oauthStatus] ?? {
-					label: employee.oauthStatus,
-					variant: "outline" as const,
-				};
-				const deptNames = employee.departments.map((d) => d.name).join(", ");
-				return (
-					<div
-						key={employee.id}
-						className="flex items-center justify-between rounded-md border border-border p-3"
-					>
-						<div>
-							<p className="text-sm font-medium text-foreground">{employee.name}</p>
-							<p className="text-xs text-muted-foreground">{employee.email}</p>
-							{deptNames && <p className="text-xs text-muted-foreground mt-0.5">{deptNames}</p>}
+		<div className="space-y-3">
+			{employees.length > 0 && (
+				<p className="text-sm text-muted-foreground">
+					{completedCount}/{employees.length} pracownikow ukonczylo
+				</p>
+			)}
+			<div className="space-y-2">
+				{employees.map((employee) => {
+					const oauthInfo = OAUTH_STATUS_LABELS[employee.oauthStatus] ?? {
+						label: employee.oauthStatus,
+						variant: "outline" as const,
+					};
+					const selectionInfo = SELECTION_STATUS_LABELS[employee.selectionStatus] ?? {
+						label: employee.selectionStatus,
+						variant: "outline" as const,
+					};
+					const deptNames = employee.departments.map((d) => d.name).join(", ");
+					return (
+						<div
+							key={employee.id}
+							className="flex items-center justify-between rounded-md border border-border p-3"
+						>
+							<div>
+								<p className="text-sm font-medium text-foreground">{employee.name}</p>
+								<p className="text-xs text-muted-foreground">{employee.email}</p>
+								{deptNames && <p className="mt-0.5 text-xs text-muted-foreground">{deptNames}</p>}
+							</div>
+							<div className="flex gap-2">
+								<Badge variant={oauthInfo.variant}>{oauthInfo.label}</Badge>
+								<Badge variant={selectionInfo.variant}>{selectionInfo.label}</Badge>
+							</div>
 						</div>
-						<Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
-					</div>
-				);
-			})}
+					);
+				})}
+			</div>
 		</div>
 	);
 }
