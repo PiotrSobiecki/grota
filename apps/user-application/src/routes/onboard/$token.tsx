@@ -30,10 +30,13 @@ function OnboardingWizard() {
 	const loaderData = Route.useLoaderData();
 	const { token } = Route.useParams();
 	const [currentStep, setCurrentStep] = useState(() => {
-		const params = new URLSearchParams(window.location.search);
-		if (params.get("oauth") === "success") return 2;
 		return loaderData.step > 0 ? loaderData.step : 1;
 	});
+
+	useEffect(() => {
+		const params = new URLSearchParams(window.location.search);
+		if (params.get("oauth") === "success") setCurrentStep(2);
+	}, []);
 
 	return (
 		<div className="min-h-screen bg-background p-6">
