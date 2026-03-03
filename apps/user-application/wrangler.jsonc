@@ -32,10 +32,10 @@
 		"staging": {
 			"name": "grota-ua-staging",
 			"routes": [
-			  {
-			    "custom_domain": true,
-			    "pattern": "staging-grota.auditmos.com"
-			  }
+				{
+					"custom_domain": true,
+					"pattern": "staging-grota.auditmos.com"
+				}
 			],
 			"services": [
 				{
@@ -50,10 +50,10 @@
 		"production": {
 			"name": "grota-ua-production",
 			"routes": [
-			  {
-			    "custom_domain": true,
-			    "pattern": "grota.auditmos.com"
-			  }
+				{
+					"custom_domain": true,
+					"pattern": "grota.auditmos.com"
+				}
 			],
 			"services": [
 				{

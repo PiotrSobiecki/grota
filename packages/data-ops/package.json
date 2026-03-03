@@ -7,6 +7,10 @@
 			"types": "./dist/encryption/index.d.ts",
 			"default": "./dist/encryption/index.js"
 		},
+		"./folder-selection": {
+			"types": "./dist/folder-selection/index.d.ts",
+			"default": "./dist/folder-selection/index.js"
+		},
 		"./deployment": {
 			"types": "./dist/deployment/index.d.ts",
 			"default": "./dist/deployment/index.js"

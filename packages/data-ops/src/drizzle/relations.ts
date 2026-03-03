@@ -2,6 +2,7 @@ import { relations } from "drizzle-orm/relations";
 import { deploymentDepartments, employeeDepartments } from "../department/table";
 import { deployments } from "../deployment/table";
 import { employees } from "../employee/table";
+import { folderSelections } from "../folder-selection/table";
 import { auth_user } from "./auth-schema";
 
 export const deploymentRelations = relations(deployments, ({ one, many }) => ({
@@ -19,6 +20,14 @@ export const employeeRelations = relations(employees, ({ one, many }) => ({
 		references: [deployments.id],
 	}),
 	employeeDepartments: many(employeeDepartments),
+	folderSelections: many(folderSelections),
+}));
+
+export const folderSelectionRelations = relations(folderSelections, ({ one }) => ({
+	employee: one(employees, {
+		fields: [folderSelections.employeeId],
+		references: [employees.id],
+	}),
 }));
 
 export const deploymentDepartmentRelations = relations(deploymentDepartments, ({ one, many }) => ({

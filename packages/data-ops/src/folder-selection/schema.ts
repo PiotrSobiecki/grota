@@ -1,0 +1,70 @@
+import { z } from "zod";
+
+// ============================================
+// Enums
+// ============================================
+
+export const FolderCategorySchema = z.enum(["dokumenty", "projekty", "media", "prywatne"]);
+
+// ============================================
+// Domain Model
+// ============================================
+
+export const FolderSelectionSchema = z.object({
+	id: z.string().uuid(),
+	employeeId: z.string().uuid(),
+	folderId: z.string(),
+	folderName: z.string(),
+	category: FolderCategorySchema,
+	createdAt: z.coerce.date(),
+});
+
+// ============================================
+// Request Schemas
+// ============================================
+
+export const FolderSelectionCreateRequestSchema = z.object({
+	folderId: z.string().min(1, "ID folderu jest wymagane"),
+	folderName: z.string().min(1, "Nazwa folderu jest wymagana"),
+	category: FolderCategorySchema,
+});
+
+export const FolderSelectionBulkCreateRequestSchema = z.object({
+	employeeId: z.string().uuid(),
+	selections: z
+		.array(FolderSelectionCreateRequestSchema)
+		.min(1, "Wybierz przynajmniej jeden folder"),
+});
+
+// ============================================
+// Response Schemas
+// ============================================
+
+export const FolderSelectionResponseSchema = FolderSelectionSchema;
+
+export const FolderSelectionListResponseSchema = z.object({
+	data: z.array(FolderSelectionSchema),
+	total: z.number(),
+});
+
+/** Google Drive folder item as returned from the API */
+export const DriveFolderSchema = z.object({
+	id: z.string(),
+	name: z.string(),
+	mimeType: z.string(),
+	suggestedCategory: FolderCategorySchema.nullable(),
+});
+
+export const DriveFolderListResponseSchema = z.object({
+	folders: z.array(DriveFolderSchema),
+});
+
+// ============================================
+// Types
+// ============================================
+
+export type FolderCategory = z.infer<typeof FolderCategorySchema>;
+export type FolderSelection = z.infer<typeof FolderSelectionSchema>;
+export type FolderSelectionCreateInput = z.infer<typeof FolderSelectionCreateRequestSchema>;
+export type FolderSelectionBulkCreateInput = z.infer<typeof FolderSelectionBulkCreateRequestSchema>;
+export type DriveFolder = z.infer<typeof DriveFolderSchema>;

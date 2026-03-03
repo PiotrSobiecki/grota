@@ -43,6 +43,13 @@
       "when": 1772535148736,
       "tag": "0005_sticky_wendell_rand",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1772562809622,
+      "tag": "0006_swift_shooting_star",
+      "breakpoints": true
     }
   ]
 }

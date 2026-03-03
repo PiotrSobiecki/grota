@@ -12,7 +12,7 @@ import {
 	Plus,
 	Trash2,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,7 +21,19 @@ import { getDepartments } from "@/core/functions/departments/binding";
 import { bulkCreateEmployees } from "@/core/functions/employees/binding";
 import { verifyAdminToken } from "@/core/functions/magic-links/binding";
 
+interface OnboardSearchParams {
+	step?: number;
+	oauth?: string;
+}
+
 export const Route = createFileRoute("/onboard/$token")({
+	validateSearch: (search: Record<string, unknown>): OnboardSearchParams => ({
+		step:
+			typeof search.step === "string" || typeof search.step === "number"
+				? Number(search.step)
+				: undefined,
+		oauth: typeof search.oauth === "string" ? search.oauth : undefined,
+	}),
 	loader: ({ params }) => verifyAdminToken({ data: { token: params.token } }),
 	component: OnboardingWizard,
 });
@@ -29,14 +41,13 @@ export const Route = createFileRoute("/onboard/$token")({
 function OnboardingWizard() {
 	const loaderData = Route.useLoaderData();
 	const { token } = Route.useParams();
-	const [currentStep, setCurrentStep] = useState(() => {
-		return loaderData.step > 0 ? loaderData.step : 1;
-	});
+	const { step: searchStep, oauth } = Route.useSearch();
+	const navigate = Route.useNavigate();
 
-	useEffect(() => {
-		const params = new URLSearchParams(window.location.search);
-		if (params.get("oauth") === "success") setCurrentStep(2);
-	}, []);
+	const serverStep = loaderData.step > 0 ? loaderData.step : 1;
+	const currentStep = searchStep ?? (oauth === "success" ? 2 : serverStep);
+
+	const goTo = (step: number) => navigate({ search: { step } });
 
 	return (
 		<div className="min-h-screen bg-background p-6">
@@ -44,10 +55,10 @@ function OnboardingWizard() {
 				<h1 className="text-2xl font-bold text-foreground">Grota -- Onboarding</h1>
 
 				<div className="flex gap-2">
-					{[1, 2, 3, 4].map((step) => (
+					{[1, 2, 3, 4].map((s) => (
 						<div
-							key={step}
-							className={`h-2 flex-1 rounded ${step <= currentStep ? "bg-primary" : "bg-muted"}`}
+							key={s}
+							className={`h-2 flex-1 rounded ${s <= currentStep ? "bg-primary" : "bg-muted"}`}
 						/>
 					))}
 				</div>
@@ -58,29 +69,27 @@ function OnboardingWizard() {
 						domain={loaderData.domain}
 						adminEmail={loaderData.adminEmail}
 						adminName={loaderData.adminName}
-						onNext={() => setCurrentStep(2)}
+						onNext={() => goTo(2)}
 					/>
 				)}
 				{currentStep === 2 && (
 					<OAuthConsentStep
 						deploymentId={loaderData.deploymentId}
 						magicLinkToken={token}
-						onNext={() => setCurrentStep(3)}
-						onBack={() => setCurrentStep(1)}
+						oauthSuccess={oauth === "success"}
+						onNext={() => goTo(3)}
+						onBack={() => goTo(1)}
 					/>
 				)}
 				{currentStep === 3 && (
 					<DelegateChecklistStep
 						operatorEmail={loaderData.operatorEmail}
-						onNext={() => setCurrentStep(4)}
-						onBack={() => setCurrentStep(2)}
+						onNext={() => goTo(4)}
+						onBack={() => goTo(2)}
 					/>
 				)}
 				{currentStep === 4 && (
-					<EmployeeListStep
-						deploymentId={loaderData.deploymentId}
-						onBack={() => setCurrentStep(3)}
-					/>
+					<EmployeeListStep deploymentId={loaderData.deploymentId} onBack={() => goTo(3)} />
 				)}
 			</div>
 		</div>
@@ -138,23 +147,16 @@ function CompanyInfoStep({
 function OAuthConsentStep({
 	deploymentId,
 	magicLinkToken,
+	oauthSuccess,
 	onNext,
 	onBack,
 }: {
 	deploymentId: string;
 	magicLinkToken: string;
+	oauthSuccess: boolean;
 	onNext: () => void;
 	onBack: () => void;
 }) {
-	const [oauthCompleted, setOauthCompleted] = useState(false);
-
-	useEffect(() => {
-		const params = new URLSearchParams(window.location.search);
-		if (params.get("oauth") === "success") {
-			setOauthCompleted(true);
-		}
-	}, []);
-
 	const handleAuthorize = () => {
 		const dataServiceUrl = import.meta.env.VITE_DATA_SERVICE_URL;
 		window.location.href = `${dataServiceUrl}/api/oauth/google/authorize?type=admin&id=${deploymentId}&token=${magicLinkToken}`;
@@ -190,7 +192,7 @@ function OAuthConsentStep({
 					</p>
 				</div>
 
-				{oauthCompleted ? (
+				{oauthSuccess ? (
 					<div className="space-y-2">
 						<p className="text-sm text-green-600 dark:text-green-400">
 							Autoryzacja zakonczona pomyslnie.
@@ -305,8 +307,6 @@ interface EmployeeRow {
 }
 
 function EmployeeListStep({ deploymentId, onBack }: { deploymentId: string; onBack: () => void }) {
-	const [submitted, setSubmitted] = useState(false);
-
 	const departmentsQuery = useQuery({
 		queryKey: ["departments", deploymentId],
 		queryFn: () => getDepartments({ data: { deploymentId } }),
@@ -329,11 +329,10 @@ function EmployeeListStep({ deploymentId, onBack }: { deploymentId: string; onBa
 				deploymentId,
 				employees: value.employees,
 			});
-			setSubmitted(true);
 		},
 	});
 
-	if (submitted) {
+	if (mutation.isSuccess) {
 		return (
 			<Card>
 				<CardHeader>
