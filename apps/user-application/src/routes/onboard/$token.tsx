@@ -1,7 +1,7 @@
 import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { CheckCircle2, Loader2, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Copy, ExternalLink, Loader2, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -16,9 +16,7 @@ export const Route = createFileRoute("/onboard/$token")({
 });
 
 function OnboardingWizard() {
-	const { token } = Route.useParams();
 	const loaderData = Route.useLoaderData();
-	// Step management: start from backend-persisted step or step 1
 	const [currentStep, setCurrentStep] = useState(loaderData.step > 0 ? loaderData.step : 1);
 
 	return (
@@ -26,7 +24,6 @@ function OnboardingWizard() {
 			<div className="max-w-2xl mx-auto space-y-6">
 				<h1 className="text-2xl font-bold text-foreground">Grota -- Onboarding</h1>
 
-				{/* Step indicator */}
 				<div className="flex gap-2">
 					{[1, 2, 3, 4].map((step) => (
 						<div
@@ -36,17 +33,51 @@ function OnboardingWizard() {
 					))}
 				</div>
 
-				{currentStep === 1 && <CompanyInfoStep token={token} onNext={() => setCurrentStep(2)} />}
-				{currentStep === 2 && <OAuthPlaceholderStep onNext={() => setCurrentStep(3)} />}
-				{currentStep === 3 && <DelegateChecklistStep onNext={() => setCurrentStep(4)} />}
-				{currentStep === 4 && <EmployeeListStep deploymentId={loaderData.deploymentId} />}
+				{currentStep === 1 && (
+					<CompanyInfoStep
+						clientName={loaderData.clientName}
+						domain={loaderData.domain}
+						adminEmail={loaderData.adminEmail}
+						adminName={loaderData.adminName}
+						onNext={() => setCurrentStep(2)}
+					/>
+				)}
+				{currentStep === 2 && (
+					<OAuthPlaceholderStep onNext={() => setCurrentStep(3)} onBack={() => setCurrentStep(1)} />
+				)}
+				{currentStep === 3 && (
+					<DelegateChecklistStep
+						operatorEmail={loaderData.operatorEmail}
+						onNext={() => setCurrentStep(4)}
+						onBack={() => setCurrentStep(2)}
+					/>
+				)}
+				{currentStep === 4 && (
+					<EmployeeListStep
+						deploymentId={loaderData.deploymentId}
+						onBack={() => setCurrentStep(3)}
+					/>
+				)}
 			</div>
 		</div>
 	);
 }
 
-// Step 1: Company info (domain auto-filled from deployment)
-function CompanyInfoStep({ token: _token, onNext }: { token: string; onNext: () => void }) {
+interface CompanyInfoStepProps {
+	clientName: string;
+	domain: string;
+	adminEmail: string | null;
+	adminName: string | null;
+	onNext: () => void;
+}
+
+function CompanyInfoStep({
+	clientName,
+	domain,
+	adminEmail,
+	adminName,
+	onNext,
+}: CompanyInfoStepProps) {
 	return (
 		<Card>
 			<CardHeader>
@@ -56,15 +87,31 @@ function CompanyInfoStep({ token: _token, onNext }: { token: string; onNext: () 
 				<p className="text-muted-foreground">
 					Potwierdz dane firmy i uzupelnij informacje o Google Workspace.
 				</p>
-				{/* Form fields: workspace admin email, additional notes */}
+				<div className="rounded-md border border-border p-4 space-y-2">
+					<div>
+						<span className="text-sm text-muted-foreground">Firma: </span>
+						<span className="text-foreground font-medium">{clientName}</span>
+					</div>
+					<div>
+						<span className="text-sm text-muted-foreground">Domena: </span>
+						<span className="text-foreground font-medium">{domain}</span>
+					</div>
+					{adminEmail && (
+						<div>
+							<span className="text-sm text-muted-foreground">Administrator: </span>
+							<span className="text-foreground font-medium">
+								{adminName ? `${adminName} (${adminEmail})` : adminEmail}
+							</span>
+						</div>
+					)}
+				</div>
 				<Button onClick={onNext}>Dalej</Button>
 			</CardContent>
 		</Card>
 	);
 }
 
-// Step 2: OAuth placeholder (implemented in doc 004)
-function OAuthPlaceholderStep({ onNext }: { onNext: () => void }) {
+function OAuthPlaceholderStep({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
 	return (
 		<Card>
 			<CardHeader>
@@ -74,15 +121,33 @@ function OAuthPlaceholderStep({ onNext }: { onNext: () => void }) {
 				<p className="text-muted-foreground">
 					Ten krok zostanie udostepniony w kolejnej aktualizacji. Na razie przejdz dalej.
 				</p>
-				<Button onClick={onNext}>Dalej</Button>
+				<div className="flex gap-2">
+					<Button variant="outline" onClick={onBack}>
+						<ArrowLeft className="mr-2 h-4 w-4" />
+						Wstecz
+					</Button>
+					<Button onClick={onNext}>Dalej</Button>
+				</div>
 			</CardContent>
 		</Card>
 	);
 }
 
-// Step 3: Admin delegate checklist
-function DelegateChecklistStep({ onNext }: { onNext: () => void }) {
+interface DelegateChecklistStepProps {
+	operatorEmail: string;
+	onNext: () => void;
+	onBack: () => void;
+}
+
+function DelegateChecklistStep({ operatorEmail, onNext, onBack }: DelegateChecklistStepProps) {
 	const [confirmed, setConfirmed] = useState(false);
+	const [copied, setCopied] = useState(false);
+
+	const handleCopy = async () => {
+		await navigator.clipboard.writeText(operatorEmail);
+		setCopied(true);
+		setTimeout(() => setCopied(false), 2000);
+	};
 
 	return (
 		<Card>
@@ -91,14 +156,41 @@ function DelegateChecklistStep({ onNext }: { onNext: () => void }) {
 			</CardHeader>
 			<CardContent className="space-y-4">
 				<p className="text-muted-foreground">
-					Aby przeprowadzic migracje, potrzebujemy dostepu jako delegat administracyjny w Twoim
-					Google Workspace.
+					Aby kontynuowac, dodaj{" "}
+					<span className="font-semibold text-foreground">{operatorEmail}</span> jako administratora
+					z uprawnieniami do zarzadzania Dyskiem i Grupami w Google Workspace.
 				</p>
+
+				<div className="flex items-center gap-2 rounded-md border border-border bg-muted px-3 py-2">
+					<span className="flex-1 font-mono text-sm text-foreground">{operatorEmail}</span>
+					<Button variant="ghost" size="icon" onClick={handleCopy} title="Kopiuj email">
+						{copied ? (
+							<CheckCircle2 className="h-4 w-4 text-primary" />
+						) : (
+							<Copy className="h-4 w-4 text-muted-foreground" />
+						)}
+					</Button>
+				</div>
+
+				<Button variant="outline" asChild>
+					<a href="https://admin.google.com/ac/roles" target="_blank" rel="noopener noreferrer">
+						<ExternalLink className="mr-2 h-4 w-4" />
+						Otworz Google Admin
+					</a>
+				</Button>
+
 				<ol className="list-decimal list-inside space-y-2 text-foreground">
-					<li>Zaloguj sie do Google Admin Console (admin.google.com)</li>
-					<li>Przejdz do Konto &rarr; Role administratora</li>
-					<li>Dodaj operatora jako delegata z dostepem do katalogu</li>
+					<li>Kliknij przycisk powyzej aby otworzyc Google Admin</li>
+					<li>
+						Utworz nowa role z uprawnieniami:
+						<ul className="ml-6 mt-1 list-disc space-y-1">
+							<li>Dysk i Dokumenty (Ustawienia)</li>
+							<li>Grupy (Tworzenie, Usuwanie, Odczyt, Aktualizowanie)</li>
+						</ul>
+					</li>
+					<li>Przypisz role do adresu email powyzej</li>
 				</ol>
+
 				<label className="flex items-center gap-2 text-foreground">
 					<input
 						type="checkbox"
@@ -108,9 +200,15 @@ function DelegateChecklistStep({ onNext }: { onNext: () => void }) {
 					/>
 					Dodalem/am delegata
 				</label>
-				<Button onClick={onNext} disabled={!confirmed}>
-					Dalej
-				</Button>
+				<div className="flex gap-2">
+					<Button variant="outline" onClick={onBack}>
+						<ArrowLeft className="mr-2 h-4 w-4" />
+						Wstecz
+					</Button>
+					<Button onClick={onNext} disabled={!confirmed}>
+						Dalej
+					</Button>
+				</div>
 			</CardContent>
 		</Card>
 	);
@@ -129,8 +227,7 @@ interface EmployeeRow {
 	role: "zarzad" | "ksiegowosc" | "projekty" | "media";
 }
 
-// Step 4: Employee list form
-function EmployeeListStep({ deploymentId }: { deploymentId: string }) {
+function EmployeeListStep({ deploymentId, onBack }: { deploymentId: string; onBack: () => void }) {
 	const [submitted, setSubmitted] = useState(false);
 
 	const mutation = useMutation({
@@ -193,23 +290,109 @@ function EmployeeListStep({ deploymentId }: { deploymentId: string }) {
 					{mutation.isError && <Alert variant="destructive">{mutation.error.message}</Alert>}
 
 					<form.Field name="employees" mode="array">
-						{(field) => (
+						{(arrayField) => (
 							<div className="space-y-3">
-								{field.state.value.map((_, i) => (
-									<EmployeeFormRow
+								{arrayField.state.value.map((_, i) => (
+									<div
 										key={`employee-${i.toString()}`}
-										form={form}
-										index={i}
-										canRemove={field.state.value.length > 1}
-										onRemove={() => field.removeValue(i)}
-									/>
+										className="flex items-start gap-2 rounded-md border border-border p-3"
+									>
+										<div className="flex-1 space-y-2">
+											<div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+												<form.Field
+													name={`employees[${i}].email`}
+													validators={{
+														onChange: ({ value }: { value: string }) => {
+															if (!value) return "Email jest wymagany";
+															if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))
+																return "Nieprawidlowy format email";
+															return undefined;
+														},
+													}}
+												>
+													{(field) => (
+														<div>
+															<Input
+																placeholder="email@firma.pl"
+																type="email"
+																value={field.state.value}
+																onChange={(e) => field.handleChange(e.target.value)}
+																onBlur={field.handleBlur}
+															/>
+															{field.state.meta.errors.length > 0 && (
+																<p className="mt-1 text-xs text-destructive">
+																	{field.state.meta.errors[0]}
+																</p>
+															)}
+														</div>
+													)}
+												</form.Field>
+
+												<form.Field
+													name={`employees[${i}].name`}
+													validators={{
+														onChange: ({ value }: { value: string }) =>
+															!value ? "Imie i nazwisko jest wymagane" : undefined,
+													}}
+												>
+													{(field) => (
+														<div>
+															<Input
+																placeholder="Jan Kowalski"
+																value={field.state.value}
+																onChange={(e) => field.handleChange(e.target.value)}
+																onBlur={field.handleBlur}
+															/>
+															{field.state.meta.errors.length > 0 && (
+																<p className="mt-1 text-xs text-destructive">
+																	{field.state.meta.errors[0]}
+																</p>
+															)}
+														</div>
+													)}
+												</form.Field>
+
+												<form.Field name={`employees[${i}].role`}>
+													{(field) => (
+														<select
+															value={field.state.value}
+															onChange={(e) =>
+																field.handleChange(e.target.value as EmployeeRow["role"])
+															}
+															onBlur={field.handleBlur}
+															className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm text-foreground shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+														>
+															{ROLE_OPTIONS.map((opt) => (
+																<option key={opt.value} value={opt.value}>
+																	{opt.label}
+																</option>
+															))}
+														</select>
+													)}
+												</form.Field>
+											</div>
+										</div>
+
+										{arrayField.state.value.length > 1 && (
+											<Button
+												type="button"
+												variant="ghost"
+												size="icon"
+												onClick={() => arrayField.removeValue(i)}
+												className="mt-0 shrink-0"
+												title="Usun pracownika"
+											>
+												<Trash2 className="h-4 w-4 text-muted-foreground" />
+											</Button>
+										)}
+									</div>
 								))}
 
 								<Button
 									type="button"
 									variant="outline"
 									onClick={() =>
-										field.pushValue({
+										arrayField.pushValue({
 											email: "",
 											name: "",
 											role: "projekty",
@@ -224,116 +407,32 @@ function EmployeeListStep({ deploymentId }: { deploymentId: string }) {
 						)}
 					</form.Field>
 
-					<form.Subscribe selector={(s) => s.canSubmit}>
-						{(canSubmit) => (
-							<Button type="submit" disabled={!canSubmit || mutation.isPending} className="w-full">
-								{mutation.isPending ? (
-									<>
-										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-										Zapisywanie...
-									</>
-								) : (
-									"Wyslij"
-								)}
-							</Button>
-						)}
-					</form.Subscribe>
+					<div className="flex gap-2">
+						<Button type="button" variant="outline" onClick={onBack}>
+							<ArrowLeft className="mr-2 h-4 w-4" />
+							Wstecz
+						</Button>
+						<form.Subscribe selector={(s) => s.canSubmit}>
+							{(canSubmit) => (
+								<Button
+									type="submit"
+									disabled={!canSubmit || mutation.isPending}
+									className="flex-1"
+								>
+									{mutation.isPending ? (
+										<>
+											<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+											Zapisywanie...
+										</>
+									) : (
+										"Wyslij"
+									)}
+								</Button>
+							)}
+						</form.Subscribe>
+					</div>
 				</form>
 			</CardContent>
 		</Card>
-	);
-}
-
-interface EmployeeFormRowProps {
-	form: ReturnType<typeof useForm<{ employees: EmployeeRow[] }>>;
-	index: number;
-	canRemove: boolean;
-	onRemove: () => void;
-}
-
-function EmployeeFormRow({ form, index, canRemove, onRemove }: EmployeeFormRowProps) {
-	return (
-		<div className="flex items-start gap-2 rounded-md border border-border p-3">
-			<div className="flex-1 space-y-2">
-				<div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-					<form.Field
-						name={`employees[${index}].email`}
-						validators={{
-							onChange: ({ value }) => {
-								if (!value) return "Email jest wymagany";
-								if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return "Nieprawidlowy format email";
-								return undefined;
-							},
-						}}
-					>
-						{(field) => (
-							<div>
-								<Input
-									placeholder="email@firma.pl"
-									type="email"
-									value={field.state.value}
-									onChange={(e) => field.handleChange(e.target.value)}
-									onBlur={field.handleBlur}
-								/>
-								{field.state.meta.errors.length > 0 && (
-									<p className="mt-1 text-xs text-destructive">{field.state.meta.errors[0]}</p>
-								)}
-							</div>
-						)}
-					</form.Field>
-
-					<form.Field
-						name={`employees[${index}].name`}
-						validators={{
-							onChange: ({ value }) => (!value ? "Imie i nazwisko jest wymagane" : undefined),
-						}}
-					>
-						{(field) => (
-							<div>
-								<Input
-									placeholder="Jan Kowalski"
-									value={field.state.value}
-									onChange={(e) => field.handleChange(e.target.value)}
-									onBlur={field.handleBlur}
-								/>
-								{field.state.meta.errors.length > 0 && (
-									<p className="mt-1 text-xs text-destructive">{field.state.meta.errors[0]}</p>
-								)}
-							</div>
-						)}
-					</form.Field>
-
-					<form.Field name={`employees[${index}].role`}>
-						{(field) => (
-							<select
-								value={field.state.value}
-								onChange={(e) => field.handleChange(e.target.value as EmployeeRow["role"])}
-								onBlur={field.handleBlur}
-								className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm text-foreground shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
-							>
-								{ROLE_OPTIONS.map((opt) => (
-									<option key={opt.value} value={opt.value}>
-										{opt.label}
-									</option>
-								))}
-							</select>
-						)}
-					</form.Field>
-				</div>
-			</div>
-
-			{canRemove && (
-				<Button
-					type="button"
-					variant="ghost"
-					size="icon"
-					onClick={onRemove}
-					className="mt-0 shrink-0"
-					title="Usun pracownika"
-				>
-					<Trash2 className="h-4 w-4 text-muted-foreground" />
-				</Button>
-			)}
-		</div>
 	);
 }

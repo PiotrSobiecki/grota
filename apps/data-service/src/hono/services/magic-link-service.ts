@@ -86,9 +86,17 @@ export async function generateAdminMagicLink(
 	};
 }
 
-export async function verifyAdminToken(
-	token: string,
-): Promise<Result<{ deploymentId: string; step: number }>> {
+interface AdminTokenData {
+	deploymentId: string;
+	step: number;
+	clientName: string;
+	domain: string;
+	adminEmail: string | null;
+	adminName: string | null;
+	operatorEmail: string;
+}
+
+export async function verifyAdminToken(token: string): Promise<Result<AdminTokenData>> {
 	const deployment = await getDeploymentByAdminToken(token);
 	if (!deployment) {
 		return {
@@ -113,6 +121,11 @@ export async function verifyAdminToken(
 		data: {
 			deploymentId: deployment.id,
 			step: deployment.onboardingStep ?? 0,
+			clientName: deployment.clientName,
+			domain: deployment.domain,
+			adminEmail: deployment.adminEmail,
+			adminName: deployment.adminName,
+			operatorEmail: deployment.operatorEmail,
 		},
 	};
 }
@@ -247,7 +260,13 @@ export async function generateEmployeeMagicLinks(
 		const token = generateMagicLinkToken();
 		const expiresAt = getMagicLinkExpiry(7);
 		await updateEmployeeMagicLink(employee.id, token, expiresAt);
-		const emailResult = await sendMagicLinkEmail(employee.email, employee.name, token, "employee", env);
+		const emailResult = await sendMagicLinkEmail(
+			employee.email,
+			employee.name,
+			token,
+			"employee",
+			env,
+		);
 		if (emailResult.ok) {
 			sent++;
 		} else {
@@ -295,7 +314,13 @@ export async function resendEmployeeMagicLink(
 	const token = generateMagicLinkToken();
 	const expiresAt = getMagicLinkExpiry(7);
 	await updateEmployeeMagicLink(employee.id, token, expiresAt);
-	const emailResult = await sendMagicLinkEmail(employee.email, employee.name, token, "employee", env);
+	const emailResult = await sendMagicLinkEmail(
+		employee.email,
+		employee.name,
+		token,
+		"employee",
+		env,
+	);
 
 	if (!emailResult.ok) {
 		return {

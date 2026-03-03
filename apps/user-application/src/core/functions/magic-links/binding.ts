@@ -42,5 +42,13 @@ export const verifyAdminToken = createServerFn({ method: "GET" })
 			);
 		}
 
-		return (await response.json()) as { deploymentId: string; step: number };
+		return (await response.json()) as {
+			deploymentId: string;
+			step: number;
+			clientName: string;
+			domain: string;
+			adminEmail: string | null;
+			adminName: string | null;
+			operatorEmail: string;
+		};
 	});

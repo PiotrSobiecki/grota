@@ -1,9 +1,10 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import { ArrowLeft, Copy, Loader2, Mail, Send, Users } from "lucide-react";
+import { ArrowLeft, Copy, Info, Loader2, Mail, Send, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { getDeploymentById } from "@/core/functions/deployments/direct";
 import {
 	getEmployeesByDeployment,
@@ -130,23 +131,34 @@ function MagicLinkCard({ deployment, magicLinkMutation, onCopyLink }: MagicLinkC
 							</p>
 						)}
 
-						<Button
-							onClick={() => magicLinkMutation.mutate()}
-							disabled={magicLinkMutation.isPending}
-							variant={deployment.status !== "draft" ? "outline" : "default"}
-						>
-							{magicLinkMutation.isPending ? (
-								<>
-									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-									Generowanie...
-								</>
-							) : (
-								<>
-									<Send className="mr-2 h-4 w-4" />
-									{deployment.status === "draft" ? "Generuj link" : "Wyslij ponownie"}
-								</>
-							)}
-						</Button>
+						<div className="flex items-center gap-2">
+							<Button
+								onClick={() => magicLinkMutation.mutate()}
+								disabled={magicLinkMutation.isPending}
+								variant={deployment.status !== "draft" ? "outline" : "default"}
+							>
+								{magicLinkMutation.isPending ? (
+									<>
+										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+										Generowanie...
+									</>
+								) : (
+									<>
+										<Send className="mr-2 h-4 w-4" />
+										{deployment.status === "draft" ? "Generuj i wyslij link" : "Wyslij ponownie"}
+									</>
+								)}
+							</Button>
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<Info className="h-4 w-4 text-muted-foreground cursor-help" />
+								</TooltipTrigger>
+								<TooltipContent>
+									Wygenerowany link do uzupelnienia danych firmowych zostanie wyslany na adres
+									administratora tego wdrozenia.
+								</TooltipContent>
+							</Tooltip>
+						</div>
 
 						{magicLinkMutation.isError && (
 							<p className="text-sm text-destructive">{magicLinkMutation.error.message}</p>
