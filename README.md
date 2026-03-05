@@ -84,7 +84,70 @@ pnpm run deploy:production:user-application
 pnpm run deploy:production:data-service
 ```
 
+## Etap 2: Grota Server (backup & migracja)
+
+Po ukończeniu onboardingu w portalu web, operator uruchamia skrypty serwerowe na VPS klienta.
+
+### Instalacja na VPS
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/auditmos/grota/main/scripts/install.sh | bash
+```
+
+Instaluje CLI `grota` + zależności (rclone, jq). Konfiguracja w `/etc/grota/grota.env`.
+
+### Flow operatora
+
+1. **Pobranie konfiguracji** — `grota` pobiera config JSON z R2 (wyeksportowany z portalu web). Zawiera tokeny OAuth pracowników, mapowanie folderów, dane Workspace.
+
+2. **Setup** — generuje konfigurację rclone z tokenów OAuth + konfiguruje remote B2:
+   ```bash
+   grota setup rclone       # Drive remotes z config JSON
+   grota setup b2           # Backblaze B2 remote
+   grota verify remotes     # test połączeń
+   ```
+
+3. **Backup** — synchronizuje dane z Google Drive pracowników na serwer lokalny i do B2:
+   ```bash
+   grota backup account jan@gmail.com   # jeden pracownik
+   grota backup all                     # wszyscy równolegle
+   ```
+   Backup działa wg kategorii: dokumenty → B2 (365 dni retencji), projekty → B2 (730 dni), media → B2 (bez limitu), prywatne → pomijane.
+
+4. **Migracja do Shared Drives** — przenosi dokumenty/projekty z prywatnych kont do firmowych Shared Drives w Workspace:
+   ```bash
+   grota migrate --deployment abc123
+   grota migrate --deployment abc123 --verify   # raport diff
+   ```
+
+5. **Harmonogram** — instaluje systemd timery (backup co noc o 01:00, weryfikacja integralności co tydzień):
+   ```bash
+   grota timers install
+   grota timers status
+   ```
+
+6. **Audyt** — raporty uprawnień, zużycia storage, integralności backupu:
+   ```bash
+   grota audit permissions
+   grota audit storage
+   grota audit backup
+   ```
+
+### Infrastruktura B2
+
+Terraform tworzy 3 buckety per klient: `{prefix}-dokumenty`, `{prefix}-media`, `{prefix}-projekty` z szyfrowaniem SSE-B2 (AES-256) i osobnymi kluczami API.
+
+```bash
+cd terraform && terraform plan -var-file=clients/firmaxyz.tfvars
+```
+
+### Powiadomienia
+
+Skrypty raportują status (sukces/błąd/token wygasł) do data-service → Telegram operatora.
+
 ## Dokumentacja
 
 - `/docs` — design docs (source of truth)
+- `docs/099-107` — Etap 2 (server scripts, terraform, dystrybucja)
+- `docs/done/001-007` — Etap 1 (portal web, zaimplementowany)
 - Każdy package ma własny `CLAUDE.md` z detalami technicznymi
