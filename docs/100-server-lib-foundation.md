@@ -2,7 +2,7 @@
 
 ## Goal
 
-Create the `scripts/` directory structure with all library files, a sample config JSON for testing, and R2 config download capability -- establishing the foundation for all server-side scripts.
+Create the `apps/cli/` directory structure with all library files, a sample config JSON for testing, and R2 config download capability -- establishing the foundation for all server-side scripts.
 
 ## Prerequisites
 
@@ -14,13 +14,13 @@ Create the `scripts/` directory structure with all library files, a sample confi
 
 ### IN
 
-- `scripts/lib/common.sh` -- logging, locking, disk check, trap handlers
-- `scripts/lib/config.sh` -- load config JSON from R2 or local file, parse with `jq`
-- `scripts/lib/secrets.sh` -- pluggable secret backend (env/file)
-- `scripts/lib/notify.sh` -- POST to data-service `/notify` endpoint
-- `scripts/grota` -- main CLI entry point with subcommand routing
-- `scripts/grota.env.example` -- environment template
-- `scripts/test/sample-config.json` -- sample config for offline testing
+- `apps/cli/lib/common.sh` -- logging, locking, disk check, trap handlers
+- `apps/cli/lib/config.sh` -- load config JSON from R2 or local file, parse with `jq`
+- `apps/cli/lib/secrets.sh` -- pluggable secret backend (env/file)
+- `apps/cli/lib/notify.sh` -- POST to data-service `/notify` endpoint
+- `apps/cli/grota` -- main CLI entry point with subcommand routing
+- `apps/cli/grota.env.example` -- environment template
+- `apps/cli/test/sample-config.json` -- sample config for offline testing
 - Directory scaffold for all future script directories
 
 ### OUT
@@ -45,7 +45,7 @@ Create the `scripts/` directory structure with all library files, a sample confi
 ## Directory Structure
 
 ```
-scripts/
+apps/cli/
 ├── grota                    # main entry point (goes to /usr/local/bin/grota)
 ├── lib/
 │   ├── common.sh            # logging, locking, disk check
@@ -77,7 +77,7 @@ terraform/
 
 ## Files
 
-### `scripts/grota.env.example`
+### `apps/cli/grota.env.example`
 
 ```bash
 # Grota Server -- Environment Configuration
@@ -111,7 +111,7 @@ GOOGLE_CLIENT_ID=""
 GOOGLE_CLIENT_SECRET=""
 ```
 
-### `scripts/grota`
+### `apps/cli/grota`
 
 ```bash
 #!/usr/bin/env bash
@@ -240,7 +240,7 @@ case "$cmd" in
 esac
 ```
 
-### `scripts/lib/common.sh`
+### `apps/cli/lib/common.sh`
 
 ```bash
 #!/usr/bin/env bash
@@ -353,7 +353,7 @@ load_env() {
 }
 ```
 
-### `scripts/lib/config.sh`
+### `apps/cli/lib/config.sh`
 
 ```bash
 #!/usr/bin/env bash
@@ -468,7 +468,7 @@ cfg_shared_drive_category() {
 }
 ```
 
-### `scripts/lib/secrets.sh`
+### `apps/cli/lib/secrets.sh`
 
 ```bash
 #!/usr/bin/env bash
@@ -514,7 +514,7 @@ get_google_client_id()     { get_secret "GOOGLE_CLIENT_ID"; }
 get_google_client_secret() { get_secret "GOOGLE_CLIENT_SECRET"; }
 ```
 
-### `scripts/lib/notify.sh`
+### `apps/cli/lib/notify.sh`
 
 ```bash
 #!/usr/bin/env bash
@@ -582,7 +582,7 @@ notify_backup_failed() {
 }
 ```
 
-### `scripts/test/sample-config.json`
+### `apps/cli/test/sample-config.json`
 
 ```json
 {
@@ -637,33 +637,33 @@ notify_backup_failed() {
 
 1. **Create directory scaffold**
    ```bash
-   mkdir -p scripts/{lib,systemd,test}
+   mkdir -p apps/cli/{lib,systemd,test}
    ```
 
-2. **Create `scripts/grota`** -- chmod +x
+2. **Create `apps/cli/grota`** -- chmod +x
 
-3. **Create `scripts/grota.env.example`**
+3. **Create `apps/cli/grota.env.example`**
 
-4. **Create `scripts/lib/common.sh`** -- chmod +x
+4. **Create `apps/cli/lib/common.sh`** -- chmod +x
 
-5. **Create `scripts/lib/config.sh`** -- chmod +x
+5. **Create `apps/cli/lib/config.sh`** -- chmod +x
 
-6. **Create `scripts/lib/secrets.sh`** -- chmod +x
+6. **Create `apps/cli/lib/secrets.sh`** -- chmod +x
 
-7. **Create `scripts/lib/notify.sh`** -- chmod +x
+7. **Create `apps/cli/lib/notify.sh`** -- chmod +x
 
-8. **Create `scripts/test/sample-config.json`**
+8. **Create `apps/cli/test/sample-config.json`**
 
 9. **Verify with shellcheck**
    ```bash
-   shellcheck scripts/lib/*.sh scripts/grota
+   shellcheck apps/cli/lib/*.sh apps/cli/grota
    ```
 
 ## Manual Test Script
 
 ```bash
 # 1. Source common lib
-source scripts/lib/common.sh
+source apps/cli/lib/common.sh
 # Expect: no errors
 
 # 2. Test logging
@@ -689,8 +689,8 @@ release_lock
 # Expect: lock dir removed
 
 # 6. Test config loading from local file
-source scripts/lib/config.sh
-CONFIG_PATH=scripts/test/sample-config.json load_config
+source apps/cli/lib/config.sh
+CONFIG_PATH=apps/cli/test/sample-config.json load_config
 # Expect: "Config loaded from local file"
 
 # 7. Test config accessors
@@ -711,23 +711,23 @@ cfg_shared_drives
 
 # 8. Test secrets (env backend)
 export TEST_SECRET="secret-value"
-source scripts/lib/secrets.sh
+source apps/cli/lib/secrets.sh
 get_secret "TEST_SECRET"
 # Expect: "secret-value"
 
 # 9. Test notify (no URL -- should warn and skip)
-source scripts/lib/notify.sh
+source apps/cli/lib/notify.sh
 notify_info "test message"
 # Expect: "[NOTIFY] test message" + "DATA_SERVICE_URL not set" warning
 
 # 10. Test grota CLI
-bash scripts/grota --help
+bash apps/cli/grota --help
 # Expect: usage info with subcommands
-bash scripts/grota --version
+bash apps/cli/grota --version
 # Expect: "grota v0.1.0"
 
 # 11. Shellcheck
-shellcheck scripts/lib/*.sh scripts/grota
+shellcheck apps/cli/lib/*.sh apps/cli/grota
 # Expect: no errors
 ```
 

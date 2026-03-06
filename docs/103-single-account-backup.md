@@ -14,7 +14,7 @@ Implement the core backup pipeline for a single Google account: sync Google Driv
 
 ### IN
 
-- `scripts/lib/backup.sh` -- functions: `cmd_backup_account`, `sync_gdrive_to_local`, `sync_local_to_b2`
+- `apps/cli/lib/backup.sh` -- functions: `cmd_backup_account`, `sync_gdrive_to_local`, `sync_local_to_b2`
 - `cmd_backup_account` -- full pipeline for ONE account (GDrive -> local -> B2)
 - `sync_gdrive_to_local` -- single account, all categories
 - `sync_local_to_b2` -- local -> B2, per category
@@ -45,7 +45,7 @@ Implement the core backup pipeline for a single Google account: sync Google Driv
 
 ## Files
 
-### `scripts/lib/backup.sh`
+### `apps/cli/lib/backup.sh`
 
 ```bash
 #!/usr/bin/env bash
@@ -284,11 +284,11 @@ cmd_backup_account() {
 
 ## Implementation Steps
 
-1. **Create `scripts/lib/backup.sh`** -- chmod +x
+1. **Create `apps/cli/lib/backup.sh`** -- chmod +x
 
 2. **Verify with shellcheck**
    ```bash
-   shellcheck scripts/lib/backup.sh
+   shellcheck apps/cli/lib/backup.sh
    ```
 
 ## Manual Test Script
@@ -299,7 +299,7 @@ cmd_backup_account() {
 # - Config JSON with at least 1 account with real OAuth token
 # - Local backup dir writable
 
-export CONFIG_PATH=scripts/test/sample-config.json  # or real config
+export CONFIG_PATH=apps/cli/test/sample-config.json  # or real config
 export RCLONE_CONFIG="/etc/rclone/rclone.conf"
 
 # 1. Test single account backup

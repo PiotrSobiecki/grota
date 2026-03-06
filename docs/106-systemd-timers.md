@@ -16,11 +16,11 @@ Create systemd timer/service units for automated backup scheduling and functions
 
 ### IN
 
-- `scripts/lib/timers.sh` -- functions: `cmd_timers_install`, `cmd_timers_uninstall`, `cmd_timers_status`
-- `scripts/systemd/grota-backup.service` -- runs `grota backup all`
-- `scripts/systemd/grota-backup.timer` -- daily at 01:00
-- `scripts/systemd/grota-verify.service` -- runs `grota audit backup`
-- `scripts/systemd/grota-verify.timer` -- weekly Sunday 03:00
+- `apps/cli/lib/timers.sh` -- functions: `cmd_timers_install`, `cmd_timers_uninstall`, `cmd_timers_status`
+- `apps/cli/systemd/grota-backup.service` -- runs `grota backup all`
+- `apps/cli/systemd/grota-backup.timer` -- daily at 01:00
+- `apps/cli/systemd/grota-verify.service` -- runs `grota audit backup`
+- `apps/cli/systemd/grota-verify.timer` -- weekly Sunday 03:00
 
 ### OUT
 
@@ -43,7 +43,7 @@ Create systemd timer/service units for automated backup scheduling and functions
 
 ## Files
 
-### `scripts/systemd/grota-backup.service`
+### `apps/cli/systemd/grota-backup.service`
 
 ```ini
 [Unit]
@@ -68,7 +68,7 @@ ReadWritePaths=/srv/backup /var/log/grota /var/lock/grota /tmp
 PrivateTmp=true
 ```
 
-### `scripts/systemd/grota-backup.timer`
+### `apps/cli/systemd/grota-backup.timer`
 
 ```ini
 [Unit]
@@ -83,7 +83,7 @@ RandomizedDelaySec=300
 WantedBy=timers.target
 ```
 
-### `scripts/systemd/grota-verify.service`
+### `apps/cli/systemd/grota-verify.service`
 
 ```ini
 [Unit]
@@ -107,7 +107,7 @@ ReadWritePaths=/srv/backup /var/log/grota /var/lock/grota /tmp
 PrivateTmp=true
 ```
 
-### `scripts/systemd/grota-verify.timer`
+### `apps/cli/systemd/grota-verify.timer`
 
 ```ini
 [Unit]
@@ -121,7 +121,7 @@ Persistent=true
 WantedBy=timers.target
 ```
 
-### `scripts/lib/timers.sh`
+### `apps/cli/lib/timers.sh`
 
 ```bash
 #!/usr/bin/env bash
@@ -228,20 +228,20 @@ cmd_timers_install() {
 
 1. **Create systemd directory**
    ```bash
-   mkdir -p scripts/systemd
+   mkdir -p apps/cli/systemd
    ```
 
 2. **Create unit files**
-   - `scripts/systemd/grota-backup.service`
-   - `scripts/systemd/grota-backup.timer`
-   - `scripts/systemd/grota-verify.service`
-   - `scripts/systemd/grota-verify.timer`
+   - `apps/cli/systemd/grota-backup.service`
+   - `apps/cli/systemd/grota-backup.timer`
+   - `apps/cli/systemd/grota-verify.service`
+   - `apps/cli/systemd/grota-verify.timer`
 
-3. **Create `scripts/lib/timers.sh`** -- chmod +x
+3. **Create `apps/cli/lib/timers.sh`** -- chmod +x
 
 4. **Verify with shellcheck**
    ```bash
-   shellcheck scripts/lib/timers.sh
+   shellcheck apps/cli/lib/timers.sh
    ```
 
 ## Manual Test Script

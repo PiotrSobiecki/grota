@@ -14,7 +14,7 @@ Provide a single `curl` one-liner to install grota CLI + libs on any Ubuntu serv
 
 ### IN
 
-- `scripts/install.sh` -- installer script
+- `apps/cli/install.sh` -- installer script
 - `curl` one-liner from GitHub raw
 - Offline `--local` mode via scp + tar
 - Dependency checking (rclone, jq; terraform optional)
@@ -54,12 +54,12 @@ Provide a single `curl` one-liner to install grota CLI + libs on any Ubuntu serv
 ## curl One-Liner
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/auditmos/grota/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/auditmos/grota/main/apps/cli/install.sh | bash
 ```
 
 ## Files
 
-### `scripts/install.sh`
+### `apps/cli/install.sh`
 
 ```bash
 #!/usr/bin/env bash
@@ -159,7 +159,7 @@ echo "Installing grota CLI..."
 if [[ "$LOCAL_MODE" == true ]]; then
   cp "${SCRIPT_DIR}/grota" "${BIN_DIR}/grota"
 else
-  fetch_file "scripts/grota" "${BIN_DIR}/grota"
+  fetch_file "apps/cli/grota" "${BIN_DIR}/grota"
 fi
 chmod +x "${BIN_DIR}/grota"
 echo "  ${BIN_DIR}/grota"
@@ -170,7 +170,7 @@ for mod in common.sh config.sh secrets.sh notify.sh backup.sh orchestrator.sh mi
   if [[ "$LOCAL_MODE" == true ]]; then
     [[ -f "${SCRIPT_DIR}/lib/${mod}" ]] && cp "${SCRIPT_DIR}/lib/${mod}" "${LIB_DIR}/${mod}"
   else
-    fetch_file "scripts/lib/${mod}" "${LIB_DIR}/${mod}" 2>/dev/null || true
+    fetch_file "apps/cli/lib/${mod}" "${LIB_DIR}/${mod}" 2>/dev/null || true
   fi
   [[ -f "${LIB_DIR}/${mod}" ]] && echo "  ${LIB_DIR}/${mod}"
 done
@@ -182,7 +182,7 @@ for unit in grota-backup.service grota-backup.timer grota-verify.service grota-v
   if [[ "$LOCAL_MODE" == true ]]; then
     [[ -f "${SCRIPT_DIR}/systemd/${unit}" ]] && cp "${SCRIPT_DIR}/systemd/${unit}" "${LIB_DIR}/systemd/${unit}"
   else
-    fetch_file "scripts/systemd/${unit}" "${LIB_DIR}/systemd/${unit}" 2>/dev/null || true
+    fetch_file "apps/cli/systemd/${unit}" "${LIB_DIR}/systemd/${unit}" 2>/dev/null || true
   fi
   [[ -f "${LIB_DIR}/systemd/${unit}" ]] && echo "  ${LIB_DIR}/systemd/${unit}"
 done
@@ -192,7 +192,7 @@ if [[ ! -f "${ETC_DIR}/grota.env" ]]; then
   if [[ "$LOCAL_MODE" == true && -f "${SCRIPT_DIR}/grota.env.example" ]]; then
     cp "${SCRIPT_DIR}/grota.env.example" "${ETC_DIR}/grota.env.example"
   else
-    fetch_file "scripts/grota.env.example" "${ETC_DIR}/grota.env.example" 2>/dev/null || true
+    fetch_file "apps/cli/grota.env.example" "${ETC_DIR}/grota.env.example" 2>/dev/null || true
   fi
   echo "  ${ETC_DIR}/grota.env.example"
   echo "  NOTE: Copy to grota.env and fill in values"
@@ -233,23 +233,23 @@ echo "Update grota: re-run the same curl command"
 ```bash
 # On machine with internet:
 git clone https://github.com/auditmos/grota.git
-tar czf grota-scripts.tar.gz -C grota scripts/
+tar czf grota-cli.tar.gz -C grota apps/cli/
 
 # Transfer to server:
-scp grota-scripts.tar.gz user@server:/tmp/
+scp grota-cli.tar.gz user@server:/tmp/
 
 # On server:
-cd /tmp && tar xzf grota-scripts.tar.gz
-bash scripts/install.sh --local
+cd /tmp && tar xzf grota-cli.tar.gz
+bash apps/cli/install.sh --local
 ```
 
 ## Implementation Steps
 
-1. **Create `scripts/install.sh`** -- chmod +x
+1. **Create `apps/cli/install.sh`** -- chmod +x
 
 2. **Test locally**
    ```bash
-   shellcheck scripts/install.sh
+   shellcheck apps/cli/install.sh
    ```
 
 ## Manual Test Script
@@ -258,7 +258,7 @@ bash scripts/install.sh --local
 # On fresh Ubuntu server (or container):
 
 # 1. curl install
-curl -fsSL https://raw.githubusercontent.com/auditmos/grota/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/auditmos/grota/main/apps/cli/install.sh | bash
 # Expect: deps checked, grota CLI installed, dirs created, next steps printed
 
 # 2. Verify install
@@ -273,13 +273,13 @@ ls -la /etc/grota/
 ls -la /var/log/grota/
 
 # 4. Test update (re-run)
-curl -fsSL https://raw.githubusercontent.com/auditmos/grota/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/auditmos/grota/main/apps/cli/install.sh | bash
 # Expect: overwrites bin+lib, preserves /etc/grota/grota.env
 
 # 5. Test offline mode
-tar czf /tmp/grota.tar.gz -C /path/to/repo scripts/
+tar czf /tmp/grota.tar.gz -C /path/to/repo apps/cli/
 cd /tmp && tar xzf grota.tar.gz
-bash scripts/install.sh --local
+bash apps/cli/install.sh --local
 # Expect: same result from local files
 
 # 6. Test missing deps

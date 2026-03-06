@@ -15,7 +15,7 @@ Create 3 audit functions in `lib/audit.sh`: permission audit for Shared Drives, 
 
 ### IN
 
-- `scripts/lib/audit.sh` -- functions: `cmd_audit_permissions`, `cmd_audit_storage`, `cmd_audit_backup`
+- `apps/cli/lib/audit.sh` -- functions: `cmd_audit_permissions`, `cmd_audit_storage`, `cmd_audit_backup`
 - `cmd_audit_permissions` -- list permissions on all Shared Drives
 - `cmd_audit_storage` -- disk usage per account (local), per bucket (B2), summary
 - `cmd_audit_backup` -- `rclone check` local vs B2 per account/category
@@ -40,7 +40,7 @@ Create 3 audit functions in `lib/audit.sh`: permission audit for Shared Drives, 
 
 ## Files
 
-### `scripts/lib/audit.sh`
+### `apps/cli/lib/audit.sh`
 
 ```bash
 #!/usr/bin/env bash
@@ -326,11 +326,11 @@ cmd_audit_backup() {
 
 ## Implementation Steps
 
-1. **Create `scripts/lib/audit.sh`** -- chmod +x
+1. **Create `apps/cli/lib/audit.sh`** -- chmod +x
 
 2. **Verify with shellcheck**
    ```bash
-   shellcheck scripts/lib/audit.sh
+   shellcheck apps/cli/lib/audit.sh
    ```
 
 ## Manual Test Script

@@ -16,7 +16,7 @@ Migrate tagged `dokumenty` and `projekty` folders from private Google accounts t
 
 ### IN
 
-- `scripts/lib/migration.sh` -- functions: `cmd_migrate`, `cmd_verify_migration`
+- `apps/cli/lib/migration.sh` -- functions: `cmd_migrate`, `cmd_verify_migration`
 - Copy `dokumenty`/`projekty` folders from private accounts to Shared Drives
 - Shared Drive target structure: `{SharedDriveName}/{employee_name}/{folder_name}/`
 - Server-side copy (rclone `--drive-server-side-across-configs` where possible)
@@ -44,7 +44,7 @@ Migrate tagged `dokumenty` and `projekty` folders from private Google accounts t
 
 ## Files
 
-### `scripts/lib/migration.sh`
+### `apps/cli/lib/migration.sh`
 
 ```bash
 #!/usr/bin/env bash
@@ -284,11 +284,11 @@ _verify_migration() {
 
 ## Implementation Steps
 
-1. **Create `scripts/lib/migration.sh`** -- chmod +x
+1. **Create `apps/cli/lib/migration.sh`** -- chmod +x
 
 2. **Verify with shellcheck**
    ```bash
-   shellcheck scripts/lib/migration.sh
+   shellcheck apps/cli/lib/migration.sh
    ```
 
 ## Manual Test Script

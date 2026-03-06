@@ -13,7 +13,7 @@ Implement `cmd_backup_all` in `lib/orchestrator.sh` -- the multi-account paralle
 
 ### IN
 
-- `scripts/lib/orchestrator.sh` -- function: `cmd_backup_all`
+- `apps/cli/lib/orchestrator.sh` -- function: `cmd_backup_all`
 - Parallel execution: different accounts run concurrently (configurable max parallelism)
 - Per-account error isolation: one failure doesn't stop others
 - Summary report: success/failure per account
@@ -39,7 +39,7 @@ Implement `cmd_backup_all` in `lib/orchestrator.sh` -- the multi-account paralle
 
 ## Files
 
-### `scripts/lib/orchestrator.sh`
+### `apps/cli/lib/orchestrator.sh`
 
 ```bash
 #!/usr/bin/env bash
@@ -179,11 +179,11 @@ cmd_backup_all() {
 
 ## Implementation Steps
 
-1. **Create `scripts/lib/orchestrator.sh`** -- chmod +x
+1. **Create `apps/cli/lib/orchestrator.sh`** -- chmod +x
 
 2. **Verify with shellcheck**
    ```bash
-   shellcheck scripts/lib/orchestrator.sh
+   shellcheck apps/cli/lib/orchestrator.sh
    ```
 
 ## Manual Test Script
@@ -195,7 +195,7 @@ cmd_backup_all() {
 # - rclone remotes configured
 
 # 1. Test with sample config (2 accounts)
-export CONFIG_PATH=scripts/test/sample-config.json
+export CONFIG_PATH=apps/cli/test/sample-config.json
 grota backup all
 # Expect: attempts backup for both jan@gmail.com and anna@gmail.com
 # With test tokens: will fail per account but orchestrator logic runs

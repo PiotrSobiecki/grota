@@ -15,7 +15,7 @@ Create setup functions in `lib/setup.sh` that generate `rclone.conf` from the R2
 
 ### IN
 
-- `scripts/lib/setup.sh` -- functions: `cmd_setup_rclone`, `cmd_setup_b2`, `cmd_verify_remotes`
+- `apps/cli/lib/setup.sh` -- functions: `cmd_setup_rclone`, `cmd_setup_b2`, `cmd_verify_remotes`
 - `cmd_setup_rclone` -- generates Google Drive remotes from config JSON tokens
 - `cmd_setup_b2` -- creates B2 remotes from Terraform outputs or env vars
 - `cmd_verify_remotes` -- tests all configured remotes
@@ -39,7 +39,7 @@ Create setup functions in `lib/setup.sh` that generate `rclone.conf` from the R2
 
 ## Files
 
-### `scripts/lib/setup.sh`
+### `apps/cli/lib/setup.sh`
 
 ```bash
 #!/usr/bin/env bash
@@ -254,18 +254,18 @@ cmd_verify_remotes() {
 
 ## Implementation Steps
 
-1. **Create `scripts/lib/setup.sh`** -- chmod +x
+1. **Create `apps/cli/lib/setup.sh`** -- chmod +x
 
 2. **Verify with shellcheck**
    ```bash
-   shellcheck scripts/lib/setup.sh
+   shellcheck apps/cli/lib/setup.sh
    ```
 
 ## Manual Test Script
 
 ```bash
 # Setup: use local sample config
-export CONFIG_PATH=scripts/test/sample-config.json
+export CONFIG_PATH=apps/cli/test/sample-config.json
 export GOOGLE_CLIENT_ID="your-client-id"
 export GOOGLE_CLIENT_SECRET="your-client-secret"
 export RCLONE_CONFIG="/tmp/grota-test-rclone.conf"
