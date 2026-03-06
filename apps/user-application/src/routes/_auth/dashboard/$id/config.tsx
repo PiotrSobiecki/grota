@@ -1,11 +1,24 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Bell, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+	AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getDeploymentById } from "@/core/functions/deployments/direct";
+import { sendNotifications } from "@/core/functions/notifications/binding";
 
 interface ConfigAccount {
 	email: string;
@@ -39,6 +52,11 @@ function ConfigPage() {
 	const dataServiceUrl = import.meta.env.VITE_DATA_SERVICE_URL;
 	const apiToken = import.meta.env.VITE_API_TOKEN;
 	const [exportResult, setExportResult] = useState<ExportResult | null>(null);
+
+	const deploymentQuery = useQuery({
+		queryKey: ["deployment", deploymentId],
+		queryFn: () => getDeploymentById({ data: { id: deploymentId } }),
+	});
 
 	const previewQuery = useQuery({
 		queryKey: ["config-preview", deploymentId],
@@ -87,6 +105,7 @@ function ConfigPage() {
 	}
 
 	const config = previewQuery.data;
+	const isActive = deploymentQuery.data?.status === "active";
 
 	const folderCount = config.accounts.reduce(
 		(sum, a) => sum + a.folders.filter((f) => f.category !== "prywatne").length,
@@ -99,7 +118,10 @@ function ConfigPage() {
 
 			<div className="flex items-center justify-between">
 				<h1 className="text-2xl font-bold text-foreground">Konfiguracja eksportu</h1>
-				{exportResult && <Badge variant="default">Wyeksportowano</Badge>}
+				<div className="flex items-center gap-2">
+					{isActive && <NotificationButton deploymentId={deploymentId} />}
+					{exportResult && <Badge variant="default">Wyeksportowano</Badge>}
+				</div>
 			</div>
 
 			<Alert variant="warning">
@@ -207,6 +229,67 @@ function ConfigPage() {
 				</CardContent>
 			</Card>
 		</div>
+	);
+}
+
+interface NotificationButtonProps {
+	deploymentId: string;
+}
+
+function NotificationButton({ deploymentId }: NotificationButtonProps) {
+	const [open, setOpen] = useState(false);
+
+	const notifyMutation = useMutation({
+		mutationFn: () => sendNotifications({ data: { deploymentId } }),
+	});
+
+	const handleConfirm = () => {
+		setOpen(false);
+		notifyMutation.reset();
+		notifyMutation.mutate();
+	};
+
+	return (
+		<>
+			{notifyMutation.isSuccess && (
+				<p className="text-sm text-primary">
+					Telegram: {notifyMutation.data.telegram ? "OK" : "blad"}, Email:{" "}
+					{notifyMutation.data.email ? "OK" : "pominiety"}
+				</p>
+			)}
+			{notifyMutation.isError && (
+				<p className="text-sm text-destructive">{notifyMutation.error.message}</p>
+			)}
+			<AlertDialog open={open} onOpenChange={setOpen}>
+				<AlertDialogTrigger asChild>
+					<Button variant="outline" disabled={notifyMutation.isPending}>
+						{notifyMutation.isPending ? (
+							<>
+								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+								Wysylanie...
+							</>
+						) : (
+							<>
+								<Bell className="mr-2 h-4 w-4" />
+								Wyslij powiadomienia
+							</>
+						)}
+					</Button>
+				</AlertDialogTrigger>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Wyslij powiadomienia</AlertDialogTitle>
+						<AlertDialogDescription>
+							Telegram i email zostanal wyslane do administratora wdrozenia. Kontynuowac?
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel>Anuluj</AlertDialogCancel>
+						<AlertDialogAction onClick={handleConfirm}>Wyslij</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
+		</>
 	);
 }
 

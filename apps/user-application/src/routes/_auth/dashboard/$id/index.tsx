@@ -1,8 +1,11 @@
 import { MAX_DEPARTMENTS_PER_DEPLOYMENT } from "@repo/data-ops/department";
+import type { B2Config, ServerConfig } from "@repo/data-ops/deployment";
+import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import {
 	ArrowLeft,
+	Bell,
 	Copy,
 	FolderTree,
 	Info,
@@ -13,8 +16,20 @@ import {
 	Send,
 	Trash2,
 	Users,
+	X,
 } from "lucide-react";
 import { useState } from "react";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+	AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,6 +47,7 @@ import {
 	sendEmployeeMagicLinks,
 } from "@/core/functions/employees/binding";
 import { generateAdminMagicLink } from "@/core/functions/magic-links/binding";
+import { sendNotifications } from "@/core/functions/notifications/binding";
 
 export const Route = createFileRoute("/_auth/dashboard/$id/")({
 	loader: ({ params }) => getDeploymentById({ data: { id: params.id } }),
@@ -83,6 +99,8 @@ function DeploymentDetailPage() {
 	};
 
 	const showEmployeeSection = deployment.status !== "draft" && deployment.status !== "onboarding";
+	const isActive = deployment.status === "active";
+	const isDraftOrOnboarding = deployment.status === "draft" || deployment.status === "onboarding";
 
 	return (
 		<div className="space-y-6">
@@ -96,10 +114,11 @@ function DeploymentDetailPage() {
 					<h1 className="text-2xl font-bold text-foreground">{deployment.clientName}</h1>
 				</div>
 				<div className="flex items-center gap-3">
-					{(deployment.status === "ready" || deployment.status === "active") && (
+					{isActive && <DetailNotificationButton deploymentId={deployment.id} />}
+					{(deployment.status === "ready" || isActive) && (
 						<Button asChild variant="outline">
 							<Link to="/dashboard/$id/config" params={{ id: deployment.id }}>
-								{deployment.status === "active" ? "Zobacz konfiguracje" : "Eksportuj konfiguracje"}
+								{isActive ? "Zobacz konfiguracje" : "Eksportuj konfiguracje"}
 							</Link>
 						</Button>
 					)}
@@ -117,6 +136,10 @@ function DeploymentDetailPage() {
 				/>
 			</div>
 
+			{isDraftOrOnboarding && (
+				<ServerConfigCard deployment={deployment} onUpdated={() => router.invalidate()} />
+			)}
+
 			<DepartmentSection deploymentId={deployment.id} deploymentStatus={deployment.status} />
 
 			{showEmployeeSection && (
@@ -126,15 +149,71 @@ function DeploymentDetailPage() {
 	);
 }
 
-interface ClientDataField {
-	label: string;
-	key: "domain" | "adminName" | "adminEmail";
-	value: string;
+interface DetailNotificationButtonProps {
+	deploymentId: string;
+}
+
+function DetailNotificationButton({ deploymentId }: DetailNotificationButtonProps) {
+	const [open, setOpen] = useState(false);
+
+	const notifyMutation = useMutation({
+		mutationFn: () => sendNotifications({ data: { deploymentId } }),
+	});
+
+	const handleConfirm = () => {
+		setOpen(false);
+		notifyMutation.reset();
+		notifyMutation.mutate();
+	};
+
+	return (
+		<>
+			{notifyMutation.isSuccess && (
+				<p className="text-sm text-primary">
+					Telegram: {notifyMutation.data.telegram ? "OK" : "blad"}, Email:{" "}
+					{notifyMutation.data.email ? "OK" : "pominiety"}
+				</p>
+			)}
+			{notifyMutation.isError && (
+				<p className="text-sm text-destructive">{notifyMutation.error.message}</p>
+			)}
+			<AlertDialog open={open} onOpenChange={setOpen}>
+				<AlertDialogTrigger asChild>
+					<Button variant="outline" disabled={notifyMutation.isPending}>
+						{notifyMutation.isPending ? (
+							<>
+								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+								Wysylanie...
+							</>
+						) : (
+							<>
+								<Bell className="mr-2 h-4 w-4" />
+								Wyslij powiadomienia
+							</>
+						)}
+					</Button>
+				</AlertDialogTrigger>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Wyslij powiadomienia</AlertDialogTitle>
+						<AlertDialogDescription>
+							Telegram i email zostana wyslane do administratora wdrozenia. Kontynuowac?
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel>Anuluj</AlertDialogCancel>
+						<AlertDialogAction onClick={handleConfirm}>Wyslij</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
+		</>
+	);
 }
 
 interface ClientDataCardProps {
 	deployment: {
 		id: string;
+		clientName: string;
 		domain: string;
 		adminName: string | null;
 		adminEmail: string | null;
@@ -144,89 +223,422 @@ interface ClientDataCardProps {
 }
 
 function ClientDataCard({ deployment, onUpdated }: ClientDataCardProps) {
-	const [editingField, setEditingField] = useState<ClientDataField | null>(null);
-	const [editValue, setEditValue] = useState("");
-
-	const canEdit = deployment.status === "draft" || deployment.status === "onboarding";
+	const [isEditing, setIsEditing] = useState(false);
 
 	const updateMutation = useMutation({
-		mutationFn: (updates: { domain?: string; adminName?: string; adminEmail?: string }) =>
-			updateExistingDeployment({ data: { id: deployment.id, updates } }),
+		mutationFn: (updates: {
+			clientName?: string;
+			domain?: string;
+			adminName?: string;
+			adminEmail?: string;
+		}) => updateExistingDeployment({ data: { id: deployment.id, updates } }),
 		onSuccess: () => {
 			onUpdated();
-			setEditingField(null);
+			setIsEditing(false);
 		},
 	});
 
-	const startEdit = (field: ClientDataField) => {
-		setEditingField(field);
-		setEditValue(field.value);
-	};
+	const form = useForm({
+		defaultValues: {
+			clientName: deployment.clientName,
+			domain: deployment.domain,
+			adminName: deployment.adminName ?? "",
+			adminEmail: deployment.adminEmail ?? "",
+		},
+		onSubmit: async ({ value }) => {
+			const updates: Record<string, string> = {};
+			if (value.clientName !== deployment.clientName) updates.clientName = value.clientName;
+			if (value.domain !== deployment.domain) updates.domain = value.domain;
+			if (value.adminName !== (deployment.adminName ?? "")) updates.adminName = value.adminName;
+			if (value.adminEmail !== (deployment.adminEmail ?? "")) updates.adminEmail = value.adminEmail;
 
-	const submitEdit = () => {
-		if (!editingField) return;
-		const trimmed = editValue.trim();
-		if (!trimmed || trimmed === editingField.value) {
-			setEditingField(null);
-			return;
-		}
-		updateMutation.mutate({ [editingField.key]: trimmed });
-	};
-
-	const renderField = (label: string, key: ClientDataField["key"], value: string | null) => {
-		const displayValue = value ?? "";
-		if (!displayValue && !canEdit) return null;
-		const isEditing = editingField?.key === key;
-
-		return (
-			<div className="flex items-center gap-2">
-				<span className="text-sm text-muted-foreground">{label}: </span>
-				{isEditing ? (
-					<Input
-						autoFocus
-						value={editValue}
-						onChange={(e) => setEditValue(e.target.value)}
-						onKeyDown={(e) => {
-							if (e.key === "Enter") {
-								e.preventDefault();
-								submitEdit();
-							}
-							if (e.key === "Escape") setEditingField(null);
-						}}
-						onBlur={submitEdit}
-						disabled={updateMutation.isPending}
-						className="h-7 w-48 text-sm"
-					/>
-				) : (
-					<>
-						<span className="text-foreground">{displayValue || "—"}</span>
-						{canEdit && (
-							<button
-								type="button"
-								onClick={() => startEdit({ label, key, value: displayValue })}
-								className="text-muted-foreground hover:text-foreground"
-							>
-								<Pencil className="h-3 w-3" />
-							</button>
-						)}
-					</>
-				)}
-			</div>
-		);
-	};
+			if (Object.keys(updates).length === 0) {
+				setIsEditing(false);
+				return;
+			}
+			updateMutation.reset();
+			updateMutation.mutate(updates);
+		},
+	});
 
 	return (
 		<Card>
 			<CardHeader>
-				<CardTitle>Dane klienta</CardTitle>
+				<div className="flex items-center justify-between">
+					<CardTitle>Dane klienta</CardTitle>
+					{isEditing ? (
+						<Button
+							variant="ghost"
+							size="icon"
+							onClick={() => {
+								setIsEditing(false);
+								form.reset();
+							}}
+						>
+							<X className="h-4 w-4" />
+						</Button>
+					) : (
+						<Button variant="ghost" size="icon" onClick={() => setIsEditing(true)}>
+							<Pencil className="h-4 w-4" />
+						</Button>
+					)}
+				</div>
 			</CardHeader>
 			<CardContent className="space-y-2">
 				{updateMutation.isError && (
 					<p className="text-sm text-destructive">{updateMutation.error.message}</p>
 				)}
-				{renderField("Domena", "domain", deployment.domain)}
-				{renderField("Administrator", "adminName", deployment.adminName)}
-				{renderField("Email", "adminEmail", deployment.adminEmail)}
+				{isEditing ? (
+					<form
+						onSubmit={(e) => {
+							e.preventDefault();
+							form.handleSubmit();
+						}}
+						className="space-y-3"
+					>
+						<form.Field name="clientName">
+							{(field) => (
+								<div>
+									<label className="text-sm text-muted-foreground">Nazwa klienta</label>
+									<Input
+										value={field.state.value}
+										onChange={(e) => field.handleChange(e.target.value)}
+										onBlur={field.handleBlur}
+										className="h-8"
+									/>
+								</div>
+							)}
+						</form.Field>
+						<form.Field name="domain">
+							{(field) => (
+								<div>
+									<label className="text-sm text-muted-foreground">Domena</label>
+									<Input
+										value={field.state.value}
+										onChange={(e) => field.handleChange(e.target.value)}
+										onBlur={field.handleBlur}
+										className="h-8"
+									/>
+								</div>
+							)}
+						</form.Field>
+						<form.Field name="adminName">
+							{(field) => (
+								<div>
+									<label className="text-sm text-muted-foreground">Administrator</label>
+									<Input
+										value={field.state.value}
+										onChange={(e) => field.handleChange(e.target.value)}
+										onBlur={field.handleBlur}
+										className="h-8"
+									/>
+								</div>
+							)}
+						</form.Field>
+						<form.Field name="adminEmail">
+							{(field) => (
+								<div>
+									<label className="text-sm text-muted-foreground">Email</label>
+									<Input
+										type="email"
+										value={field.state.value}
+										onChange={(e) => field.handleChange(e.target.value)}
+										onBlur={field.handleBlur}
+										className="h-8"
+									/>
+								</div>
+							)}
+						</form.Field>
+						<form.Subscribe selector={(s) => s.canSubmit}>
+							{(canSubmit) => (
+								<Button type="submit" size="sm" disabled={!canSubmit || updateMutation.isPending}>
+									{updateMutation.isPending ? "Zapisywanie..." : "Zapisz"}
+								</Button>
+							)}
+						</form.Subscribe>
+					</form>
+				) : (
+					<>
+						<div className="text-sm">
+							<span className="text-muted-foreground">Nazwa: </span>
+							<span className="text-foreground">{deployment.clientName}</span>
+						</div>
+						<div className="text-sm">
+							<span className="text-muted-foreground">Domena: </span>
+							<span className="text-foreground">{deployment.domain}</span>
+						</div>
+						<div className="text-sm">
+							<span className="text-muted-foreground">Administrator: </span>
+							<span className="text-foreground">{deployment.adminName ?? "—"}</span>
+						</div>
+						<div className="text-sm">
+							<span className="text-muted-foreground">Email: </span>
+							<span className="text-foreground">{deployment.adminEmail ?? "—"}</span>
+						</div>
+					</>
+				)}
+			</CardContent>
+		</Card>
+	);
+}
+
+interface ServerConfigCardProps {
+	deployment: {
+		id: string;
+		b2Config: B2Config | null;
+		serverConfig: ServerConfig | null;
+	};
+	onUpdated: () => void;
+}
+
+function ServerConfigCard({ deployment, onUpdated }: ServerConfigCardProps) {
+	const [isEditing, setIsEditing] = useState(false);
+
+	const updateMutation = useMutation({
+		mutationFn: (updates: { b2Config?: B2Config; serverConfig?: ServerConfig }) =>
+			updateExistingDeployment({ data: { id: deployment.id, updates } }),
+		onSuccess: () => {
+			onUpdated();
+			setIsEditing(false);
+		},
+	});
+
+	const form = useForm({
+		defaultValues: {
+			b2KeyId: deployment.b2Config?.key_id ?? "",
+			b2AppKey: deployment.b2Config?.app_key ?? "",
+			b2BucketPrefix: deployment.b2Config?.bucket_prefix ?? "",
+			backupPath: deployment.serverConfig?.backup_path ?? "",
+			bwlimit: deployment.serverConfig?.bwlimit ?? "",
+			sshHost: deployment.serverConfig?.ssh_host ?? "",
+			sshUser: deployment.serverConfig?.ssh_user ?? "",
+		},
+		onSubmit: async ({ value }) => {
+			const updates: { b2Config?: B2Config; serverConfig?: ServerConfig } = {};
+
+			if (value.b2KeyId || value.b2AppKey || value.b2BucketPrefix) {
+				updates.b2Config = {
+					key_id: value.b2KeyId,
+					app_key: value.b2AppKey,
+					bucket_prefix: value.b2BucketPrefix,
+				};
+			}
+
+			if (value.backupPath || value.bwlimit) {
+				updates.serverConfig = {
+					backup_path: value.backupPath,
+					bwlimit: value.bwlimit,
+					...(value.sshHost ? { ssh_host: value.sshHost } : {}),
+					...(value.sshUser ? { ssh_user: value.sshUser } : {}),
+				};
+			}
+
+			if (!updates.b2Config && !updates.serverConfig) {
+				setIsEditing(false);
+				return;
+			}
+
+			updateMutation.reset();
+			updateMutation.mutate(updates);
+		},
+	});
+
+	return (
+		<Card>
+			<CardHeader>
+				<div className="flex items-center justify-between">
+					<CardTitle>Konfiguracja serwera</CardTitle>
+					{isEditing ? (
+						<Button
+							variant="ghost"
+							size="icon"
+							onClick={() => {
+								setIsEditing(false);
+								form.reset();
+							}}
+						>
+							<X className="h-4 w-4" />
+						</Button>
+					) : (
+						<Button variant="ghost" size="icon" onClick={() => setIsEditing(true)}>
+							<Pencil className="h-4 w-4" />
+						</Button>
+					)}
+				</div>
+			</CardHeader>
+			<CardContent className="space-y-4">
+				{updateMutation.isError && (
+					<p className="text-sm text-destructive">{updateMutation.error.message}</p>
+				)}
+				{isEditing ? (
+					<form
+						onSubmit={(e) => {
+							e.preventDefault();
+							form.handleSubmit();
+						}}
+						className="space-y-4"
+					>
+						<div className="space-y-3">
+							<p className="text-sm font-medium text-foreground">B2 Config</p>
+							<form.Field name="b2KeyId">
+								{(field) => (
+									<div>
+										<label className="text-sm text-muted-foreground">Key ID</label>
+										<Input
+											value={field.state.value}
+											onChange={(e) => field.handleChange(e.target.value)}
+											onBlur={field.handleBlur}
+											className="h-8"
+										/>
+									</div>
+								)}
+							</form.Field>
+							<form.Field name="b2AppKey">
+								{(field) => (
+									<div>
+										<label className="text-sm text-muted-foreground">App Key</label>
+										<Input
+											value={field.state.value}
+											onChange={(e) => field.handleChange(e.target.value)}
+											onBlur={field.handleBlur}
+											className="h-8"
+										/>
+									</div>
+								)}
+							</form.Field>
+							<form.Field name="b2BucketPrefix">
+								{(field) => (
+									<div>
+										<label className="text-sm text-muted-foreground">Bucket Prefix</label>
+										<Input
+											value={field.state.value}
+											onChange={(e) => field.handleChange(e.target.value)}
+											onBlur={field.handleBlur}
+											className="h-8"
+										/>
+									</div>
+								)}
+							</form.Field>
+						</div>
+
+						<div className="space-y-3">
+							<p className="text-sm font-medium text-foreground">Server Config</p>
+							<form.Field name="backupPath">
+								{(field) => (
+									<div>
+										<label className="text-sm text-muted-foreground">Backup Path</label>
+										<Input
+											value={field.state.value}
+											onChange={(e) => field.handleChange(e.target.value)}
+											onBlur={field.handleBlur}
+											className="h-8"
+										/>
+									</div>
+								)}
+							</form.Field>
+							<form.Field name="bwlimit">
+								{(field) => (
+									<div>
+										<label className="text-sm text-muted-foreground">Bandwidth Limit</label>
+										<Input
+											value={field.state.value}
+											onChange={(e) => field.handleChange(e.target.value)}
+											onBlur={field.handleBlur}
+											className="h-8"
+										/>
+									</div>
+								)}
+							</form.Field>
+							<form.Field name="sshHost">
+								{(field) => (
+									<div>
+										<label className="text-sm text-muted-foreground">SSH Host (opcjonalny)</label>
+										<Input
+											value={field.state.value}
+											onChange={(e) => field.handleChange(e.target.value)}
+											onBlur={field.handleBlur}
+											className="h-8"
+										/>
+									</div>
+								)}
+							</form.Field>
+							<form.Field name="sshUser">
+								{(field) => (
+									<div>
+										<label className="text-sm text-muted-foreground">SSH User (opcjonalny)</label>
+										<Input
+											value={field.state.value}
+											onChange={(e) => field.handleChange(e.target.value)}
+											onBlur={field.handleBlur}
+											className="h-8"
+										/>
+									</div>
+								)}
+							</form.Field>
+						</div>
+
+						<form.Subscribe selector={(s) => s.canSubmit}>
+							{(canSubmit) => (
+								<Button type="submit" size="sm" disabled={!canSubmit || updateMutation.isPending}>
+									{updateMutation.isPending ? "Zapisywanie..." : "Zapisz"}
+								</Button>
+							)}
+						</form.Subscribe>
+					</form>
+				) : (
+					<div className="grid gap-4 md:grid-cols-2">
+						<div className="space-y-2">
+							<p className="text-sm font-medium text-foreground">B2 Config</p>
+							{deployment.b2Config ? (
+								<>
+									<div className="text-sm">
+										<span className="text-muted-foreground">Key ID: </span>
+										<span className="text-foreground">{deployment.b2Config.key_id}</span>
+									</div>
+									<div className="text-sm">
+										<span className="text-muted-foreground">App Key: </span>
+										<span className="text-foreground">{"*".repeat(8)}</span>
+									</div>
+									<div className="text-sm">
+										<span className="text-muted-foreground">Bucket Prefix: </span>
+										<span className="text-foreground">{deployment.b2Config.bucket_prefix}</span>
+									</div>
+								</>
+							) : (
+								<p className="text-sm text-muted-foreground">Nie skonfigurowano</p>
+							)}
+						</div>
+						<div className="space-y-2">
+							<p className="text-sm font-medium text-foreground">Server Config</p>
+							{deployment.serverConfig ? (
+								<>
+									<div className="text-sm">
+										<span className="text-muted-foreground">Backup Path: </span>
+										<span className="text-foreground">{deployment.serverConfig.backup_path}</span>
+									</div>
+									<div className="text-sm">
+										<span className="text-muted-foreground">BW Limit: </span>
+										<span className="text-foreground">{deployment.serverConfig.bwlimit}</span>
+									</div>
+									{deployment.serverConfig.ssh_host && (
+										<div className="text-sm">
+											<span className="text-muted-foreground">SSH Host: </span>
+											<span className="text-foreground">{deployment.serverConfig.ssh_host}</span>
+										</div>
+									)}
+									{deployment.serverConfig.ssh_user && (
+										<div className="text-sm">
+											<span className="text-muted-foreground">SSH User: </span>
+											<span className="text-foreground">{deployment.serverConfig.ssh_user}</span>
+										</div>
+									)}
+								</>
+							) : (
+								<p className="text-sm text-muted-foreground">Nie skonfigurowano</p>
+							)}
+						</div>
+					</div>
+				)}
 			</CardContent>
 		</Card>
 	);

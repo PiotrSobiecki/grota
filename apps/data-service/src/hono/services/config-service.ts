@@ -2,6 +2,7 @@ import { type ConfigJson, getConfigAssemblyData } from "@repo/data-ops/config";
 import { getDeployment, updateDeployment, updateDeploymentStatus } from "@repo/data-ops/deployment";
 import { decrypt } from "@repo/data-ops/encryption";
 import type { Result } from "../types/result";
+import { sendEmailSummary, sendTelegramNotification } from "./notification-service";
 
 interface TokenPayload {
 	refresh_token: string | null;
@@ -140,62 +141,4 @@ export async function exportConfig(deploymentId: string, env: Env): Promise<Resu
 	}
 
 	return { ok: true, data: { r2Key, status: "active" } };
-}
-
-async function sendTelegramNotification(
-	clientName: string,
-	deploymentId: string,
-	env: Env,
-): Promise<void> {
-	const message = [
-		"Grota: Eksport konfiguracji zakonczony",
-		`Klient: ${clientName}`,
-		`Deployment: ${deploymentId}`,
-		`Plik: configs/${deploymentId}/config.json`,
-		"Status: active",
-	].join("\n");
-
-	await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({
-			chat_id: env.TELEGRAM_CHAT_ID,
-			text: message,
-			parse_mode: "HTML",
-		}),
-	});
-}
-
-async function sendEmailSummary(
-	to: string,
-	name: string,
-	clientName: string,
-	employeeCount: number,
-	folderCount: number,
-	env: Env,
-): Promise<void> {
-	const html = `
-		<p>Czesc ${name},</p>
-		<p>Onboarding dla <strong>${clientName}</strong> zostal zakonczony.</p>
-		<ul>
-			<li>Liczba pracownikow: ${employeeCount}</li>
-			<li>Liczba folderow do backupu: ${folderCount}</li>
-		</ul>
-		<p>Operator rozpocznie konfiguracje backupu wkrotce.</p>
-		<p>-- Grota</p>
-	`;
-
-	await fetch("https://api.resend.com/emails", {
-		method: "POST",
-		headers: {
-			Authorization: `Bearer ${env.RESEND_API_KEY}`,
-			"Content-Type": "application/json",
-		},
-		body: JSON.stringify({
-			from: "Grota <noreply@grota.app>",
-			to: [to],
-			subject: `Grota: Onboarding ${clientName} zakonczony`,
-			html,
-		}),
-	});
 }
