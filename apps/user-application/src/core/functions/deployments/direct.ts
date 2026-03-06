@@ -7,6 +7,7 @@ import {
 	getDeployment,
 	getDeployments,
 	updateDeployment,
+	updateDeploymentStatus,
 } from "@repo/data-ops/deployment";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
@@ -46,6 +47,24 @@ export const deleteDeploymentById = createServerFn({ method: "POST" })
 			throw new AppError("Wdrozenie nie zostalo znalezione", "NOT_FOUND", 404);
 		}
 		return { success: true };
+	});
+
+export const markDeploymentReady = createServerFn({ method: "POST" })
+	.middleware([protectedFunctionMiddleware])
+	.inputValidator(z.object({ id: z.string().uuid() }))
+	.handler(async ({ data }) => {
+		const deployment = await getDeployment(data.id);
+		if (!deployment) {
+			throw new AppError("Wdrozenie nie zostalo znalezione", "NOT_FOUND", 404);
+		}
+		if (deployment.status !== "employees_pending") {
+			throw new AppError("Wdrozenie nie jest w statusie oczekiwania", "INVALID_STATUS", 400);
+		}
+		const updated = await updateDeploymentStatus(data.id, "ready");
+		if (!updated) {
+			throw new AppError("Nie udalo sie zaktualizowac statusu", "UPDATE_FAILED", 500);
+		}
+		return updated;
 	});
 
 export const updateExistingDeployment = createServerFn({ method: "POST" })

@@ -1,6 +1,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { AlertTriangle, CheckCircle } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -31,9 +32,8 @@ interface FolderWithCategory extends DriveFolder {
 }
 
 const CATEGORY_INFO: Record<string, { label: string; description: string }> = {
-	dokumenty: { label: "Dokumenty", description: "Faktury, umowy, ksiegowosc" },
-	projekty: { label: "Projekty", description: "Dokumentacja projektowa" },
-	media: { label: "Media", description: "Zdjecia, filmy" },
+	dokumenty: { label: "Dokumenty (firmowe)", description: "Faktury, umowy, ksiegowosc" },
+	media: { label: "Media (firmowe)", description: "Zdjecia, filmy" },
 	prywatne: { label: "Prywatne (pomijane)", description: "Nie bedzie backupowane" },
 };
 
@@ -170,8 +170,16 @@ function DriveOAuthStep({ token, oauthSuccess, onNext }: DriveOAuthStepProps) {
 						<li>Plikow wewnatrz folderow</li>
 					</ul>
 					<p className="text-sm text-muted-foreground">
-						Mozesz cofnac dostep w dowolnym momencie w ustawieniach Google
-						(myaccount.google.com/permissions).
+						Mozesz cofnac dostep w dowolnym momencie w{" "}
+						<a
+							href="https://myaccount.google.com/permissions"
+							target="_blank"
+							rel="noopener noreferrer"
+							className="underline text-primary hover:text-primary/80"
+						>
+							ustawieniach Google
+						</a>
+						.
 					</p>
 				</div>
 
@@ -200,6 +208,8 @@ function FolderListStep({
 	onLoaded: (folders: DriveFolder[]) => void;
 }) {
 	const dataServiceUrl = import.meta.env.VITE_DATA_SERVICE_URL;
+	const onLoadedRef = useRef(onLoaded);
+	onLoadedRef.current = onLoaded;
 
 	const foldersQuery = useQuery({
 		queryKey: ["drive-folders", employeeId],
@@ -209,12 +219,6 @@ function FolderListStep({
 			return response.json() as Promise<{ folders: DriveFolder[] }>;
 		},
 	});
-
-	useEffect(() => {
-		if (foldersQuery.data) {
-			onLoaded(foldersQuery.data.folders);
-		}
-	}, [foldersQuery.data, onLoaded]);
 
 	if (foldersQuery.isPending) {
 		return (
@@ -234,6 +238,38 @@ function FolderListStep({
 					<p className="text-destructive">{foldersQuery.error.message}</p>
 					<Button variant="outline" className="mt-4" onClick={() => foldersQuery.refetch()}>
 						Sprobuj ponownie
+					</Button>
+				</CardContent>
+			</Card>
+		);
+	}
+
+	if (foldersQuery.data) {
+		const count = foldersQuery.data.folders.length;
+
+		if (count === 0) {
+			return (
+				<Card>
+					<CardContent className="py-12 text-center">
+						<AlertTriangle className="h-8 w-8 text-amber-600 dark:text-amber-400 mx-auto" />
+						<p className="mt-4 text-foreground font-medium">Nie znaleziono folderow</p>
+						<Button variant="outline" className="mt-4" onClick={() => foldersQuery.refetch()}>
+							Sprobuj ponownie
+						</Button>
+					</CardContent>
+				</Card>
+			);
+		}
+
+		return (
+			<Card>
+				<CardContent className="py-12 text-center">
+					<CheckCircle className="h-8 w-8 text-green-600 dark:text-green-400 mx-auto" />
+					<p className="mt-4 text-foreground font-medium">
+						Znaleziono {count} {count === 1 ? "folder" : "folderow"}
+					</p>
+					<Button className="mt-4" onClick={() => onLoadedRef.current(foldersQuery.data.folders)}>
+						Dalej
 					</Button>
 				</CardContent>
 			</Card>

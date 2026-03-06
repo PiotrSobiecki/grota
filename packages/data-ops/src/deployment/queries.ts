@@ -104,3 +104,16 @@ export async function updateDeploymentStatus(
 		.returning();
 	return result[0] ?? null;
 }
+
+export async function updateOnboardingStep(
+	deploymentId: string,
+	step: number,
+): Promise<Deployment | null> {
+	const db = getDb();
+	const result = await db
+		.update(deployments)
+		.set({ onboardingStep: step })
+		.where(eq(deployments.id, deploymentId))
+		.returning();
+	return result[0] ?? null;
+}

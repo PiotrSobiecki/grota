@@ -58,7 +58,7 @@ export const bulkCreateEmployees = createServerFn({ method: "POST" })
 			employees: z.array(
 				z.object({
 					email: z.string().email(),
-					name: z.string().min(1),
+					name: z.string().optional().default(""),
 					departmentIds: z.array(z.string().uuid()).min(1),
 				}),
 			),

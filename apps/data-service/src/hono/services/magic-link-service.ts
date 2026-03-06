@@ -89,6 +89,7 @@ export async function generateAdminMagicLink(
 interface AdminTokenData {
 	deploymentId: string;
 	step: number;
+	status: string;
 	clientName: string;
 	domain: string;
 	adminEmail: string | null;
@@ -121,6 +122,7 @@ export async function verifyAdminToken(token: string): Promise<Result<AdminToken
 		data: {
 			deploymentId: deployment.id,
 			step: deployment.onboardingStep ?? 0,
+			status: deployment.status,
 			clientName: deployment.clientName,
 			domain: deployment.domain,
 			adminEmail: deployment.adminEmail,

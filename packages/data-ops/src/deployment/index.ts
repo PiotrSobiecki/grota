@@ -5,6 +5,7 @@ export {
 	getDeployments,
 	updateDeployment,
 	updateDeploymentStatus,
+	updateOnboardingStep,
 } from "./queries";
 export type {
 	B2Config,

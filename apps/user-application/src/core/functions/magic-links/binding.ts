@@ -45,6 +45,7 @@ export const verifyAdminToken = createServerFn({ method: "GET" })
 		return (await response.json()) as {
 			deploymentId: string;
 			step: number;
+			status: string;
 			clientName: string;
 			domain: string;
 			adminEmail: string | null;

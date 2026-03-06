@@ -1,5 +1,9 @@
 import { type Department, getEmployeeDepartments } from "@repo/data-ops/department";
-import { updateDeploymentStatus } from "@repo/data-ops/deployment";
+import {
+	getDeployment,
+	updateDeploymentStatus,
+	updateOnboardingStep,
+} from "@repo/data-ops/deployment";
 import {
 	createEmployees,
 	type Employee,
@@ -30,12 +34,55 @@ export async function getEmployeesByDeployment(
 export async function bulkCreateEmployees(
 	deploymentId: string,
 	employeeData: EmployeeCreateInput[],
-	_env: Env,
+	env: Env,
 ): Promise<Result<Employee[]>> {
+	const deployment = await getDeployment(deploymentId);
+	if (!deployment) {
+		return {
+			ok: false,
+			error: { code: "NOT_FOUND", message: "Wdrozenie nie znalezione", status: 404 },
+		};
+	}
+
+	if (deployment.status === "ready" || deployment.status === "active") {
+		return {
+			ok: false,
+			error: {
+				code: "DEPLOYMENT_LOCKED",
+				message: "Onboarding zakonczony — nie mozna dodawac pracownikow",
+				status: 403,
+			},
+		};
+	}
+
 	const created = await createEmployees(deploymentId, employeeData);
 
-	// Transition deployment status
-	await updateDeploymentStatus(deploymentId, "employees_pending");
+	await Promise.all([
+		updateDeploymentStatus(deploymentId, "employees_pending"),
+		updateOnboardingStep(deploymentId, 4),
+	]);
+
+	const clientName = deployment.clientName;
+	const msg = [
+		"Grota: Admin zakonczyl onboarding",
+		`Klient: ${clientName}`,
+		`Pracownikow: ${created.length}`,
+		`Deployment: ${deploymentId}`,
+		"Akcja: wyslij linki do pracownikow z panelu",
+	].join("\n");
+
+	try {
+		await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				chat_id: env.TELEGRAM_CHAT_ID,
+				text: msg,
+			}),
+		});
+	} catch {
+		// best-effort, don't fail the create
+	}
 
 	return { ok: true, data: created };
 }

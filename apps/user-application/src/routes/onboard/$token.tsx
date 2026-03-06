@@ -2,24 +2,16 @@ import type { Department } from "@repo/data-ops/department";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import {
-	ArrowLeft,
-	CheckCircle2,
-	ChevronDown,
-	Copy,
-	ExternalLink,
-	Loader2,
-	Plus,
-	Trash2,
-} from "lucide-react";
-import { useRef, useState } from "react";
+import { ArrowLeft, CheckCircle2, Copy, ExternalLink, Loader2, Plus, Trash2 } from "lucide-react";
+import { useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { getDepartments } from "@/core/functions/departments/binding";
-import { bulkCreateEmployees } from "@/core/functions/employees/binding";
+import { bulkCreateEmployees, getEmployeesByDeployment } from "@/core/functions/employees/binding";
 import { verifyAdminToken } from "@/core/functions/magic-links/binding";
+import { cn } from "@/lib/utils";
 
 interface OnboardSearchParams {
 	step?: number;
@@ -44,10 +36,28 @@ function OnboardingWizard() {
 	const { step: searchStep, oauth } = Route.useSearch();
 	const navigate = Route.useNavigate();
 
+	const isLocked = loaderData.status === "ready" || loaderData.status === "active";
+	const isCompleted = loaderData.step >= 4;
+
 	const serverStep = loaderData.step > 0 ? loaderData.step : 1;
 	const currentStep = searchStep ?? (oauth === "success" ? 2 : serverStep);
 
 	const goTo = (step: number) => navigate({ search: { step } });
+
+	if ((isCompleted || isLocked) && !searchStep) {
+		return (
+			<div className="min-h-screen bg-background p-6">
+				<div className="max-w-2xl mx-auto space-y-6">
+					<h1 className="text-2xl font-bold text-foreground">Grota -- Onboarding</h1>
+					<CompletedView
+						deploymentId={loaderData.deploymentId}
+						locked={isLocked}
+						onAddMore={() => goTo(4)}
+					/>
+				</div>
+			</div>
+		);
+	}
 
 	return (
 		<div className="min-h-screen bg-background p-6">
@@ -89,7 +99,12 @@ function OnboardingWizard() {
 					/>
 				)}
 				{currentStep === 4 && (
-					<EmployeeListStep deploymentId={loaderData.deploymentId} onBack={() => goTo(3)} />
+					<EmployeeListStep
+						deploymentId={loaderData.deploymentId}
+						locked={isLocked}
+						onBack={() => goTo(3)}
+						onSummary={() => navigate({ search: {} })}
+					/>
 				)}
 			</div>
 		</div>
@@ -300,19 +315,108 @@ function DelegateChecklistStep({ operatorEmail, onNext, onBack }: DelegateCheckl
 	);
 }
 
+interface CompletedViewProps {
+	deploymentId: string;
+	locked: boolean;
+	onAddMore: () => void;
+}
+
+function CompletedView({ deploymentId, locked, onAddMore }: CompletedViewProps) {
+	const employeesQuery = useQuery({
+		queryKey: ["employees", deploymentId],
+		queryFn: () => getEmployeesByDeployment({ data: { deploymentId } }),
+	});
+
+	const employees = employeesQuery.data?.data ?? [];
+
+	return (
+		<Card>
+			<CardHeader>
+				<CardTitle>Onboarding zakonczony</CardTitle>
+			</CardHeader>
+			<CardContent className="space-y-4">
+				<div className="flex items-center gap-3 text-foreground">
+					<CheckCircle2 className="h-6 w-6 text-primary" />
+					<p className="text-lg font-medium">
+						{locked ? "Wdrozenie w toku" : "Pracownicy zostali dodani"}
+					</p>
+				</div>
+
+				{employeesQuery.isPending ? (
+					<div className="flex items-center gap-2 text-muted-foreground">
+						<Loader2 className="h-4 w-4 animate-spin" />
+						Ladowanie...
+					</div>
+				) : employees.length > 0 ? (
+					<div className="space-y-2">
+						<p className="text-sm font-medium text-foreground">
+							Dodani pracownicy ({employees.length}):
+						</p>
+						<div className="rounded-md border border-border divide-y divide-border">
+							{employees.map((emp) => (
+								<div key={emp.id} className="flex items-center justify-between px-3 py-2">
+									<div>
+										<p className="text-sm text-foreground">{emp.email}</p>
+										{emp.name && <p className="text-xs text-muted-foreground">{emp.name}</p>}
+									</div>
+									<div className="flex gap-1">
+										{emp.departments.map((d) => (
+											<span
+												key={d.id}
+												className="rounded-md border border-border px-2 py-0.5 text-xs text-muted-foreground"
+											>
+												{d.name}
+											</span>
+										))}
+									</div>
+								</div>
+							))}
+						</div>
+					</div>
+				) : (
+					<p className="text-sm text-muted-foreground">Brak dodanych pracownikow</p>
+				)}
+
+				{locked ? (
+					<p className="text-sm text-muted-foreground">
+						Operator rozpoczal konfiguracje — nie mozna dodawac nowych pracownikow.
+					</p>
+				) : (
+					<Button variant="outline" onClick={onAddMore}>
+						Dodaj wiecej pracownikow
+					</Button>
+				)}
+			</CardContent>
+		</Card>
+	);
+}
+
 interface EmployeeRow {
 	email: string;
 	name: string;
 	departmentIds: string[];
 }
 
-function EmployeeListStep({ deploymentId, onBack }: { deploymentId: string; onBack: () => void }) {
+interface EmployeeListStepProps {
+	deploymentId: string;
+	locked: boolean;
+	onBack: () => void;
+	onSummary: () => void;
+}
+
+function EmployeeListStep({ deploymentId, locked, onBack, onSummary }: EmployeeListStepProps) {
 	const departmentsQuery = useQuery({
 		queryKey: ["departments", deploymentId],
 		queryFn: () => getDepartments({ data: { deploymentId } }),
 	});
 
+	const existingQuery = useQuery({
+		queryKey: ["employees", deploymentId],
+		queryFn: () => getEmployeesByDeployment({ data: { deploymentId } }),
+	});
+
 	const departments = departmentsQuery.data?.data ?? [];
+	const existingEmployees = existingQuery.data?.data ?? [];
 
 	const mutation = useMutation({
 		mutationFn: (data: { deploymentId: string; employees: EmployeeRow[] }) =>
@@ -347,6 +451,9 @@ function EmployeeListStep({ deploymentId, onBack }: { deploymentId: string; onBa
 						Lista pracownikow zostala zapisana. Operator wyslij im linki do autoryzacji z panelu
 						wdrozenia.
 					</p>
+					<Button variant="outline" onClick={onSummary}>
+						Wroc do podsumowania
+					</Button>
 				</CardContent>
 			</Card>
 		);
@@ -374,156 +481,179 @@ function EmployeeListStep({ deploymentId, onBack }: { deploymentId: string; onBa
 				<CardTitle>Krok 4: Lista pracownikow</CardTitle>
 			</CardHeader>
 			<CardContent className="space-y-4">
-				<p className="text-muted-foreground">
-					Dodaj pracownikow, ktorzy powinni autoryzowac dostep do Google Drive. Kazdy otrzyma link
-					email z instrukcjami.
-				</p>
-
-				<form
-					onSubmit={(e) => {
-						e.preventDefault();
-						form.handleSubmit();
-					}}
-					className="space-y-4"
-				>
-					{mutation.isError && <Alert variant="destructive">{mutation.error.message}</Alert>}
-
-					<form.Field name="employees" mode="array">
-						{(arrayField) => (
-							<div className="space-y-3">
-								{arrayField.state.value.map((_, i) => (
-									<div
-										key={`employee-${i.toString()}`}
-										className="rounded-md border border-border p-3 space-y-2"
-									>
-										<div className="flex items-start gap-2">
-											<div className="flex-1 space-y-2">
-												<div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-													<form.Field
-														name={`employees[${i}].email`}
-														validators={{
-															onChange: ({ value }: { value: string }) => {
-																if (!value) return "Email jest wymagany";
-																if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))
-																	return "Nieprawidlowy format email";
-																return undefined;
-															},
-														}}
-													>
-														{(field) => (
-															<div>
-																<Input
-																	placeholder="email@firma.pl"
-																	type="email"
-																	value={field.state.value}
-																	onChange={(e) => field.handleChange(e.target.value)}
-																	onBlur={field.handleBlur}
-																/>
-																{field.state.meta.errors.length > 0 && (
-																	<p className="mt-1 text-xs text-destructive">
-																		{field.state.meta.errors[0]}
-																	</p>
-																)}
-															</div>
-														)}
-													</form.Field>
-
-													<form.Field
-														name={`employees[${i}].name`}
-														validators={{
-															onChange: ({ value }: { value: string }) =>
-																!value ? "Imie i nazwisko jest wymagane" : undefined,
-														}}
-													>
-														{(field) => (
-															<div>
-																<Input
-																	placeholder="Jan Kowalski"
-																	value={field.state.value}
-																	onChange={(e) => field.handleChange(e.target.value)}
-																	onBlur={field.handleBlur}
-																/>
-																{field.state.meta.errors.length > 0 && (
-																	<p className="mt-1 text-xs text-destructive">
-																		{field.state.meta.errors[0]}
-																	</p>
-																)}
-															</div>
-														)}
-													</form.Field>
-												</div>
-
-												<form.Field name={`employees[${i}].departmentIds`}>
-													{(field) => (
-														<DepartmentMultiSelect
-															departments={departments}
-															selectedIds={field.state.value}
-															onChange={(ids) => field.handleChange(ids)}
-														/>
-													)}
-												</form.Field>
-											</div>
-
-											{arrayField.state.value.length > 1 && (
-												<Button
-													type="button"
-													variant="ghost"
-													size="icon"
-													onClick={() => arrayField.removeValue(i)}
-													className="mt-0 shrink-0"
-													title="Usun pracownika"
-												>
-													<Trash2 className="h-4 w-4 text-muted-foreground" />
-												</Button>
-											)}
-										</div>
+				{existingEmployees.length > 0 && (
+					<div className="space-y-2">
+						<p className="text-sm font-medium text-foreground">
+							Dodani pracownicy ({existingEmployees.length}):
+						</p>
+						<div className="rounded-md border border-border divide-y divide-border">
+							{existingEmployees.map((emp) => (
+								<div key={emp.id} className="flex items-center justify-between px-3 py-2">
+									<div>
+										<p className="text-sm text-foreground">{emp.email}</p>
+										{emp.name && <p className="text-xs text-muted-foreground">{emp.name}</p>}
 									</div>
-								))}
-
-								<Button
-									type="button"
-									variant="outline"
-									onClick={() =>
-										arrayField.pushValue({
-											email: "",
-											name: "",
-											departmentIds: [],
-										})
-									}
-									className="w-full"
-								>
-									<Plus className="mr-2 h-4 w-4" />
-									Dodaj pracownika
-								</Button>
-							</div>
-						)}
-					</form.Field>
-
-					<div className="flex gap-2">
-						<Button type="button" variant="outline" onClick={onBack}>
-							<ArrowLeft className="mr-2 h-4 w-4" />
-							Wstecz
-						</Button>
-						<form.Subscribe selector={(s) => s.canSubmit}>
-							{(canSubmit) => (
-								<Button
-									type="submit"
-									disabled={!canSubmit || mutation.isPending}
-									className="flex-1"
-								>
-									{mutation.isPending ? (
-										<>
-											<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-											Zapisywanie...
-										</>
-									) : (
-										"Wyslij"
-									)}
-								</Button>
-							)}
-						</form.Subscribe>
+									<div className="flex gap-1">
+										{emp.departments.map((d) => (
+											<span
+												key={d.id}
+												className="rounded-md border border-border px-2 py-0.5 text-xs text-muted-foreground"
+											>
+												{d.name}
+											</span>
+										))}
+									</div>
+								</div>
+							))}
+						</div>
 					</div>
-				</form>
+				)}
+
+				{locked ? (
+					<p className="text-sm text-muted-foreground">
+						Operator rozpoczal konfiguracje — nie mozna dodawac nowych pracownikow.
+					</p>
+				) : (
+					<>
+						<p className="text-muted-foreground">
+							Dodaj pracownikow, ktorzy powinni autoryzowac dostep do Google Drive. Kazdy otrzyma
+							link email z instrukcjami.
+						</p>
+
+						<form
+							onSubmit={(e) => {
+								e.preventDefault();
+								form.handleSubmit();
+							}}
+							className="space-y-4"
+						>
+							{mutation.isError && <Alert variant="destructive">{mutation.error.message}</Alert>}
+
+							<form.Field name="employees" mode="array">
+								{(arrayField) => (
+									<div className="space-y-3">
+										{arrayField.state.value.map((_, i) => (
+											<div
+												key={`employee-${i.toString()}`}
+												className="rounded-md border border-border p-3 space-y-2"
+											>
+												<div className="flex items-start gap-2">
+													<div className="flex-1 space-y-2">
+														<div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+															<form.Field
+																name={`employees[${i}].email`}
+																validators={{
+																	onChange: ({ value }: { value: string }) => {
+																		if (!value) return "Email jest wymagany";
+																		if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))
+																			return "Nieprawidlowy format email";
+																		return undefined;
+																	},
+																}}
+															>
+																{(field) => (
+																	<div>
+																		<Input
+																			placeholder="email@firma.pl"
+																			type="email"
+																			value={field.state.value}
+																			onChange={(e) => field.handleChange(e.target.value)}
+																			onBlur={field.handleBlur}
+																		/>
+																		{field.state.meta.errors.length > 0 && (
+																			<p className="mt-1 text-xs text-destructive">
+																				{field.state.meta.errors[0]}
+																			</p>
+																		)}
+																	</div>
+																)}
+															</form.Field>
+
+															<form.Field name={`employees[${i}].name`}>
+																{(field) => (
+																	<Input
+																		placeholder="Jan Kowalski (opcjonalne)"
+																		value={field.state.value}
+																		onChange={(e) => field.handleChange(e.target.value)}
+																		onBlur={field.handleBlur}
+																	/>
+																)}
+															</form.Field>
+														</div>
+
+														<form.Field name={`employees[${i}].departmentIds`}>
+															{(field) => (
+																<DepartmentMultiSelect
+																	departments={departments}
+																	selectedIds={field.state.value}
+																	onChange={(ids) => field.handleChange(ids)}
+																/>
+															)}
+														</form.Field>
+													</div>
+
+													{arrayField.state.value.length > 1 && (
+														<Button
+															type="button"
+															variant="ghost"
+															size="icon"
+															onClick={() => arrayField.removeValue(i)}
+															className="mt-0 shrink-0"
+															title="Usun pracownika"
+														>
+															<Trash2 className="h-4 w-4 text-muted-foreground" />
+														</Button>
+													)}
+												</div>
+											</div>
+										))}
+
+										<Button
+											type="button"
+											variant="outline"
+											onClick={() =>
+												arrayField.pushValue({
+													email: "",
+													name: "",
+													departmentIds: [],
+												})
+											}
+											className="w-full"
+										>
+											<Plus className="mr-2 h-4 w-4" />
+											Dodaj pracownika
+										</Button>
+									</div>
+								)}
+							</form.Field>
+
+							<div className="flex gap-2">
+								<Button type="button" variant="outline" onClick={onBack}>
+									<ArrowLeft className="mr-2 h-4 w-4" />
+									Wstecz
+								</Button>
+								<form.Subscribe selector={(s) => s.canSubmit}>
+									{(canSubmit) => (
+										<Button
+											type="submit"
+											disabled={!canSubmit || mutation.isPending}
+											className="flex-1"
+										>
+											{mutation.isPending ? (
+												<>
+													<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+													Zapisywanie...
+												</>
+											) : (
+												"Wyslij"
+											)}
+										</Button>
+									)}
+								</form.Subscribe>
+							</div>
+						</form>
+					</>
+				)}
 			</CardContent>
 		</Card>
 	);
@@ -536,9 +666,6 @@ interface DepartmentMultiSelectProps {
 }
 
 function DepartmentMultiSelect({ departments, selectedIds, onChange }: DepartmentMultiSelectProps) {
-	const [isOpen, setIsOpen] = useState(false);
-	const containerRef = useRef<HTMLDivElement>(null);
-
 	const toggleDepartment = (id: string) => {
 		if (selectedIds.includes(id)) {
 			onChange(selectedIds.filter((sid) => sid !== id));
@@ -547,47 +674,30 @@ function DepartmentMultiSelect({ departments, selectedIds, onChange }: Departmen
 		}
 	};
 
-	const selectedNames = departments.filter((d) => selectedIds.includes(d.id)).map((d) => d.name);
+	if (departments.length === 0) {
+		return <p className="text-sm text-muted-foreground">Brak dzialow</p>;
+	}
 
 	return (
-		<div ref={containerRef} className="relative">
-			<button
-				type="button"
-				onClick={() => setIsOpen(!isOpen)}
-				onBlur={(e) => {
-					if (!containerRef.current?.contains(e.relatedTarget)) {
-						setIsOpen(false);
-					}
-				}}
-				className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-1 text-sm text-foreground shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
-			>
-				<span className={selectedNames.length === 0 ? "text-muted-foreground" : ""}>
-					{selectedNames.length === 0 ? "Wybierz dzialy..." : selectedNames.join(", ")}
-				</span>
-				<ChevronDown className="h-4 w-4 text-muted-foreground" />
-			</button>
-			{isOpen && (
-				<div className="absolute z-10 mt-1 w-full rounded-md border border-border bg-background shadow-lg">
-					{departments.length === 0 ? (
-						<p className="px-3 py-2 text-sm text-muted-foreground">Brak dzialow</p>
-					) : (
-						departments.map((dept) => (
-							<label
-								key={dept.id}
-								className="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted cursor-pointer"
-							>
-								<input
-									type="checkbox"
-									checked={selectedIds.includes(dept.id)}
-									onChange={() => toggleDepartment(dept.id)}
-									className="rounded"
-								/>
-								{dept.name}
-							</label>
-						))
-					)}
-				</div>
-			)}
+		<div className="flex flex-wrap gap-2">
+			{departments.map((dept) => {
+				const selected = selectedIds.includes(dept.id);
+				return (
+					<button
+						key={dept.id}
+						type="button"
+						onClick={() => toggleDepartment(dept.id)}
+						className={cn(
+							"rounded-md border px-3 py-1.5 text-sm transition-colors",
+							selected
+								? "border-primary bg-primary/10 text-primary font-medium"
+								: "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground",
+						)}
+					>
+						{dept.name}
+					</button>
+				);
+			})}
 		</div>
 	);
 }

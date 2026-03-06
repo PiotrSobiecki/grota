@@ -67,7 +67,11 @@ function RouteComponent() {
 
 	return (
 		<div className="flex h-screen bg-background overflow-hidden">
-			<Sidebar className="flex-shrink-0" />
+			<Sidebar
+				className="flex-shrink-0"
+				mobileOpen={isMobileMenuOpen}
+				onMobileOpenChange={setIsMobileMenuOpen}
+			/>
 
 			<div className="flex flex-1 flex-col overflow-hidden">
 				<Header onMobileMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)} />

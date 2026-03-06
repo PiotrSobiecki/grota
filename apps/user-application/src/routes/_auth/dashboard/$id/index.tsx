@@ -41,7 +41,11 @@ import {
 	getDepartments,
 	renameDepartment,
 } from "@/core/functions/departments/binding";
-import { getDeploymentById, updateExistingDeployment } from "@/core/functions/deployments/direct";
+import {
+	getDeploymentById,
+	markDeploymentReady,
+	updateExistingDeployment,
+} from "@/core/functions/deployments/direct";
 import {
 	getEmployeesByDeployment,
 	sendEmployeeMagicLinks,
@@ -143,7 +147,11 @@ function DeploymentDetailPage() {
 			<DepartmentSection deploymentId={deployment.id} deploymentStatus={deployment.status} />
 
 			{showEmployeeSection && (
-				<EmployeeSection deploymentId={deployment.id} deploymentStatus={deployment.status} />
+				<EmployeeSection
+					deploymentId={deployment.id}
+					deploymentStatus={deployment.status}
+					onStatusChanged={() => router.invalidate()}
+				/>
 			)}
 		</div>
 	);
@@ -908,10 +916,14 @@ function DepartmentSection({
 function EmployeeSection({
 	deploymentId,
 	deploymentStatus,
+	onStatusChanged,
 }: {
 	deploymentId: string;
 	deploymentStatus: string;
+	onStatusChanged: () => void;
 }) {
+	const [readyDialogOpen, setReadyDialogOpen] = useState(false);
+
 	const employeesQuery = useQuery({
 		queryKey: ["employees", deploymentId],
 		queryFn: () => getEmployeesByDeployment({ data: { deploymentId } }),
@@ -921,8 +933,18 @@ function EmployeeSection({
 		mutationFn: () => sendEmployeeMagicLinks({ data: { deploymentId } }),
 	});
 
+	const readyMutation = useMutation({
+		mutationFn: () => markDeploymentReady({ data: { id: deploymentId } }),
+		onSuccess: () => {
+			setReadyDialogOpen(false);
+			onStatusChanged();
+		},
+	});
+
 	const employees = employeesQuery.data?.data ?? [];
 	const employeeTotal = employeesQuery.data?.total ?? 0;
+	const completedCount = employees.filter((e) => e.selectionStatus === "completed").length;
+	const canMarkReady = deploymentStatus === "employees_pending" && completedCount > 0;
 
 	return (
 		<Card>
@@ -937,25 +959,53 @@ function EmployeeSection({
 							</span>
 						)}
 					</CardTitle>
-					<Button
-						variant="outline"
-						onClick={() => sendLinksMutation.mutate()}
-						disabled={
-							sendLinksMutation.isPending || employeeTotal === 0 || deploymentStatus === "active"
-						}
-					>
-						{sendLinksMutation.isPending ? (
-							<>
-								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-								Wysylanie...
-							</>
-						) : (
-							<>
-								<Mail className="mr-2 h-4 w-4" />
-								Wyslij linki pracownikom
-							</>
+					<div className="flex gap-2">
+						{canMarkReady && (
+							<AlertDialog open={readyDialogOpen} onOpenChange={setReadyDialogOpen}>
+								<AlertDialogTrigger asChild>
+									<Button variant="default">Oznacz jako gotowe</Button>
+								</AlertDialogTrigger>
+								<AlertDialogContent>
+									<AlertDialogHeader>
+										<AlertDialogTitle>Oznacz wdrozenie jako gotowe?</AlertDialogTitle>
+										<AlertDialogDescription>
+											{completedCount}/{employeeTotal} pracownikow ukonczylo proces.
+											{completedCount < employeeTotal &&
+												` ${employeeTotal - completedCount} pracownikow nie ukonczylo — ich foldery nie beda uwzglednione.`}
+										</AlertDialogDescription>
+									</AlertDialogHeader>
+									<AlertDialogFooter>
+										<AlertDialogCancel>Anuluj</AlertDialogCancel>
+										<AlertDialogAction
+											onClick={() => readyMutation.mutate()}
+											disabled={readyMutation.isPending}
+										>
+											{readyMutation.isPending ? "Zapisywanie..." : "Potwierdz"}
+										</AlertDialogAction>
+									</AlertDialogFooter>
+								</AlertDialogContent>
+							</AlertDialog>
 						)}
-					</Button>
+						<Button
+							variant="outline"
+							onClick={() => sendLinksMutation.mutate()}
+							disabled={
+								sendLinksMutation.isPending || employeeTotal === 0 || deploymentStatus === "active"
+							}
+						>
+							{sendLinksMutation.isPending ? (
+								<>
+									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+									Wysylanie...
+								</>
+							) : (
+								<>
+									<Mail className="mr-2 h-4 w-4" />
+									Wyslij linki pracownikom
+								</>
+							)}
+						</Button>
+					</div>
 				</div>
 			</CardHeader>
 			<CardContent>
@@ -967,6 +1017,10 @@ function EmployeeSection({
 					<p className="mb-3 text-sm text-primary">
 						Wyslano linki do {sendLinksMutation.data.sent} pracownikow.
 					</p>
+				)}
+
+				{readyMutation.isError && (
+					<p className="mb-3 text-sm text-destructive">{readyMutation.error.message}</p>
 				)}
 
 				<EmployeeList employees={employees} isPending={employeesQuery.isPending} />
@@ -981,6 +1035,7 @@ interface EmployeeListItem {
 	email: string;
 	oauthStatus: string;
 	selectionStatus: string;
+	magicLinkSentAt: string | null;
 	departments: Array<{ id: string; name: string; slug: string }>;
 }
 
@@ -1005,13 +1060,19 @@ function EmployeeList({
 	}
 
 	const completedCount = employees.filter((e) => e.selectionStatus === "completed").length;
+	const sentCount = employees.filter((e) => e.magicLinkSentAt).length;
 
 	return (
 		<div className="space-y-3">
 			{employees.length > 0 && (
-				<p className="text-sm text-muted-foreground">
-					{completedCount}/{employees.length} pracownikow ukonczylo
-				</p>
+				<div className="flex gap-4 text-sm text-muted-foreground">
+					<span>
+						Linki: {sentCount}/{employees.length} wyslano
+					</span>
+					<span>
+						Ukonczonych: {completedCount}/{employees.length}
+					</span>
+				</div>
 			)}
 			<div className="space-y-2">
 				{employees.map((employee) => {
@@ -1024,19 +1085,28 @@ function EmployeeList({
 						variant: "outline" as const,
 					};
 					const deptNames = employee.departments.map((d) => d.name).join(", ");
+					const linkSent = !!employee.magicLinkSentAt;
 					return (
 						<div
 							key={employee.id}
 							className="flex items-center justify-between rounded-md border border-border p-3"
 						>
 							<div>
-								<p className="text-sm font-medium text-foreground">{employee.name}</p>
-								<p className="text-xs text-muted-foreground">{employee.email}</p>
+								<p className="text-sm font-medium text-foreground">
+									{employee.name || employee.email}
+								</p>
+								{employee.name && <p className="text-xs text-muted-foreground">{employee.email}</p>}
 								{deptNames && <p className="mt-0.5 text-xs text-muted-foreground">{deptNames}</p>}
 							</div>
 							<div className="flex gap-2">
-								<Badge variant={oauthInfo.variant}>{oauthInfo.label}</Badge>
-								<Badge variant={selectionInfo.variant}>{selectionInfo.label}</Badge>
+								{linkSent ? (
+									<Badge variant={oauthInfo.variant}>{oauthInfo.label}</Badge>
+								) : (
+									<Badge variant="outline">Nie wyslano linku</Badge>
+								)}
+								{employee.oauthStatus === "authorized" && (
+									<Badge variant={selectionInfo.variant}>{selectionInfo.label}</Badge>
+								)}
 							</div>
 						</div>
 					);

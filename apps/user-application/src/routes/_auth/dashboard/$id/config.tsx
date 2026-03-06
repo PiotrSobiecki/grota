@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getDeploymentById } from "@/core/functions/deployments/direct";
+import { getEmployeesByDeployment } from "@/core/functions/employees/binding";
 import { sendNotifications } from "@/core/functions/notifications/binding";
 
 interface ConfigAccount {
@@ -56,6 +57,11 @@ function ConfigPage() {
 	const deploymentQuery = useQuery({
 		queryKey: ["deployment", deploymentId],
 		queryFn: () => getDeploymentById({ data: { id: deploymentId } }),
+	});
+
+	const employeesQuery = useQuery({
+		queryKey: ["employees", deploymentId],
+		queryFn: () => getEmployeesByDeployment({ data: { deploymentId } }),
 	});
 
 	const previewQuery = useQuery({
@@ -104,6 +110,10 @@ function ConfigPage() {
 		);
 	}
 
+	const employees = employeesQuery.data?.data ?? [];
+	const completedCount = employees.filter((e) => e.selectionStatus === "completed").length;
+	const totalEmployees = employees.length;
+
 	const config = previewQuery.data;
 	const isActive = deploymentQuery.data?.status === "active";
 
@@ -150,7 +160,15 @@ function ConfigPage() {
 				</CardHeader>
 				<CardContent className="space-y-2">
 					<div className="text-sm text-muted-foreground">Klient: {config.client_name}</div>
-					<div className="text-sm text-muted-foreground">Pracownicy: {config.accounts.length}</div>
+					<div className="text-sm text-muted-foreground">
+						Pracownicy: {completedCount}/{totalEmployees} ukonczylo proces
+						{totalEmployees > completedCount && (
+							<span className="text-amber-600 dark:text-amber-400">
+								{" "}
+								({totalEmployees - completedCount} nie ukonczylo — ich foldery nie sa uwzglednione)
+							</span>
+						)}
+					</div>
 					<div className="text-sm text-muted-foreground">
 						Foldery (bez prywatnych): {folderCount}
 					</div>

@@ -1,4 +1,4 @@
-import { setWorkspaceOAuthToken } from "@repo/data-ops/deployment";
+import { setWorkspaceOAuthToken, updateOnboardingStep } from "@repo/data-ops/deployment";
 import { getEmployeeByToken, setDriveOAuthToken } from "@repo/data-ops/employee";
 import { encrypt } from "@repo/data-ops/encryption";
 import type { Result } from "../types/result";
@@ -102,7 +102,10 @@ export async function handleCallback(
 	const frontendOrigin = env.ALLOWED_ORIGINS.split(",")[0] ?? "";
 
 	if (state.type === "admin") {
-		await setWorkspaceOAuthToken(state.id, encryptedToken);
+		await Promise.all([
+			setWorkspaceOAuthToken(state.id, encryptedToken),
+			updateOnboardingStep(state.id, 2),
+		]);
 		const redirectPath = state.token ? `/onboard/${state.token}` : `/onboard/${state.id}`;
 		return {
 			ok: true,
