@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/database/setup";
-import type { Department, DepartmentCreateInput } from "./schema";
+import type { Department, DepartmentCreateInput, DepartmentUpdateInput } from "./schema";
 import { deploymentDepartments, employeeDepartments } from "./table";
 
 function slugify(name: string): string {
@@ -49,6 +49,20 @@ export async function createDepartmentsBulk(
 		sortOrder: i,
 	}));
 	return db.insert(deploymentDepartments).values(values).returning();
+}
+
+export async function updateDepartment(
+	departmentId: string,
+	data: DepartmentUpdateInput,
+): Promise<Department | null> {
+	const db = getDb();
+	const slug = slugify(data.name);
+	const result = await db
+		.update(deploymentDepartments)
+		.set({ name: data.name, slug })
+		.where(eq(deploymentDepartments.id, departmentId))
+		.returning();
+	return result[0] ?? null;
 }
 
 export async function deleteDepartment(departmentId: string): Promise<boolean> {

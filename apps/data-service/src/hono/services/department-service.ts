@@ -3,9 +3,11 @@ import {
 	createDepartmentsBulk,
 	type Department,
 	type DepartmentCreateInput,
+	type DepartmentUpdateInput,
 	deleteDepartment,
 	getDepartmentsByDeployment as getDepartmentsQuery,
 	MAX_DEPARTMENTS_PER_DEPLOYMENT,
+	updateDepartment,
 } from "@repo/data-ops/department";
 import type { Result } from "../types/result";
 
@@ -54,6 +56,24 @@ export async function createDeploymentDepartmentsBulk(
 
 	const created = await createDepartmentsBulk(deploymentId, departments);
 	return { ok: true, data: created };
+}
+
+export async function updateDeploymentDepartment(
+	departmentId: string,
+	input: DepartmentUpdateInput,
+): Promise<Result<Department>> {
+	const updated = await updateDepartment(departmentId, input);
+	if (!updated) {
+		return {
+			ok: false,
+			error: {
+				code: "DEPARTMENT_NOT_FOUND",
+				message: "Dzial nie zostal znaleziony",
+				status: 404,
+			},
+		};
+	}
+	return { ok: true, data: updated };
 }
 
 export async function deleteDeploymentDepartment(departmentId: string): Promise<Result<boolean>> {

@@ -170,8 +170,8 @@ function DeleteDeploymentButton({ id, clientName }: { id: string; clientName: st
 					<AlertDialogHeader>
 						<AlertDialogTitle>Usunac wdrozenie?</AlertDialogTitle>
 						<AlertDialogDescription>
-							Wdrozenie &ldquo;{clientName}&rdquo; zostanie trwale usuniete. Tej operacji nie
-							mozna cofnac.
+							Wdrozenie &ldquo;{clientName}&rdquo; zostanie trwale usuniete. Tej operacji nie mozna
+							cofnac.
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>

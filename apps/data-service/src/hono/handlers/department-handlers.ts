@@ -4,6 +4,7 @@ import {
 	DepartmentCreateRequestSchema,
 	DepartmentDeploymentParamSchema,
 	DepartmentIdParamSchema,
+	DepartmentUpdateRequestSchema,
 } from "@repo/data-ops/department";
 import { Hono } from "hono";
 import * as departmentService from "../services/department-service";
@@ -50,6 +51,18 @@ departmentHandlers.post(
 			await departmentService.createDeploymentDepartmentsBulk(deploymentId, departments),
 			201,
 		);
+	},
+);
+
+// Rename a department
+departmentHandlers.patch(
+	"/:id",
+	zValidator("param", DepartmentIdParamSchema),
+	zValidator("json", DepartmentUpdateRequestSchema),
+	async (c) => {
+		const { id } = c.req.valid("param");
+		const data = c.req.valid("json");
+		return resultToResponse(c, await departmentService.updateDeploymentDepartment(id, data));
 	},
 );
 

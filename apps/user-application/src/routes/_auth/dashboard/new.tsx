@@ -1,4 +1,4 @@
-import { DEPARTMENT_SUGGESTIONS } from "@repo/data-ops/department";
+import { DEPARTMENT_SUGGESTIONS, MAX_DEPARTMENTS_PER_DEPLOYMENT } from "@repo/data-ops/department";
 import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
@@ -68,6 +68,8 @@ function CreateDeploymentPage() {
 			navigate({ to: "/dashboard/$id", params: { id: result.id } });
 		},
 	});
+
+	const atLimit = selectedDepartments.length >= MAX_DEPARTMENTS_PER_DEPLOYMENT;
 
 	const toggleSuggestion = (suggestion: DepartmentSelection) => {
 		setSelectedDepartments((prev) => {
@@ -200,19 +202,28 @@ function CreateDeploymentPage() {
 
 						{/* Departments section */}
 						<div className="space-y-3">
-							<span className="text-sm font-medium text-foreground">Dzialy</span>
+							<span className="text-sm font-medium text-foreground">
+								Dzialy{" "}
+								<span className="font-normal text-muted-foreground">
+									({selectedDepartments.length}/{MAX_DEPARTMENTS_PER_DEPLOYMENT})
+								</span>
+							</span>
 							<div className="flex flex-wrap gap-2">
 								{DEPARTMENT_SUGGESTIONS.map((s) => {
 									const isSelected = selectedDepartments.some((d) => d.slug === s.slug);
+									const disabled = !isSelected && atLimit;
 									return (
 										<button
 											key={s.slug}
 											type="button"
-											onClick={() => toggleSuggestion(s)}
+											onClick={() => !disabled && toggleSuggestion(s)}
+											disabled={disabled}
 											className={`rounded-full border px-3 py-1 text-sm transition-colors ${
 												isSelected
 													? "border-primary bg-primary text-primary-foreground"
-													: "border-border bg-background text-foreground hover:bg-muted"
+													: disabled
+														? "border-border bg-background text-muted-foreground opacity-50 cursor-not-allowed"
+														: "border-border bg-background text-foreground hover:bg-muted"
 											}`}
 										>
 											{s.name}
@@ -223,7 +234,8 @@ function CreateDeploymentPage() {
 
 							<div className="flex gap-2">
 								<Input
-									placeholder="Wlasny dzial..."
+									placeholder={atLimit ? "Osiagnieto limit dzialow" : "Wlasny dzial..."}
+									disabled={atLimit}
 									value={customDeptName}
 									onChange={(e) => setCustomDeptName(e.target.value)}
 									onKeyDown={(e) => {
@@ -233,7 +245,13 @@ function CreateDeploymentPage() {
 										}
 									}}
 								/>
-								<Button type="button" variant="outline" size="icon" onClick={addCustomDepartment}>
+								<Button
+									type="button"
+									variant="outline"
+									size="icon"
+									onClick={addCustomDepartment}
+									disabled={atLimit}
+								>
 									<Plus className="h-4 w-4" />
 								</Button>
 							</div>

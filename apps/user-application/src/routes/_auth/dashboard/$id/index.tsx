@@ -1,3 +1,4 @@
+import { MAX_DEPARTMENTS_PER_DEPLOYMENT } from "@repo/data-ops/department";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import {
@@ -7,6 +8,7 @@ import {
 	Info,
 	Loader2,
 	Mail,
+	Pencil,
 	Plus,
 	Send,
 	Trash2,
@@ -22,8 +24,9 @@ import {
 	createDepartment,
 	deleteDepartment,
 	getDepartments,
+	renameDepartment,
 } from "@/core/functions/departments/binding";
-import { getDeploymentById } from "@/core/functions/deployments/direct";
+import { getDeploymentById, updateExistingDeployment } from "@/core/functions/deployments/direct";
 import {
 	getEmployeesByDeployment,
 	sendEmployeeMagicLinks,
@@ -105,25 +108,7 @@ function DeploymentDetailPage() {
 			</div>
 
 			<div className="grid gap-6 md:grid-cols-2">
-				<Card>
-					<CardHeader>
-						<CardTitle>Dane klienta</CardTitle>
-					</CardHeader>
-					<CardContent className="space-y-2">
-						<div>
-							<span className="text-sm text-muted-foreground">Domena: </span>
-							<span className="text-foreground">{deployment.domain}</span>
-						</div>
-						{deployment.adminEmail && (
-							<div>
-								<span className="text-sm text-muted-foreground">Admin: </span>
-								<span className="text-foreground">
-									{deployment.adminName ?? ""} ({deployment.adminEmail})
-								</span>
-							</div>
-						)}
-					</CardContent>
-				</Card>
+				<ClientDataCard deployment={deployment} onUpdated={() => router.invalidate()} />
 
 				<MagicLinkCard
 					deployment={deployment}
@@ -138,6 +123,112 @@ function DeploymentDetailPage() {
 				<EmployeeSection deploymentId={deployment.id} deploymentStatus={deployment.status} />
 			)}
 		</div>
+	);
+}
+
+interface ClientDataField {
+	label: string;
+	key: "domain" | "adminName" | "adminEmail";
+	value: string;
+}
+
+interface ClientDataCardProps {
+	deployment: {
+		id: string;
+		domain: string;
+		adminName: string | null;
+		adminEmail: string | null;
+		status: string;
+	};
+	onUpdated: () => void;
+}
+
+function ClientDataCard({ deployment, onUpdated }: ClientDataCardProps) {
+	const [editingField, setEditingField] = useState<ClientDataField | null>(null);
+	const [editValue, setEditValue] = useState("");
+
+	const canEdit = deployment.status === "draft" || deployment.status === "onboarding";
+
+	const updateMutation = useMutation({
+		mutationFn: (updates: { domain?: string; adminName?: string; adminEmail?: string }) =>
+			updateExistingDeployment({ data: { id: deployment.id, updates } }),
+		onSuccess: () => {
+			onUpdated();
+			setEditingField(null);
+		},
+	});
+
+	const startEdit = (field: ClientDataField) => {
+		setEditingField(field);
+		setEditValue(field.value);
+	};
+
+	const submitEdit = () => {
+		if (!editingField) return;
+		const trimmed = editValue.trim();
+		if (!trimmed || trimmed === editingField.value) {
+			setEditingField(null);
+			return;
+		}
+		updateMutation.mutate({ [editingField.key]: trimmed });
+	};
+
+	const renderField = (label: string, key: ClientDataField["key"], value: string | null) => {
+		const displayValue = value ?? "";
+		if (!displayValue && !canEdit) return null;
+		const isEditing = editingField?.key === key;
+
+		return (
+			<div className="flex items-center gap-2">
+				<span className="text-sm text-muted-foreground">{label}: </span>
+				{isEditing ? (
+					<Input
+						autoFocus
+						value={editValue}
+						onChange={(e) => setEditValue(e.target.value)}
+						onKeyDown={(e) => {
+							if (e.key === "Enter") {
+								e.preventDefault();
+								submitEdit();
+							}
+							if (e.key === "Escape") setEditingField(null);
+						}}
+						onBlur={submitEdit}
+						disabled={updateMutation.isPending}
+						className="h-7 w-48 text-sm"
+					/>
+				) : (
+					<>
+						<span className="text-foreground">{displayValue || "—"}</span>
+						{canEdit && (
+							<button
+								type="button"
+								onClick={() => startEdit({ label, key, value: displayValue })}
+								className="text-muted-foreground hover:text-foreground"
+							>
+								<Pencil className="h-3 w-3" />
+							</button>
+						)}
+					</>
+				)}
+			</div>
+		);
+	};
+
+	return (
+		<Card>
+			<CardHeader>
+				<CardTitle>Dane klienta</CardTitle>
+			</CardHeader>
+			<CardContent className="space-y-2">
+				{updateMutation.isError && (
+					<p className="text-sm text-destructive">{updateMutation.error.message}</p>
+				)}
+				{renderField("Domena", "domain", deployment.domain)}
+				{renderField("Administrator", "adminName", deployment.adminName)}
+				{renderField("Email", "adminEmail", deployment.adminEmail)}
+			</CardContent>
+		</Card>
 	);
 }
 
@@ -220,6 +311,11 @@ function MagicLinkCard({ deployment, magicLinkMutation, onCopyLink }: MagicLinkC
 	);
 }
 
+interface EditingDept {
+	id: string;
+	name: string;
+}
+
 function DepartmentSection({
 	deploymentId,
 	deploymentStatus,
@@ -228,6 +324,7 @@ function DepartmentSection({
 	deploymentStatus: string;
 }) {
 	const [newDeptName, setNewDeptName] = useState("");
+	const [editing, setEditing] = useState<EditingDept | null>(null);
 
 	const departmentsQuery = useQuery({
 		queryKey: ["departments", deploymentId],
@@ -249,13 +346,32 @@ function DepartmentSection({
 		},
 	});
 
+	const renameMutation = useMutation({
+		mutationFn: ({ departmentId, name }: { departmentId: string; name: string }) =>
+			renameDepartment({ data: { departmentId, name } }),
+		onSuccess: () => {
+			departmentsQuery.refetch();
+			setEditing(null);
+		},
+	});
+
 	const departments = departmentsQuery.data?.data ?? [];
 	const canEdit = deploymentStatus === "draft" || deploymentStatus === "onboarding";
+	const atLimit = departments.length >= MAX_DEPARTMENTS_PER_DEPLOYMENT;
 
 	const handleAdd = () => {
 		const trimmed = newDeptName.trim();
 		if (!trimmed) return;
 		createMutation.mutate(trimmed);
+	};
+
+	const handleRenameSubmit = (departmentId: string, originalName: string) => {
+		const trimmed = editing?.name.trim() ?? "";
+		if (trimmed && trimmed !== originalName) {
+			renameMutation.mutate({ departmentId, name: trimmed });
+		} else {
+			setEditing(null);
+		}
 	};
 
 	return (
@@ -264,11 +380,9 @@ function DepartmentSection({
 				<CardTitle className="flex items-center gap-2">
 					<FolderTree className="h-5 w-5" />
 					Dzialy wdrozenia
-					{departments.length > 0 && (
-						<span className="text-sm font-normal text-muted-foreground">
-							({departments.length})
-						</span>
-					)}
+					<span className="text-sm font-normal text-muted-foreground">
+						({departments.length}/{MAX_DEPARTMENTS_PER_DEPLOYMENT})
+					</span>
 				</CardTitle>
 			</CardHeader>
 			<CardContent className="space-y-3">
@@ -277,6 +391,9 @@ function DepartmentSection({
 				)}
 				{deleteMutation.isError && (
 					<p className="text-sm text-destructive">{deleteMutation.error.message}</p>
+				)}
+				{renameMutation.isError && (
+					<p className="text-sm text-destructive">{renameMutation.error.message}</p>
 				)}
 
 				{departmentsQuery.isPending ? (
@@ -293,8 +410,34 @@ function DepartmentSection({
 								key={dept.id}
 								className="flex items-center gap-1 rounded-md border border-border bg-muted px-2 py-1 text-sm text-foreground"
 							>
-								{dept.name}
-								{canEdit && (
+								{editing?.id === dept.id ? (
+									<Input
+										autoFocus
+										value={editing.name}
+										onChange={(e) => setEditing({ id: dept.id, name: e.target.value })}
+										onKeyDown={(e) => {
+											if (e.key === "Enter") {
+												e.preventDefault();
+												handleRenameSubmit(dept.id, dept.name);
+											}
+											if (e.key === "Escape") setEditing(null);
+										}}
+										onBlur={() => handleRenameSubmit(dept.id, dept.name)}
+										disabled={renameMutation.isPending}
+										className="h-7 w-32 text-sm"
+									/>
+								) : canEdit ? (
+									<button
+										type="button"
+										onClick={() => setEditing({ id: dept.id, name: dept.name })}
+										className="cursor-pointer hover:underline"
+									>
+										{dept.name}
+									</button>
+								) : (
+									<span>{dept.name}</span>
+								)}
+								{canEdit && editing?.id !== dept.id && (
 									<button
 										type="button"
 										onClick={() => deleteMutation.mutate(dept.id)}
@@ -313,7 +456,8 @@ function DepartmentSection({
 				{canEdit && (
 					<div className="flex gap-2">
 						<Input
-							placeholder="Nowy dzial..."
+							placeholder={atLimit ? "Osiagnieto limit dzialow" : "Nowy dzial..."}
+							disabled={atLimit}
 							value={newDeptName}
 							onChange={(e) => setNewDeptName(e.target.value)}
 							onKeyDown={(e) => {
@@ -323,14 +467,25 @@ function DepartmentSection({
 								}
 							}}
 						/>
-						<Button
-							variant="outline"
-							size="icon"
-							onClick={handleAdd}
-							disabled={createMutation.isPending}
-						>
-							<Plus className="h-4 w-4" />
-						</Button>
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<span tabIndex={atLimit ? 0 : undefined}>
+									<Button
+										variant="outline"
+										size="icon"
+										onClick={handleAdd}
+										disabled={atLimit || createMutation.isPending}
+									>
+										<Plus className="h-4 w-4" />
+									</Button>
+								</span>
+							</TooltipTrigger>
+							{atLimit && (
+								<TooltipContent>
+									Maksymalnie {MAX_DEPARTMENTS_PER_DEPLOYMENT} dzialow na wdrozenie
+								</TooltipContent>
+							)}
+						</Tooltip>
 					</div>
 				)}
 			</CardContent>

@@ -7,8 +7,14 @@ export {
 	getDepartmentsByDeployment,
 	getEmployeeDepartments,
 	removeEmployeeDepartment,
+	updateDepartment,
 } from "./queries";
-export type { Department, DepartmentCreateInput, DepartmentListResponse } from "./schema";
+export type {
+	Department,
+	DepartmentCreateInput,
+	DepartmentListResponse,
+	DepartmentUpdateInput,
+} from "./schema";
 export {
 	DEPARTMENT_SUGGESTIONS,
 	DepartmentBulkCreateRequestSchema,
@@ -17,6 +23,7 @@ export {
 	DepartmentIdParamSchema,
 	DepartmentListResponseSchema,
 	DepartmentSchema,
+	DepartmentUpdateRequestSchema,
 	MAX_DEPARTMENTS_PER_DEPLOYMENT,
 } from "./schema";
 export { deploymentDepartments, employeeDepartments } from "./table";

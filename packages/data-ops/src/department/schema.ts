@@ -48,6 +48,10 @@ export const DepartmentCreateRequestSchema = z.object({
 	name: z.string().min(1, "Nazwa dzialu jest wymagana").max(100),
 });
 
+export const DepartmentUpdateRequestSchema = z.object({
+	name: z.string().min(1, "Nazwa dzialu jest wymagana").max(100),
+});
+
 export const DepartmentBulkCreateRequestSchema = z.object({
 	departments: z
 		.array(
@@ -73,4 +77,5 @@ export const DepartmentListResponseSchema = z.object({
 
 export type Department = z.infer<typeof DepartmentSchema>;
 export type DepartmentCreateInput = z.infer<typeof DepartmentCreateRequestSchema>;
+export type DepartmentUpdateInput = z.infer<typeof DepartmentUpdateRequestSchema>;
 export type DepartmentListResponse = z.infer<typeof DepartmentListResponseSchema>;

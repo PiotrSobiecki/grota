@@ -73,6 +73,32 @@ export const createDepartmentsBulk = createServerFn({ method: "POST" })
 		return (await response.json()) as Department[];
 	});
 
+export const renameDepartment = createServerFn({ method: "POST" })
+	.inputValidator(
+		z.object({
+			departmentId: z.string().uuid(),
+			name: z.string().min(1),
+		}),
+	)
+	.handler(async ({ data }) => {
+		const response = await fetchDataService(`/departments/${data.departmentId}`, {
+			method: "PATCH",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ name: data.name }),
+		});
+
+		if (!response.ok) {
+			const body = (await response.json()) as { error?: string; code?: string };
+			throw new AppError(
+				body.error ?? "Nie udalo sie zmienic nazwy dzialu",
+				body.code ?? "DEPARTMENT_RENAME_ERROR",
+				response.status,
+			);
+		}
+
+		return (await response.json()) as Department;
+	});
+
 export const deleteDepartment = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ departmentId: z.string().uuid() }))
 	.handler(async ({ data }) => {
