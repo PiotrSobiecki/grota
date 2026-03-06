@@ -134,7 +134,9 @@ function DeploymentDetailPage() {
 
 			<DepartmentSection deploymentId={deployment.id} deploymentStatus={deployment.status} />
 
-			{showEmployeeSection && <EmployeeSection deploymentId={deployment.id} deploymentStatus={deployment.status} />}
+			{showEmployeeSection && (
+				<EmployeeSection deploymentId={deployment.id} deploymentStatus={deployment.status} />
+			)}
 		</div>
 	);
 }
@@ -336,7 +338,13 @@ function DepartmentSection({
 	);
 }
 
-function EmployeeSection({ deploymentId, deploymentStatus }: { deploymentId: string; deploymentStatus: string }) {
+function EmployeeSection({
+	deploymentId,
+	deploymentStatus,
+}: {
+	deploymentId: string;
+	deploymentStatus: string;
+}) {
 	const employeesQuery = useQuery({
 		queryKey: ["employees", deploymentId],
 		queryFn: () => getEmployeesByDeployment({ data: { deploymentId } }),
@@ -365,7 +373,9 @@ function EmployeeSection({ deploymentId, deploymentStatus }: { deploymentId: str
 					<Button
 						variant="outline"
 						onClick={() => sendLinksMutation.mutate()}
-						disabled={sendLinksMutation.isPending || employeeTotal === 0 || deploymentStatus === "active"}
+						disabled={
+							sendLinksMutation.isPending || employeeTotal === 0 || deploymentStatus === "active"
+						}
 					>
 						{sendLinksMutation.isPending ? (
 							<>

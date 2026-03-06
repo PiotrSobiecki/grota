@@ -83,6 +83,15 @@ export async function updateDeployment(
 	return result[0] ?? null;
 }
 
+export async function deleteDeployment(deploymentId: string, operatorId: string): Promise<boolean> {
+	const db = getDb();
+	const result = await db
+		.delete(deployments)
+		.where(and(eq(deployments.id, deploymentId), eq(deployments.createdBy, operatorId)))
+		.returning({ id: deployments.id });
+	return result.length > 0;
+}
+
 export async function updateDeploymentStatus(
 	deploymentId: string,
 	status: DeploymentStatus,

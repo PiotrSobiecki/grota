@@ -3,6 +3,7 @@ import {
 	DeploymentCreateRequestSchema,
 	DeploymentListRequestSchema,
 	DeploymentUpdateRequestSchema,
+	deleteDeployment,
 	getDeployment,
 	getDeployments,
 	updateDeployment,
@@ -34,6 +35,17 @@ export const getDeploymentById = createServerFn({ method: "GET" })
 			throw new AppError("Wdrozenie nie zostalo znalezione", "NOT_FOUND", 404);
 		}
 		return deployment;
+	});
+
+export const deleteDeploymentById = createServerFn({ method: "POST" })
+	.middleware([protectedFunctionMiddleware])
+	.inputValidator(z.object({ id: z.string().uuid() }))
+	.handler(async ({ data, context }) => {
+		const deleted = await deleteDeployment(data.id, context.userId);
+		if (!deleted) {
+			throw new AppError("Wdrozenie nie zostalo znalezione", "NOT_FOUND", 404);
+		}
+		return { success: true };
 	});
 
 export const updateExistingDeployment = createServerFn({ method: "POST" })

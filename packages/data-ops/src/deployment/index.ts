@@ -1,5 +1,6 @@
 export {
 	createDeployment,
+	deleteDeployment,
 	getDeployment,
 	getDeployments,
 	updateDeployment,
