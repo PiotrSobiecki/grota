@@ -61,11 +61,14 @@ const user = await db.query.users.findFirst({
 ## Queries Module
 
 - Place queries in `{domain}/queries.ts`
-- Accept `db` as first parameter for testability
+- Use `getDb()` inside queries (never accept `db` as parameter)
 - Return typed results
 
 ```ts
-export async function getUserById(db: Database, id: string): Promise<User | null> {
+import { getDb } from '../database/setup'
+
+export async function getUserById(id: string): Promise<User | null> {
+  const db = getDb()
   return db.query.users.findFirst({ where: eq(users.id, id) })
 }
 ```

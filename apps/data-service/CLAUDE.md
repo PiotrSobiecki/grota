@@ -2,12 +2,6 @@
 
 Cloudflare Worker API exposing data-ops queries via Hono REST endpoints.
 
-## Stack
-
-- Hono (Cloudflare Workers adapter)
-- WorkerEntrypoint class pattern
-- Consumes `@repo/data-ops` for DB queries and Zod schemas
-
 ## Structure
 
 ```
@@ -25,29 +19,6 @@ src/
 └── workflows/            # Workflows
 ```
 
-## Patterns
-
-**Handlers → Services → data-ops queries**
-- Handlers: validation, auth middleware, unwrap `Result<T>` via `resultToResponse`, return response
-- Services: return `Result<T>` (no `HTTPException`), call data-ops queries
-- Queries: imported from `@repo/data-ops/{domain}`
-
-**Result pattern** (services):
-- Services return `Result<T>` from `types/result.ts` instead of throwing
-- `AppError` has `code`, `message`, `status`, optional `field`
-- Unexpected errors still throw (caught by global error handler)
-- Error unwrapping details: see `error-handling.md` rule
-
-**Middleware order** (in app.ts):
-1. `requestId()` - generates/passes correlation ID
-2. `onError` - global error handler
-3. `cors` - CORS headers
-4. Route-specific: `authMiddleware`, `rateLimiter`, `zValidator`
-
-**Zod validation**: use `zValidator('param' | 'query' | 'json', Schema)`
-
-**Error handling**: services return `Result<T>`; `HTTPException` still caught by `onErrorHandler` (for `@hono/zod-validator` + safety net)
-
 ## Endpoints
 
 - `GET /health/live` - liveness (instant 200)
@@ -56,8 +27,6 @@ src/
 - `POST /webhooks/*` - inbound webhooks (signature verified)
 
 ## Webhooks
-
-**Pattern:** verification middleware → handler → service → data-ops
 
 **Key constraint:** signature verification needs raw body string before JSON parsing. Cannot use `zValidator` as route middleware. Instead:
 1. Middleware reads body via `c.req.text()`, stores in context
@@ -70,15 +39,6 @@ src/
 - `webhook-signature` - `v1,<base64 HMAC-SHA256>`
 
 **Idempotency:** `webhook_logs.msgId` unique constraint - duplicates are no-ops
-
-## Dev
-
-```bash
-pnpm run dev              # local dev server
-pnpm run deploy:dev       # deploy to dev
-pnpm run deploy:staging   # deploy to staging
-pnpm run deploy:prod      # deploy to production
-```
 
 ## Env vars
 
