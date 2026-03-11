@@ -1,9 +1,12 @@
-import { type BetterAuthOptions, betterAuth } from "better-auth";
+import { APIError, type BetterAuthOptions, betterAuth } from "better-auth";
+import { createAuthMiddleware } from "better-auth/api";
+import { verifyTurnstile } from "@/auth/turnstile";
 
 export const createBetterAuth = (config: {
 	database: BetterAuthOptions["database"];
 	secret?: BetterAuthOptions["secret"];
 	baseURL?: BetterAuthOptions["baseURL"];
+	turnstileSecretKey?: string;
 }): ReturnType<typeof betterAuth> => {
 	return betterAuth({
 		database: config.database,
@@ -11,6 +14,7 @@ export const createBetterAuth = (config: {
 		baseURL: config.baseURL,
 		emailAndPassword: {
 			enabled: true,
+			disableSignUp: true,
 		},
 		user: {
 			modelName: "auth_user",
@@ -31,6 +35,22 @@ export const createBetterAuth = (config: {
 		},
 		account: {
 			modelName: "auth_account",
+		},
+		hooks: {
+			before: config.turnstileSecretKey
+				? createAuthMiddleware(async (ctx) => {
+						if (ctx.path !== "/sign-in/email") return;
+						const secretKey = config.turnstileSecretKey as string;
+						const token = (ctx.body as { turnstileToken?: string })?.turnstileToken;
+						if (!token) {
+							throw new APIError("FORBIDDEN", { message: "Turnstile token required" });
+						}
+						const result = await verifyTurnstile(token, secretKey);
+						if (!result.ok) {
+							throw new APIError("FORBIDDEN", { message: result.error });
+						}
+					})
+				: undefined,
 		},
 	});
 };

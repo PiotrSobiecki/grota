@@ -7,6 +7,7 @@ let betterAuth: ReturnType<typeof createBetterAuth>;
 
 export function setAuth(
 	config: Omit<Parameters<typeof createBetterAuth>[0], "database"> & {
+		turnstileSecretKey?: string;
 		adapter: {
 			drizzleDb: ReturnType<typeof getDb>;
 			provider: Parameters<typeof drizzleAdapter>[1]["provider"];

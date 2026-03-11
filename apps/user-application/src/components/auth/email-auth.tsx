@@ -1,6 +1,7 @@
+import { Turnstile } from "@marsidev/react-turnstile";
 import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -8,83 +9,41 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { authClient } from "@/lib/auth-client";
 
-interface EmailAuthProps {
-	mode: "signin" | "signup";
-}
-
 interface AuthError {
 	message: string;
 }
 
-export function EmailAuth({ mode }: EmailAuthProps) {
+export function EmailAuth() {
 	const navigate = useNavigate();
-	const [signupSuccess, setSignupSuccess] = useState(false);
+	const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
 	const mutation = useMutation({
-		mutationFn: async (data: { name?: string; email: string; password: string }) => {
-			if (mode === "signup") {
-				const result = await authClient.signUp.email({
-					name: data.name ?? "",
-					email: data.email,
-					password: data.password,
-				});
-				if (result.error) throw new Error(result.error.message);
-				return { mode: "signup" as const };
-			}
+		mutationFn: async (data: { email: string; password: string }) => {
 			const result = await authClient.signIn.email({
 				email: data.email,
 				password: data.password,
+				fetchOptions: { body: { turnstileToken } },
 			});
 			if (result.error) throw new Error(result.error.message);
-			return { mode: "signin" as const };
+			return result;
 		},
 	});
 
 	const form = useForm({
-		defaultValues: { name: "", email: "", password: "" },
+		defaultValues: { email: "", password: "" },
 		onSubmit: async ({ value }) => {
 			mutation.reset();
-			const result = await mutation.mutateAsync(value);
-			if (result.mode === "signup") {
-				setSignupSuccess(true);
-			} else {
-				navigate({ to: "/dashboard" });
-			}
+			await mutation.mutateAsync(value);
+			navigate({ to: "/dashboard" });
 		},
 	});
-
-	if (signupSuccess) {
-		return (
-			<div className="min-h-screen flex items-center justify-center bg-background p-4">
-				<Card className="w-full max-w-md">
-					<CardHeader className="text-center">
-						<CardTitle className="text-2xl font-bold text-foreground">Account Created</CardTitle>
-						<CardDescription>
-							Your account is pending admin approval. You'll be able to sign in once approved.
-						</CardDescription>
-					</CardHeader>
-					<CardContent>
-						<Link to="/signin">
-							<Button variant="outline" className="w-full">
-								Back to Sign In
-							</Button>
-						</Link>
-					</CardContent>
-				</Card>
-			</div>
-		);
-	}
 
 	return (
 		<div className="min-h-screen flex items-center justify-center bg-background p-4">
 			<Card className="w-full max-w-md">
 				<CardHeader className="text-center">
-					<CardTitle className="text-2xl font-bold text-foreground">
-						{mode === "signin" ? "Welcome back" : "Create account"}
-					</CardTitle>
-					<CardDescription>
-						{mode === "signin" ? "Sign in to your account" : "Sign up for a new account"}
-					</CardDescription>
+					<CardTitle className="text-2xl font-bold text-foreground">Welcome back</CardTitle>
+					<CardDescription>Sign in to your account</CardDescription>
 				</CardHeader>
 				<CardContent className="space-y-4">
 					{mutation.isError && (
@@ -102,35 +61,6 @@ export function EmailAuth({ mode }: EmailAuthProps) {
 						}}
 						className="space-y-4"
 					>
-						{mode === "signup" && (
-							<form.Field
-								name="name"
-								validators={{
-									onChange: ({ value }) => (!value ? "Name is required" : undefined),
-								}}
-							>
-								{(field) => (
-									<div className="space-y-1">
-										<label htmlFor={field.name} className="text-sm font-medium text-foreground">
-											Name
-										</label>
-										<Input
-											id={field.name}
-											placeholder="Your name"
-											value={field.state.value}
-											onChange={(e) => field.handleChange(e.target.value)}
-											onBlur={field.handleBlur}
-										/>
-										{field.state.meta.errors.map((error) => (
-											<p key={String(error)} className="text-destructive text-sm">
-												{error}
-											</p>
-										))}
-									</div>
-								)}
-							</form.Field>
-						)}
-
 						<form.Field
 							name="email"
 							validators={{
@@ -193,36 +123,24 @@ export function EmailAuth({ mode }: EmailAuthProps) {
 							)}
 						</form.Field>
 
+						<Turnstile
+							siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
+							onSuccess={setTurnstileToken}
+							onExpire={() => setTurnstileToken(null)}
+						/>
+
 						<form.Subscribe selector={(state) => state.canSubmit}>
 							{(canSubmit) => (
 								<Button
 									type="submit"
 									className="w-full h-12"
-									disabled={!canSubmit || mutation.isPending}
+									disabled={!canSubmit || !turnstileToken || mutation.isPending}
 								>
-									{mutation.isPending ? "Loading..." : mode === "signin" ? "Sign In" : "Sign Up"}
+									{mutation.isPending ? "Loading..." : "Sign In"}
 								</Button>
 							)}
 						</form.Subscribe>
 					</form>
-
-					<div className="text-center text-sm text-muted-foreground">
-						{mode === "signin" ? (
-							<>
-								Don&apos;t have an account?{" "}
-								<Link to="/signup" className="text-primary hover:underline">
-									Sign up
-								</Link>
-							</>
-						) : (
-							<>
-								Already have an account?{" "}
-								<Link to="/signin" className="text-primary hover:underline">
-									Sign in
-								</Link>
-							</>
-						)}
-					</div>
 				</CardContent>
 			</Card>
 		</div>

@@ -9,7 +9,6 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SigninRouteImport } from './routes/signin'
 import { Route as AuthRouteRouteImport } from './routes/_auth/route'
 import { Route as IndexRouteImport } from './routes/index'
@@ -25,11 +24,6 @@ import { Route as AuthDashboardNewRouteImport } from './routes/_auth/dashboard/n
 import { Route as AuthDashboardIdIndexRouteImport } from './routes/_auth/dashboard/$id/index'
 import { Route as AuthDashboardIdConfigRouteImport } from './routes/_auth/dashboard/$id/config'
 
-const SignupRoute = SignupRouteImport.update({
-  id: '/signup',
-  path: '/signup',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const SigninRoute = SigninRouteImport.update({
   id: '/signin',
   path: '/signin',
@@ -103,7 +97,6 @@ const AuthDashboardIdConfigRoute = AuthDashboardIdConfigRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/signin': typeof SigninRoute
-  '/signup': typeof SignupRoute
   '/dashboard': typeof AuthDashboardRouteRouteWithChildren
   '/api/health': typeof ApiHealthRoute
   '/employee/$token': typeof EmployeeTokenRoute
@@ -119,7 +112,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/signin': typeof SigninRoute
-  '/signup': typeof SignupRoute
   '/api/health': typeof ApiHealthRoute
   '/employee/$token': typeof EmployeeTokenRoute
   '/onboard/$token': typeof OnboardTokenRoute
@@ -136,7 +128,6 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_auth': typeof AuthRouteRouteWithChildren
   '/signin': typeof SigninRoute
-  '/signup': typeof SignupRoute
   '/_auth/dashboard': typeof AuthDashboardRouteRouteWithChildren
   '/api/health': typeof ApiHealthRoute
   '/employee/$token': typeof EmployeeTokenRoute
@@ -154,7 +145,6 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/signin'
-    | '/signup'
     | '/dashboard'
     | '/api/health'
     | '/employee/$token'
@@ -170,7 +160,6 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/signin'
-    | '/signup'
     | '/api/health'
     | '/employee/$token'
     | '/onboard/$token'
@@ -186,7 +175,6 @@ export interface FileRouteTypes {
     | '/'
     | '/_auth'
     | '/signin'
-    | '/signup'
     | '/_auth/dashboard'
     | '/api/health'
     | '/employee/$token'
@@ -204,7 +192,6 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRouteRoute: typeof AuthRouteRouteWithChildren
   SigninRoute: typeof SigninRoute
-  SignupRoute: typeof SignupRoute
   ApiHealthRoute: typeof ApiHealthRoute
   EmployeeTokenRoute: typeof EmployeeTokenRoute
   OnboardTokenRoute: typeof OnboardTokenRoute
@@ -214,13 +201,6 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/signup': {
-      id: '/signup'
-      path: '/signup'
-      fullPath: '/signup'
-      preLoaderRoute: typeof SignupRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/signin': {
       id: '/signin'
       path: '/signin'
@@ -357,7 +337,6 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRouteRoute: AuthRouteRouteWithChildren,
   SigninRoute: SigninRoute,
-  SignupRoute: SignupRoute,
   ApiHealthRoute: ApiHealthRoute,
   EmployeeTokenRoute: EmployeeTokenRoute,
   OnboardTokenRoute: OnboardTokenRoute,
