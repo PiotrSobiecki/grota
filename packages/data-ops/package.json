@@ -62,7 +62,10 @@
 		"drizzle:production:pull": "dotenvx run -f .env.production -- drizzle-kit pull --config drizzle-production.config.ts",
 		"seed:dev": "dotenvx run -f .env.dev -- tsx src/database/seed/seed.ts",
 		"seed:staging": "dotenvx run -f .env.staging -- tsx src/database/seed/seed.ts",
-		"seed:production": "dotenvx run -f .env.production -- tsx src/database/seed/seed.ts"
+		"seed:production": "dotenvx run -f .env.production -- tsx src/database/seed/seed.ts",
+		"create-user:dev": "dotenvx run -f .env.dev -- tsx src/database/seed/create-user.ts",
+		"create-user:staging": "dotenvx run -f .env.staging -- tsx src/database/seed/create-user.ts",
+		"create-user:production": "dotenvx run -f .env.production -- tsx src/database/seed/create-user.ts"
 	},
 	"keywords": [],
 	"author": "",

@@ -37,7 +37,7 @@ export const Route = createRootRouteWithContext<{
 				href: "/logo192.png",
 			},
 			{ rel: "manifest", href: "/manifest.json" },
-			{ rel: "icon", href: "/favicon.ico" },
+			{ rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
 		],
 	}),
 	errorComponent: (props) => {

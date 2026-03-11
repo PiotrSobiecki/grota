@@ -3,7 +3,9 @@
 	"name": "grota-ds",
 	"main": "./src/index.ts",
 	"compatibility_date": "2025-04-01",
-	"compatibility_flags": ["nodejs_compat"],
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
 	"observability": {
 		"enabled": true
 	},
@@ -133,5 +135,11 @@
 			//   ]
 			// }
 		}
-	}
+	},
+	"r2_buckets": [
+		{
+			"bucket_name": "grota-configs-production",
+			"binding": "CONFIG_BUCKET"
+		}
+	]
 }
