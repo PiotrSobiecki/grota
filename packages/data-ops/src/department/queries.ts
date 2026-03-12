@@ -1,16 +1,8 @@
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/database/setup";
+import { slugify } from "@/utils/slugify";
 import type { Department, DepartmentCreateInput, DepartmentUpdateInput } from "./schema";
 import { deploymentDepartments, employeeDepartments } from "./table";
-
-function slugify(name: string): string {
-	return name
-		.toLowerCase()
-		.normalize("NFD")
-		.replace(/[\u0300-\u036f]/g, "")
-		.replace(/[^a-z0-9]+/g, "-")
-		.replace(/^-+|-+$/g, "");
-}
 
 export async function getDepartmentsByDeployment(deploymentId: string): Promise<Department[]> {
 	const db = getDb();

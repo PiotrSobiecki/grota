@@ -46,6 +46,10 @@
 		"./drizzle/*": {
 			"types": "./dist/drizzle/*.d.ts",
 			"default": "./dist/drizzle/*.js"
+		},
+		"./utils": {
+			"types": "./dist/utils/slugify.d.ts",
+			"default": "./dist/utils/slugify.js"
 		}
 	},
 	"scripts": {
