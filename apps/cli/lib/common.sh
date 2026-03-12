@@ -12,9 +12,9 @@ LOG_FILE=""
 # ── Logging ────────────────────────────────────────
 _ts() { date '+%Y-%m-%d %H:%M:%S'; }
 
-log_info()  { echo "[$(_ts)] [INFO]  $*" >&2; [[ -n "$LOG_FILE" ]] && echo "[$(_ts)] [INFO]  $*" >> "$LOG_FILE"; }
-log_warn()  { echo "[$(_ts)] [WARN]  $*" >&2; [[ -n "$LOG_FILE" ]] && echo "[$(_ts)] [WARN]  $*" >> "$LOG_FILE"; }
-log_error() { echo "[$(_ts)] [ERROR] $*" >&2; [[ -n "$LOG_FILE" ]] && echo "[$(_ts)] [ERROR] $*" >> "$LOG_FILE"; }
+log_info()  { echo "[$(_ts)] [INFO]  $*" >&2; [[ -n "$LOG_FILE" ]] && echo "[$(_ts)] [INFO]  $*" >> "$LOG_FILE" || true; }
+log_warn()  { echo "[$(_ts)] [WARN]  $*" >&2; [[ -n "$LOG_FILE" ]] && echo "[$(_ts)] [WARN]  $*" >> "$LOG_FILE" || true; }
+log_error() { echo "[$(_ts)] [ERROR] $*" >&2; [[ -n "$LOG_FILE" ]] && echo "[$(_ts)] [ERROR] $*" >> "$LOG_FILE" || true; }
 log_fatal() { log_error "$@"; exit 1; }
 
 init_logging() {
