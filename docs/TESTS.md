@@ -321,3 +321,106 @@ echo "--- e2e 7: invalid account ---"
 grota backup account nonexistent@example.com 2>&1 || echo "EXIT CODE: $?"
 # Expect: "Account not found", exit 1
 ```
+
+## 104: Backup Orchestrator
+
+### Docker test (local, wiring & error paths)
+
+```bash
+docker run --rm -it -v "$(pwd)/apps/cli":/src ubuntu:22.04 bash -c '
+apt-get update && apt-get install -y curl jq unzip
+curl https://rclone.org/install.sh -o /tmp/rclone.sh && bash /tmp/rclone.sh
+bash /src/install.sh --local
+
+export CONFIG_PATH=/src/test/sample-config.json
+export RCLONE_CONFIG="/tmp/grota-test-rclone.conf"
+export LOG_DIR="/tmp/grota-logs"
+export LOCK_DIR="/tmp/grota-locks"
+mkdir -p "$LOG_DIR" "$LOCK_DIR" /srv/backup/gdrive
+
+echo "--- test 1: orchestrator.sh installed ---"
+ls -la /usr/local/lib/grota/orchestrator.sh
+
+echo "--- test 2: help shows backup all command ---"
+grota --help | grep "backup all"
+
+echo "--- test 3: backup all runs, discovers 2 accounts ---"
+grota backup all 2>&1 || echo "EXIT CODE: $?"
+# Expect: logs show 2 accounts, each fails (no rclone remotes), summary + exit 1
+
+echo "--- test 4: locking (concurrent run blocked) ---"
+grota backup all &
+sleep 1
+grota backup all 2>&1 || echo "EXIT CODE: $?"
+wait
+# Expect: second instance -> "Lock already held", exit 1
+
+echo "--- test 5: MAX_PARALLEL respected ---"
+export MAX_PARALLEL=1
+grota backup all 2>&1 | grep "max parallel: 1" || echo "MISSING"
+# Expect: log line shows max parallel: 1
+
+echo "--- test 6: empty accounts config ---"
+echo "{\"deployment_id\":\"test\",\"client_name\":\"Empty\",\"domain\":\"x.com\",\"accounts\":[],\"b2\":{},\"server\":{\"backup_path\":\"/srv/backup/gdrive\"}}" > /tmp/empty-config.json
+CONFIG_PATH=/tmp/empty-config.json grota backup all 2>&1 || echo "EXIT CODE: $?"
+# Expect: "No accounts in config", exit 0
+'
+```
+
+### Expected output (key lines)
+
+```
+--- test 1: orchestrator.sh installed ---
+-rwxr-xr-x ... /usr/local/lib/grota/orchestrator.sh
+
+--- test 2: help shows backup all command ---
+  backup all                 Backup all accounts in deployment
+
+--- test 3: backup all runs, discovers 2 accounts ---
+... Client: TestFirma, accounts: 2
+... Backup summary for TestFirma ...
+... Accounts: 2 total, 0 ok, 0 partial, 2 failed, 0 oauth-revoked
+... FAIL: jan@gmail.com ...
+... FAIL: anna@gmail.com ...
+EXIT CODE: 1
+
+--- test 4: locking (concurrent run blocked) ---
+... Lock already held: ...
+EXIT CODE: 1
+
+--- test 5: MAX_PARALLEL respected ---
+... max parallel: 1
+
+--- test 6: empty accounts config ---
+... No accounts in config, nothing to backup
+```
+
+### E2E test (server, real credentials)
+
+Requires real credentials + completed doc 103 E2E.
+
+```bash
+export CONFIG_PATH=/etc/grota/config.json
+export RCLONE_CONFIG=/etc/rclone/rclone.conf
+
+echo "--- e2e 1: backup all (all accounts) ---"
+grota backup all
+echo "EXIT CODE: $?"
+# Expect: exit 0, summary shows all OK
+
+echo "--- e2e 2: check summary notification ---"
+grep "Backup ALL OK" /var/log/grota/backup-all-*.log
+# Expect: notification logged
+
+echo "--- e2e 3: locking prevents concurrent orchestrator ---"
+grota backup all &
+sleep 2
+grota backup all 2>&1 || echo "EXIT CODE: $?"
+wait
+# Expect: second -> "Lock already held", exit 1
+
+echo "--- e2e 4: MAX_PARALLEL=1 serial execution ---"
+MAX_PARALLEL=1 grota backup all
+echo "EXIT CODE: $?"
+# Expect: runs accounts one at a time, same result
+```
