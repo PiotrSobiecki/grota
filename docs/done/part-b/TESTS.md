@@ -614,3 +614,121 @@ systemctl list-timers grota-*
 # 7. Re-install for production
 sudo grota timers install
 ```
+
+## 107: Audit & Reporting
+
+### Unit tests (local, no credentials)
+
+```bash
+bash apps/cli/test/test-audit.sh
+# Expect: 14/14 passed, 0 failed
+```
+
+### Docker test (local, wiring & error paths)
+
+```bash
+docker run --rm -it -v "$(pwd)/apps/cli":/src ubuntu:22.04 bash -c '
+apt-get update && apt-get install -y curl jq unzip
+curl https://rclone.org/install.sh -o /tmp/rclone.sh && bash /tmp/rclone.sh
+bash /src/install.sh --local
+
+export CONFIG_PATH=/src/test/sample-config.json
+export RCLONE_CONFIG="/tmp/grota-test-rclone.conf"
+
+echo "--- test 1: audit.sh installed ---"
+ls -la /usr/local/lib/grota/audit.sh
+
+echo "--- test 2: help shows audit command ---"
+grota --help | grep audit
+
+echo "--- test 3: audit permissions (no rclone remotes) ---"
+grota audit permissions 2>&1 || echo "EXIT CODE: $?"
+
+echo "--- test 4: audit storage (no backup dir) ---"
+grota audit storage 2>&1 || echo "EXIT CODE: $?"
+
+echo "--- test 5: audit backup (no backup dir) ---"
+grota audit backup 2>&1 || echo "EXIT CODE: $?"
+
+echo "--- test 6: report file output ---"
+REPORT_DIR=/tmp/grota-reports grota audit storage 2>&1 || echo "EXIT CODE: $?"
+ls /tmp/grota-reports/storage-report-*.txt 2>/dev/null && echo "REPORT FILE EXISTS" || echo "NO REPORT FILE"
+'
+```
+
+### Expected output (key lines)
+
+```
+--- test 1: audit.sh installed ---
+-rwxr-xr-x ... /usr/local/lib/grota/audit.sh
+
+--- test 2: help shows audit command ---
+  audit storage              Storage usage report (local + B2)
+  audit permissions          Shared Drive permission audit
+  audit backup               Verify local vs B2 integrity
+
+--- test 3: audit permissions (no rclone remotes) ---
+... Grota Permission Audit ...
+... Client: TestFirma
+... No Shared Drives found
+
+--- test 4: audit storage (no backup dir) ---
+... Grota Storage Report ...
+... jan@gmail.com: (no local data)
+... anna@gmail.com: (no local data)
+... LOCAL TOTAL: 0
+... testfirma-dokumenty: (remote not configured)
+... Report complete
+
+--- test 5: audit backup (no backup dir) ---
+... Grota Backup Verification ...
+... Verification: 0 ok, 0 mismatched, 0 errors
+... Backup verification complete: all checks passed
+
+--- test 6: report file output ---
+... Report saved to /tmp/grota-reports/storage-report-*.txt
+REPORT FILE EXISTS
+```
+
+### E2E test (server, real credentials)
+
+Requires real rclone remotes + backup data (completed docs 102-105).
+
+```bash
+export CONFIG_PATH=/etc/grota/config.json
+export RCLONE_CONFIG=/etc/rclone/rclone.conf
+
+# 1. Permission audit
+grota audit permissions
+# Expect: lists all Shared Drives with file counts
+
+# 2. Permission audit with report file
+REPORT_DIR=/tmp/grota-reports grota audit permissions
+ls /tmp/grota-reports/permission-audit-*.txt
+# Expect: same output + file saved
+
+# 3. Storage report
+grota audit storage
+# Expect: local storage per account/category, B2 per bucket, disk summary
+
+# 4. Verify local numbers match
+du -sh /srv/backup/gdrive/*/
+# Expect: matches report
+
+# 5. Backup verification (clean)
+grota audit backup
+# Expect: "Verification: X ok, 0 mismatched, 0 errors"
+
+# 6. Introduce mismatch
+EMAIL="real-user@gmail.com"  # ← replace
+SANITIZED=$(echo "$EMAIL" | tr '@.' '-')
+touch /srv/backup/gdrive/$SANITIZED/dokumenty/test-extra-file.txt
+grota audit backup
+# Expect: MISMATCH for dokumenty, notification sent
+rm /srv/backup/gdrive/$SANITIZED/dokumenty/test-extra-file.txt
+
+# 7. Report file output
+REPORT_DIR=/tmp/grota-reports grota audit backup
+cat /tmp/grota-reports/backup-verify-*.txt
+# Expect: verification results in file
+```
