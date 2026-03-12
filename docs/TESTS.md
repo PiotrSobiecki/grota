@@ -524,3 +524,93 @@ grota migrate
 echo "EXIT CODE: $?"
 # Expect: no new files (rclone copy skips existing)
 ```
+
+## 106: Systemd Timers
+
+### Docker test (local, wiring & error paths)
+
+```bash
+docker run --rm -it -v "$(pwd)/apps/cli":/src ubuntu:22.04 bash -c '
+apt-get update && apt-get install -y curl jq unzip systemctl 2>/dev/null
+curl https://rclone.org/install.sh -o /tmp/rclone.sh && bash /tmp/rclone.sh
+bash /src/install.sh --local
+
+echo "--- test 1: timers.sh installed ---"
+ls -la /usr/local/lib/grota/timers.sh
+
+echo "--- test 2: systemd units installed ---"
+ls -la /usr/local/lib/grota/systemd/
+
+echo "--- test 3: help shows timers command ---"
+grota --help | grep timers
+
+echo "--- test 4: timers status (no systemd in container) ---"
+grota timers status 2>&1 || echo "EXIT CODE: $?"
+
+echo "--- test 5: timers install requires root ---"
+su -s /bin/bash nobody -c "grota timers install" 2>&1 || echo "EXIT CODE: $?"
+'
+```
+
+### Expected output (key lines)
+
+```
+--- test 1: timers.sh installed ---
+-rwxr-xr-x ... /usr/local/lib/grota/timers.sh
+
+--- test 2: systemd units installed ---
+... grota-backup.service
+... grota-backup.timer
+... grota-verify.service
+... grota-verify.timer
+
+--- test 3: help shows timers command ---
+  timers install|uninstall|status  ...
+
+--- test 4: timers status (no systemd in container) ---
+=== Grota timer status ===
+--- grota-backup.service ---
+  Not installed
+...
+
+--- test 5: timers install requires root ---
+... Must run as root
+EXIT CODE: 1
+```
+
+### E2E test (server with systemd, real credentials)
+
+Requires Ubuntu server with systemd + completed docs 103-104 E2E.
+
+```bash
+# 1. Install timers (as root)
+sudo grota timers install
+# Expect: grota user created, units installed, timers enabled + started
+
+# 2. Check status
+grota timers status
+# Expect: timer status + next scheduled runs
+
+# 3. Verify timer schedule
+systemctl list-timers grota-*
+# Expect:
+#   grota-backup.timer  -> daily 01:00
+#   grota-verify.timer  -> weekly Sunday 03:00
+
+# 4. Test manual trigger
+sudo systemctl start grota-backup.service
+journalctl -u grota-backup.service --no-pager -n 50
+# Expect: runs grota backup all, logs visible
+
+# 5. Verify hardening
+systemctl show grota-backup.service | grep -E 'NoNewPrivileges|ProtectSystem'
+# Expect: NoNewPrivileges=yes, ProtectSystem=strict
+
+# 6. Uninstall
+sudo grota timers uninstall
+systemctl list-timers grota-*
+# Expect: no grota timers
+
+# 7. Re-install for production
+sudo grota timers install
+```

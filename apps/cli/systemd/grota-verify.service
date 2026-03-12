@@ -1,0 +1,19 @@
+[Unit]
+Description=Grota weekly backup verification
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=grota
+Group=grota
+EnvironmentFile=/etc/grota/grota.env
+ExecStart=/usr/local/bin/grota audit backup
+TimeoutStartSec=7200
+StandardOutput=journal
+StandardError=journal
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/srv/backup /var/log/grota /var/lock/grota /tmp
+PrivateTmp=true
