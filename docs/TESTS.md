@@ -424,3 +424,103 @@ MAX_PARALLEL=1 grota backup all
 echo "EXIT CODE: $?"
 # Expect: runs accounts one at a time, same result
 ```
+
+## 105: Shared Drive Migration
+
+### Unit tests (local, no credentials)
+
+```bash
+bash apps/cli/test/test-migration.sh
+# Expect: 13/13 passed, 0 failed
+```
+
+### Docker test (local, wiring & error paths)
+
+```bash
+docker run --rm -it -v "$(pwd)/apps/cli":/src ubuntu:22.04 bash -c '
+apt-get update && apt-get install -y curl jq unzip
+curl https://rclone.org/install.sh -o /tmp/rclone.sh && bash /tmp/rclone.sh
+bash /src/install.sh --local
+
+export CONFIG_PATH=/src/test/sample-config.json
+export RCLONE_CONFIG="/tmp/grota-test-rclone.conf"
+export LOG_DIR="/tmp/grota-logs"
+export LOCK_DIR="/tmp/grota-locks"
+mkdir -p "$LOG_DIR" "$LOCK_DIR"
+
+echo "--- test 1: migration.sh installed ---"
+ls -la /usr/local/lib/grota/migration.sh
+
+echo "--- test 2: help shows migrate command ---"
+grota --help | grep migrate
+
+echo "--- test 3: unknown arg ---"
+grota migrate --bogus 2>&1 || echo "EXIT CODE: $?"
+
+echo "--- test 4: dry run (no workspace remote -> expect failure) ---"
+grota migrate --dry-run 2>&1 || echo "EXIT CODE: $?"
+
+echo "--- test 5: verify (no workspace remote -> expect failure) ---"
+grota migrate --verify 2>&1 || echo "EXIT CODE: $?"
+'
+```
+
+### Expected output (key lines)
+
+```
+--- test 1: migration.sh installed ---
+-rwxr-xr-x ... /usr/local/lib/grota/migration.sh
+
+--- test 2: help shows migrate command ---
+  migrate --deployment ID    Migrate folders to Shared Drives
+
+--- test 3: unknown arg ---
+... Unknown arg: --bogus
+EXIT CODE: 1
+
+--- test 4: dry run (no workspace remote -> expect failure) ---
+... Remote 'workspace-drive' not found. Run: grota setup rclone
+EXIT CODE: 1
+
+--- test 5: verify (no workspace remote -> expect failure) ---
+... Shared Drive not found: ...
+EXIT CODE: 1
+```
+
+### E2E test (server, real credentials)
+
+Requires Workspace Shared Drives + workspace-drive rclone remote.
+
+```bash
+export CONFIG_PATH=/etc/grota/config.json
+export RCLONE_CONFIG=/etc/rclone/rclone.conf
+EMAIL="real-user@gmail.com"                  # ← replace
+
+echo "--- e2e 1: dry run ---"
+grota migrate --dry-run
+echo "EXIT CODE: $?"
+# Expect: logs what WOULD be copied, exit 0
+
+echo "--- e2e 2: migrate single account ---"
+grota migrate --account "$EMAIL"
+echo "EXIT CODE: $?"
+# Expect: dokumenty/projekty copied, media/prywatne skipped
+
+echo "--- e2e 3: verify migration ---"
+grota migrate --verify --account "$EMAIL"
+echo "EXIT CODE: $?"
+# Expect: "Migration verification PASSED"
+
+echo "--- e2e 4: migrate all ---"
+grota migrate
+echo "EXIT CODE: $?"
+
+echo "--- e2e 5: full verify ---"
+grota migrate --verify
+echo "EXIT CODE: $?"
+
+echo "--- e2e 6: idempotent re-run ---"
+grota migrate
+echo "EXIT CODE: $?"
+# Expect: no new files (rclone copy skips existing)
+```
