@@ -8,10 +8,10 @@
 docker run --rm -it -v "$(pwd)/apps/cli":/src ubuntu:22.04 bash -c '
 apt-get update && apt-get install -y curl jq unzip
 curl https://rclone.org/install.sh -o /tmp/rclone.sh && bash /tmp/rclone.sh
-touch /src/grota
-mkdir -p /src/lib
-for f in common config secrets notify backup orchestrator migration setup audit timers; do touch /src/lib/$f.sh; done
 bash /src/install.sh --local
+echo "--- verify ---"
+grota --version
+grota --help
 '
 ```
 
@@ -64,11 +64,9 @@ Next steps:
   6. grota timers install   # enable daily backups
 
 Update grota: re-run the same curl command
-```
 
-### Cleanup stubs after test
-
-```bash
-rm -f apps/cli/grota apps/cli/lib/*.sh
-rmdir apps/cli/lib 2>/dev/null
+--- verify ---
+grota v0.1.0
+grota v0.1.0 -- Google Workspace backup & migration toolkit
+...
 ```

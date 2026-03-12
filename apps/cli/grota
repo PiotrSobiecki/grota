@@ -1,0 +1,124 @@
+#!/usr/bin/env bash
+# Grota CLI -- single entry point for all backup operations
+set -euo pipefail
+
+GROTA_VERSION="0.1.0"
+LIB_DIR="${GROTA_LIB_DIR:-/usr/local/lib/grota}"
+
+# Dev mode: source from repo
+if [[ -d "$(dirname "${BASH_SOURCE[0]}")/lib" ]]; then
+  LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/lib" && pwd)"
+fi
+
+source "${LIB_DIR}/common.sh"
+
+usage() {
+  cat <<EOF
+grota v${GROTA_VERSION} -- Google Workspace backup & migration toolkit
+
+Usage: grota <command> [args]
+
+Commands:
+  backup account <email>     Backup single account (Drive -> local -> B2)
+  backup all                 Backup all accounts in deployment
+  migrate --deployment ID    Migrate folders to Shared Drives
+  setup rclone               Configure Drive remotes from config JSON
+  setup b2                   Configure B2 remotes
+  verify remotes             Test all configured rclone remotes
+  audit storage              Storage usage report (local + B2)
+  audit permissions          Shared Drive permission audit
+  audit backup               Verify local vs B2 integrity
+  timers install             Install systemd timers
+  timers uninstall           Remove systemd timers
+  timers status              Show timer status
+
+Options:
+  --version                  Show version
+  --help                     Show this help
+EOF
+}
+
+# ── Env loading ────────────────────────────────────
+ENV_FILE="${GROTA_ENV:-/etc/grota/grota.env}"
+if [[ -f "$ENV_FILE" ]]; then
+  load_env "$ENV_FILE"
+fi
+
+# ── Route subcommands ──────────────────────────────
+cmd="${1:-}"
+subcmd="${2:-}"
+
+case "$cmd" in
+  backup)
+    source "${LIB_DIR}/config.sh"
+    source "${LIB_DIR}/notify.sh"
+    load_config
+    case "$subcmd" in
+      account)
+        source "${LIB_DIR}/backup.sh"
+        shift 2
+        cmd_backup_account "$@"
+        ;;
+      all)
+        source "${LIB_DIR}/orchestrator.sh"
+        shift 2
+        cmd_backup_all "$@"
+        ;;
+      *) usage; exit 1 ;;
+    esac
+    ;;
+  migrate)
+    source "${LIB_DIR}/config.sh"
+    source "${LIB_DIR}/notify.sh"
+    source "${LIB_DIR}/migration.sh"
+    shift 1
+    load_config
+    cmd_migrate "$@"
+    ;;
+  setup)
+    source "${LIB_DIR}/config.sh"
+    load_config
+    source "${LIB_DIR}/setup.sh"
+    case "$subcmd" in
+      rclone) shift 2; cmd_setup_rclone "$@" ;;
+      b2)     shift 2; cmd_setup_b2 "$@" ;;
+      *)      usage; exit 1 ;;
+    esac
+    ;;
+  verify)
+    source "${LIB_DIR}/config.sh"
+    load_config
+    case "$subcmd" in
+      remotes)
+        source "${LIB_DIR}/setup.sh"
+        shift 2
+        cmd_verify_remotes "$@"
+        ;;
+      *) usage; exit 1 ;;
+    esac
+    ;;
+  audit)
+    source "${LIB_DIR}/config.sh"
+    source "${LIB_DIR}/notify.sh"
+    load_config
+    source "${LIB_DIR}/audit.sh"
+    case "$subcmd" in
+      storage)     shift 2; cmd_audit_storage "$@" ;;
+      permissions) shift 2; cmd_audit_permissions "$@" ;;
+      backup)      shift 2; cmd_audit_backup "$@" ;;
+      *)           usage; exit 1 ;;
+    esac
+    ;;
+  timers)
+    source "${LIB_DIR}/timers.sh"
+    case "$subcmd" in
+      install)   shift 2; cmd_timers_install "$@" ;;
+      uninstall) shift 2; cmd_timers_uninstall "$@" ;;
+      status)    shift 2; cmd_timers_status "$@" ;;
+      *)         usage; exit 1 ;;
+    esac
+    ;;
+  --version) echo "grota v${GROTA_VERSION}" ;;
+  --help|"") usage ;;
+  *) echo "Unknown command: $cmd"; usage; exit 1 ;;
+esac
