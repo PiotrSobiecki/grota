@@ -41,6 +41,7 @@ Monorepo ([pnpm workspace](https://pnpm.io/workspaces)):
 |-------|------|
 | [apps/user-application](./apps/user-application/) | Frontend SSR (TanStack Start) |
 | [apps/data-service](./apps/data-service/) | Backend API (Hono) |
+| [apps/cli](./apps/cli/) | Skrypty serwerowe (backup, migracja) |
 | [packages/data-ops](./packages/data-ops/) | Warstwa danych (Drizzle, Zod, Auth) |
 
 Stack: Cloudflare Workers, Neon Postgres, Better Auth, Resend.
@@ -91,7 +92,7 @@ Po ukończeniu onboardingu w portalu web, operator uruchamia skrypty serwerowe n
 ### Instalacja na VPS
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/auditmos/grota/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/auditmos/grota/main/apps/cli/install.sh | bash
 ```
 
 Instaluje CLI `grota` + zależności (rclone, jq). Konfiguracja w `/etc/grota/grota.env`.
@@ -133,21 +134,9 @@ Instaluje CLI `grota` + zależności (rclone, jq). Konfiguracja w `/etc/grota/gr
    grota audit backup
    ```
 
-### Infrastruktura B2
-
-Terraform tworzy 3 buckety per klient: `{prefix}-dokumenty`, `{prefix}-media`, `{prefix}-projekty` z szyfrowaniem SSE-B2 (AES-256) i osobnymi kluczami API.
-
-```bash
-cd terraform && terraform plan -var-file=clients/firmaxyz.tfvars
-```
-
-### Powiadomienia
-
-Skrypty raportują status (sukces/błąd/token wygasł) do data-service → Telegram operatora.
-
 ## Dokumentacja
 
 - `/docs` — design docs (source of truth)
 - `docs/099-107` — Etap 2 (server scripts, terraform, dystrybucja)
-- `docs/done/001-007` — Etap 1 (portal web, zaimplementowany)
+- `docs/done/001-008` — Etap 1 (portal web, zaimplementowany)
 - Każdy package ma własny `CLAUDE.md` z detalami technicznymi
