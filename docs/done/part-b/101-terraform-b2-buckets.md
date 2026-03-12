@@ -154,6 +154,15 @@ bucket_prefix = "firmaxyz"
 ### `terraform/modules/b2-bucket/main.tf`
 
 ```hcl
+terraform {
+  required_providers {
+    b2 = {
+      source  = "Backblaze/b2"
+      version = "~> 0.9"
+    }
+  }
+}
+
 variable "bucket_name" {
   type = string
 }

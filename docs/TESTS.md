@@ -70,3 +70,32 @@ grota v0.1.0
 grota v0.1.0 -- Google Workspace backup & migration toolkit
 ...
 ```
+
+## 101: Terraform B2 Buckets
+
+### Docker test (local, no credentials needed)
+
+```bash
+docker run --rm --entrypoint sh -v "$(pwd)/terraform":/tf -w /tf hashicorp/terraform:1.5 -c '
+echo "--- init ---"
+terraform init
+echo "--- validate ---"
+terraform validate
+echo "--- fmt check ---"
+terraform fmt -check -recursive
+echo "--- plan (expect 6 resources) ---"
+terraform plan -var="b2_master_key_id=test" -var="b2_master_key=test" -var="bucket_prefix=testfirma" -input=false 2>&1 | grep -E "Plan:|Error"
+'
+```
+
+### Expected output (key lines)
+
+```
+--- init ---
+Terraform has been successfully initialized!
+--- validate ---
+Success! The configuration is valid.
+--- fmt check ---
+--- plan (expect 6 resources) ---
+Plan: 6 to add, 0 to change, 0 to destroy.
+```

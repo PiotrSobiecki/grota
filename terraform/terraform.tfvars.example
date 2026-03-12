@@ -1,0 +1,6 @@
+# Copy to terraform.tfvars and fill in values
+# DO NOT commit terraform.tfvars to git
+
+b2_master_key_id = ""
+b2_master_key    = ""
+bucket_prefix    = "firmaxyz" # lowercase, e.g. client slug
