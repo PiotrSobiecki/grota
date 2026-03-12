@@ -17,32 +17,15 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+	type ConfigJson,
+	type ExportResult,
+	exportConfig,
+	getConfigPreview,
+} from "@/core/functions/config/binding";
 import { getDeploymentById } from "@/core/functions/deployments/direct";
 import { getEmployeesByDeployment } from "@/core/functions/employees/binding";
 import { sendNotifications } from "@/core/functions/notifications/binding";
-
-interface ConfigAccount {
-	email: string;
-	name: string;
-	oauth_refresh_token: string | null;
-	folders: Array<{ id: string; name: string; category: string }>;
-}
-
-interface ConfigPreview {
-	deployment_id: string;
-	client_name: string;
-	domain: string;
-	created_at: string;
-	workspace: { oauth_refresh_token: string } | null;
-	accounts: ConfigAccount[];
-	b2: unknown;
-	server: unknown;
-}
-
-interface ExportResult {
-	r2Key: string;
-	status: string;
-}
 
 export const Route = createFileRoute("/_auth/dashboard/$id/config")({
 	component: ConfigPage,
@@ -50,8 +33,6 @@ export const Route = createFileRoute("/_auth/dashboard/$id/config")({
 
 function ConfigPage() {
 	const { id: deploymentId } = Route.useParams();
-	const dataServiceUrl = import.meta.env.VITE_DATA_SERVICE_URL;
-	const apiToken = import.meta.env.VITE_API_TOKEN;
 	const [exportResult, setExportResult] = useState<ExportResult | null>(null);
 
 	const deploymentQuery = useQuery({
@@ -66,27 +47,11 @@ function ConfigPage() {
 
 	const previewQuery = useQuery({
 		queryKey: ["config-preview", deploymentId],
-		queryFn: async () => {
-			const response = await fetch(`${dataServiceUrl}/config/preview/${deploymentId}`, {
-				headers: { Authorization: `Bearer ${apiToken}` },
-			});
-			if (!response.ok) throw new Error("Nie udalo sie pobrac podgladu");
-			return response.json() as Promise<ConfigPreview>;
-		},
+		queryFn: () => getConfigPreview({ data: { deploymentId } }),
 	});
 
 	const exportMutation = useMutation({
-		mutationFn: async () => {
-			const response = await fetch(`${dataServiceUrl}/config/export/${deploymentId}`, {
-				method: "POST",
-				headers: { Authorization: `Bearer ${apiToken}` },
-			});
-			if (!response.ok) {
-				const body = (await response.json()) as { error?: string };
-				throw new Error(body.error ?? "Eksport nie powiodl sie");
-			}
-			return response.json() as Promise<ExportResult>;
-		},
+		mutationFn: () => exportConfig({ data: { deploymentId } }),
 		onSuccess: (data) => setExportResult(data),
 	});
 
@@ -104,7 +69,7 @@ function ConfigPage() {
 			<div className="space-y-6">
 				<BackHeader />
 				<Alert variant="destructive">
-					<p className="text-sm">{previewQuery.error.message}</p>
+					<AlertDescription>{previewQuery.error.message}</AlertDescription>
 				</Alert>
 			</div>
 		);
@@ -114,7 +79,7 @@ function ConfigPage() {
 	const completedCount = employees.filter((e) => e.selectionStatus === "completed").length;
 	const totalEmployees = employees.length;
 
-	const config = previewQuery.data;
+	const config = previewQuery.data as ConfigJson;
 	const isActive = deploymentQuery.data?.status === "active";
 
 	const folderCount = config.accounts.reduce(
@@ -205,7 +170,7 @@ function ConfigPage() {
 						<>
 							{exportMutation.isError && (
 								<Alert variant="destructive">
-									<p className="text-sm">{exportMutation.error.message}</p>
+									<AlertDescription>{exportMutation.error.message}</AlertDescription>
 								</Alert>
 							)}
 							<p className="text-sm text-muted-foreground">

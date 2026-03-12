@@ -24,8 +24,8 @@ export const ConfigJsonSchema = z.object({
 			),
 		}),
 	),
-	b2: z.unknown().nullable(),
-	server: z.unknown().nullable(),
+	b2: z.json().nullable(),
+	server: z.json().nullable(),
 });
 
 export type ConfigJson = z.infer<typeof ConfigJsonSchema>;

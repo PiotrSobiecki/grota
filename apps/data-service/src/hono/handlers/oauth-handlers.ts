@@ -12,7 +12,8 @@ oauthHandlers.get("/google/authorize", async (c) => {
 	}
 
 	const token = c.req.query("token");
-	const redirectUri = `${c.req.url.split("/api")[0]}/api/oauth/google/callback`;
+	const origin = new URL(c.req.url).origin;
+	const redirectUri = `${origin}/api/oauth/google/callback`;
 	const url = oauthService.buildAuthorizationUrl(type, id, c.env, redirectUri, token);
 	return c.redirect(url);
 });
@@ -31,7 +32,7 @@ oauthHandlers.get("/google/callback", async (c) => {
 		return c.json({ error: "Missing code or state" }, 400);
 	}
 
-	const redirectUri = `${c.req.url.split("?")[0]}`;
+	const redirectUri = `${new URL(c.req.url).origin}/api/oauth/google/callback`;
 	const result = await oauthService.handleCallback(code, state, c.env, redirectUri);
 
 	if (!result.ok) {
