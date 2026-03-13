@@ -427,7 +427,7 @@ function ServerConfigCard({ deployment, onUpdated }: ServerConfigCardProps) {
 		onSubmit: async ({ value }) => {
 			const updates: { b2Config?: B2Config; serverConfig?: ServerConfig } = {};
 
-			if (value.b2KeyId || value.b2AppKey || value.b2BucketPrefix) {
+			if (value.b2KeyId && value.b2AppKey) {
 				updates.b2Config = {
 					key_id: value.b2KeyId,
 					app_key: value.b2AppKey,
@@ -435,10 +435,10 @@ function ServerConfigCard({ deployment, onUpdated }: ServerConfigCardProps) {
 				};
 			}
 
-			if (value.backupPath || value.bwlimit) {
+			if (value.backupPath) {
 				updates.serverConfig = {
 					backup_path: value.backupPath,
-					bwlimit: value.bwlimit,
+					bwlimit: value.bwlimit || "08:00,5M 23:00,50M",
 					...(value.sshHost ? { ssh_host: value.sshHost } : {}),
 					...(value.sshUser ? { ssh_user: value.sshUser } : {}),
 				};
@@ -511,6 +511,7 @@ function ServerConfigCard({ deployment, onUpdated }: ServerConfigCardProps) {
 											value={field.state.value}
 											onChange={(e) => field.handleChange(e.target.value)}
 											onBlur={field.handleBlur}
+											placeholder="0a1b2c3d4e5f"
 											className="h-8"
 										/>
 									</div>
@@ -535,6 +536,7 @@ function ServerConfigCard({ deployment, onUpdated }: ServerConfigCardProps) {
 											value={field.state.value}
 											onChange={(e) => field.handleChange(e.target.value)}
 											onBlur={field.handleBlur}
+											placeholder="K001abcdefghijklmnop"
 											className="h-8"
 										/>
 									</div>
@@ -559,6 +561,7 @@ function ServerConfigCard({ deployment, onUpdated }: ServerConfigCardProps) {
 											value={field.state.value}
 											onChange={(e) => field.handleChange(e.target.value)}
 											onBlur={field.handleBlur}
+											placeholder="nazwa-klienta"
 											className="h-8"
 										/>
 									</div>
@@ -594,6 +597,7 @@ function ServerConfigCard({ deployment, onUpdated }: ServerConfigCardProps) {
 												value={field.state.value}
 												onChange={(e) => field.handleChange(e.target.value)}
 												onBlur={field.handleBlur}
+												placeholder="/srv/backup/gdrive"
 												className="h-8"
 											/>
 										</div>
@@ -618,6 +622,7 @@ function ServerConfigCard({ deployment, onUpdated }: ServerConfigCardProps) {
 												value={field.state.value}
 												onChange={(e) => field.handleChange(e.target.value)}
 												onBlur={field.handleBlur}
+												placeholder="08:00,5M 23:00,50M"
 												className="h-8"
 											/>
 										</div>
@@ -641,6 +646,7 @@ function ServerConfigCard({ deployment, onUpdated }: ServerConfigCardProps) {
 												value={field.state.value}
 												onChange={(e) => field.handleChange(e.target.value)}
 												onBlur={field.handleBlur}
+												placeholder="192.168.1.10"
 												className="h-8"
 											/>
 										</div>
@@ -664,6 +670,7 @@ function ServerConfigCard({ deployment, onUpdated }: ServerConfigCardProps) {
 												value={field.state.value}
 												onChange={(e) => field.handleChange(e.target.value)}
 												onBlur={field.handleBlur}
+												placeholder="backup"
 												className="h-8"
 											/>
 										</div>
