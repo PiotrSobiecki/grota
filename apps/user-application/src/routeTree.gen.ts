@@ -9,7 +9,9 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as SigninRouteImport } from './routes/signin'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as AuthRouteRouteImport } from './routes/_auth/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as StatusTokenRouteImport } from './routes/status/$token'
@@ -24,9 +26,19 @@ import { Route as AuthDashboardNewRouteImport } from './routes/_auth/dashboard/n
 import { Route as AuthDashboardIdIndexRouteImport } from './routes/_auth/dashboard/$id/index'
 import { Route as AuthDashboardIdConfigRouteImport } from './routes/_auth/dashboard/$id/config'
 
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SigninRoute = SigninRouteImport.update({
   id: '/signin',
   path: '/signin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRouteRoute = AuthRouteRouteImport.update({
@@ -96,7 +108,9 @@ const AuthDashboardIdConfigRoute = AuthDashboardIdConfigRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/privacy': typeof PrivacyRoute
   '/signin': typeof SigninRoute
+  '/terms': typeof TermsRoute
   '/dashboard': typeof AuthDashboardRouteRouteWithChildren
   '/api/health': typeof ApiHealthRoute
   '/employee/$token': typeof EmployeeTokenRoute
@@ -111,7 +125,9 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/privacy': typeof PrivacyRoute
   '/signin': typeof SigninRoute
+  '/terms': typeof TermsRoute
   '/api/health': typeof ApiHealthRoute
   '/employee/$token': typeof EmployeeTokenRoute
   '/onboard/$token': typeof OnboardTokenRoute
@@ -127,7 +143,9 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_auth': typeof AuthRouteRouteWithChildren
+  '/privacy': typeof PrivacyRoute
   '/signin': typeof SigninRoute
+  '/terms': typeof TermsRoute
   '/_auth/dashboard': typeof AuthDashboardRouteRouteWithChildren
   '/api/health': typeof ApiHealthRoute
   '/employee/$token': typeof EmployeeTokenRoute
@@ -144,7 +162,9 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/privacy'
     | '/signin'
+    | '/terms'
     | '/dashboard'
     | '/api/health'
     | '/employee/$token'
@@ -159,7 +179,9 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/privacy'
     | '/signin'
+    | '/terms'
     | '/api/health'
     | '/employee/$token'
     | '/onboard/$token'
@@ -174,7 +196,9 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_auth'
+    | '/privacy'
     | '/signin'
+    | '/terms'
     | '/_auth/dashboard'
     | '/api/health'
     | '/employee/$token'
@@ -191,7 +215,9 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRouteRoute: typeof AuthRouteRouteWithChildren
+  PrivacyRoute: typeof PrivacyRoute
   SigninRoute: typeof SigninRoute
+  TermsRoute: typeof TermsRoute
   ApiHealthRoute: typeof ApiHealthRoute
   EmployeeTokenRoute: typeof EmployeeTokenRoute
   OnboardTokenRoute: typeof OnboardTokenRoute
@@ -201,11 +227,25 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/signin': {
       id: '/signin'
       path: '/signin'
       fullPath: '/signin'
       preLoaderRoute: typeof SigninRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_auth': {
@@ -336,7 +376,9 @@ const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRouteRoute: AuthRouteRouteWithChildren,
+  PrivacyRoute: PrivacyRoute,
   SigninRoute: SigninRoute,
+  TermsRoute: TermsRoute,
   ApiHealthRoute: ApiHealthRoute,
   EmployeeTokenRoute: EmployeeTokenRoute,
   OnboardTokenRoute: OnboardTokenRoute,
