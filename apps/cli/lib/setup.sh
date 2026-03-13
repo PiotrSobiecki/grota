@@ -8,7 +8,7 @@ set -euo pipefail
 RCLONE_ENV_FILE="${RCLONE_ENV_FILE:-/etc/grota/rclone-env.sh}"
 
 sanitize_email() {
-  echo "$1" | tr '@.' '-'
+  echo "$1" | tr '@.' '_'
 }
 
 # Convert remote name to rclone env var prefix (uppercase, hyphens to underscores)
@@ -66,7 +66,7 @@ cmd_setup_rclone() {
   # Start fresh env file (preserve B2 section if setup b2 ran first)
   local b2_section=""
   if [[ -f "$RCLONE_ENV_FILE" ]]; then
-    b2_section=$(sed -n '/^# b2-/,/^$/p' "$RCLONE_ENV_FILE" || true)
+    b2_section=$(sed -n '/^# b2_/,/^$/p' "$RCLONE_ENV_FILE" || true)
   fi
 
   cat > "$RCLONE_ENV_FILE" <<'HEADER'
@@ -89,7 +89,7 @@ HEADER
       continue
     fi
 
-    remote_name="gdrive-$(sanitize_email "$email")"
+    remote_name="gdrive_$(sanitize_email "$email")"
     rclone_token=$(build_rclone_token "$token")
 
     log_info "Configuring remote: $remote_name ($email)"
@@ -105,11 +105,11 @@ HEADER
     local ws_rclone_token
     ws_rclone_token=$(build_rclone_token "$ws_token")
 
-    log_info "Configuring workspace remote: workspace-drive"
-    write_drive_env "workspace-drive" "$GOOGLE_CLIENT_ID" "$GOOGLE_CLIENT_SECRET" "drive" "$ws_rclone_token"
+    log_info "Configuring workspace remote: workspace_drive"
+    write_drive_env "workspace_drive" "$GOOGLE_CLIENT_ID" "$GOOGLE_CLIENT_SECRET" "drive" "$ws_rclone_token"
 
     created=$((created + 1))
-    log_info "Created workspace-drive remote (full Drive scope)"
+    log_info "Created workspace_drive remote (full Drive scope)"
   fi
 
   # Restore B2 section if it existed
@@ -137,7 +137,7 @@ cmd_setup_b2() {
   # Preserve Drive section, rebuild B2
   local drive_section=""
   if [[ -f "$RCLONE_ENV_FILE" ]]; then
-    drive_section=$(sed '/^# b2-/,/^$/d' "$RCLONE_ENV_FILE" || true)
+    drive_section=$(sed '/^# b2_/,/^$/d' "$RCLONE_ENV_FILE" || true)
     echo "$drive_section" > "$RCLONE_ENV_FILE"
   else
     cat > "$RCLONE_ENV_FILE" <<'HEADER'
@@ -166,7 +166,7 @@ HEADER
       continue
     fi
 
-    remote_name="b2-${category}"
+    remote_name="b2_${category}"
     bucket_name="${bucket_prefix}-${category}"
 
     log_info "Configuring B2 remote: $remote_name -> $bucket_name"
@@ -208,13 +208,13 @@ cmd_verify_remotes() {
   for (( i=0; i<account_count; i++ )); do
     local email remote_name
     email=$(cfg_account_email "$i")
-    remote_name="gdrive-$(echo "$email" | tr '@.' '-')"
+    remote_name="gdrive_$(echo "$email" | tr '@.' '_')"
     verify_remote "$remote_name" "Google Drive: $email"
   done
 
   # Verify workspace remote
-  if rclone listremotes | grep -q "^workspace-drive:$"; then
-    verify_remote "workspace-drive" "Workspace admin Drive"
+  if rclone listremotes | grep -q "^workspace_drive:$"; then
+    verify_remote "workspace_drive" "Workspace admin Drive"
   fi
 
   # Verify B2 remotes
@@ -222,7 +222,7 @@ cmd_verify_remotes() {
   bucket_prefix=$(cfg_b2_prefix)
   for category in dokumenty projekty media; do
     local remote_name bucket_name
-    remote_name="b2-${category}"
+    remote_name="b2_${category}"
     bucket_name="${bucket_prefix}-${category}"
 
     if ! rclone listremotes | grep -q "^${remote_name}:$"; then

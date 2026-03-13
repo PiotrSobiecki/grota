@@ -112,9 +112,9 @@ rclone() {
       ;;
     storage_b2)
       if [[ "$1" == "listremotes" ]]; then
-        echo "b2-dokumenty:"
-        echo "b2-projekty:"
-        echo "b2-media:"
+        echo "b2_dokumenty:"
+        echo "b2_projekty:"
+        echo "b2_media:"
         return 0
       fi
       if [[ "$1" == "size" ]]; then
@@ -124,15 +124,15 @@ rclone() {
       ;;
     storage_b2_no_remotes)
       if [[ "$1" == "listremotes" ]]; then
-        echo "workspace-drive:"
+        echo "workspace_drive:"
         return 0
       fi
       ;;
     check_ok)
       if [[ "$1" == "listremotes" ]]; then
-        echo "b2-dokumenty:"
-        echo "b2-projekty:"
-        echo "b2-media:"
+        echo "b2_dokumenty:"
+        echo "b2_projekty:"
+        echo "b2_media:"
         return 0
       fi
       if [[ "$1" == "check" ]]; then
@@ -141,9 +141,9 @@ rclone() {
       ;;
     check_fail)
       if [[ "$1" == "listremotes" ]]; then
-        echo "b2-dokumenty:"
-        echo "b2-projekty:"
-        echo "b2-media:"
+        echo "b2_dokumenty:"
+        echo "b2_projekty:"
+        echo "b2_media:"
         return 0
       fi
       if [[ "$1" == "check" ]]; then

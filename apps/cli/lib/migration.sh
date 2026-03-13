@@ -6,7 +6,7 @@ set -euo pipefail
 [[ "$(type -t log_info)" == "function" ]] || source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 
 
-WORKSPACE_REMOTE="workspace-drive"
+WORKSPACE_REMOTE="workspace_drive"
 
 # ── Get Shared Drive ID by name ────────────────────
 _get_shared_drive_id() {
@@ -86,8 +86,8 @@ cmd_migrate() {
     fi
 
     name=$(cfg_account_name "$i")
-    sanitized_email=$(echo "$email" | tr '@.' '-')
-    remote_name="gdrive-${sanitized_email}"
+    sanitized_email=$(echo "$email" | tr '@.' '_')
+    remote_name="gdrive_${sanitized_email}"
 
     log_info "Processing account: $name ($email)"
 
@@ -175,8 +175,8 @@ _verify_migration() {
     fi
 
     name=$(cfg_account_name "$i")
-    sanitized_email=$(echo "$email" | tr '@.' '-')
-    remote_name="gdrive-${sanitized_email}"
+    sanitized_email=$(echo "$email" | tr '@.' '_')
+    remote_name="gdrive_${sanitized_email}"
 
     log_info "Verifying: $name ($email)"
 

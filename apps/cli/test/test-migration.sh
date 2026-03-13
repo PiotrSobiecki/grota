@@ -90,7 +90,7 @@ rclone() {
   echo "rclone $*" >> "$_rclone_calls_file"
   case "$_rclone_mock_mode" in
     drives_found)
-      # mock: rclone backend drives workspace-drive:
+      # mock: rclone backend drives workspace_drive:
       if [[ "$1" == "backend" && "$2" == "drives" ]]; then
         echo '[{"name":"TestFirma-Dokumenty","id":"drive-dok-123"},{"name":"TestFirma-Projekty","id":"drive-proj-456"}]'
         return 0
@@ -104,9 +104,9 @@ rclone() {
       ;;
     listremotes_ok)
       if [[ "$1" == "listremotes" ]]; then
-        echo "workspace-drive:"
-        echo "gdrive-jan-gmail-com:"
-        echo "gdrive-anna-gmail-com:"
+        echo "workspace_drive:"
+        echo "gdrive_jan_gmail_com:"
+        echo "gdrive_anna_gmail_com:"
         return 0
       fi
       ;;
@@ -142,7 +142,7 @@ rclone() {
 
   # Default for unmatched calls
   case "$1" in
-    listremotes) echo "workspace-drive:"; return 0 ;;
+    listremotes) echo "workspace_drive:"; return 0 ;;
     backend)
       if [[ "$2" == "drives" ]]; then
         echo '[{"name":"TestFirma-Dokumenty","id":"drive-dok-123"},{"name":"TestFirma-Projekty","id":"drive-proj-456"}]'

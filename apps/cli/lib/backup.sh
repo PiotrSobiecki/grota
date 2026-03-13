@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Backup functions: sync-gdrive-to-local, sync-local-to-b2, backup-account
+# Backup functions: sync-gdrive_to-local, sync-local-to-b2, backup-account
 # Called via: grota backup account <email>
 set -euo pipefail
 
@@ -29,8 +29,8 @@ sync_gdrive_to_local() {
   email=$(cfg_account_email "$idx")
   [[ "$email" != "null" && -n "$email" ]] || log_fatal "Invalid account index: $idx"
 
-  sanitized_email=$(echo "$email" | tr '@.' '-')
-  remote_name="gdrive-${sanitized_email}"
+  sanitized_email=$(echo "$email" | tr '@.' '_')
+  remote_name="gdrive_${sanitized_email}"
   backup_root=$(cfg_server_backup_path)
   bwlimit=$(cfg_server_bwlimit)
   timestamp=$(date '+%Y%m%d-%H%M%S')
@@ -108,7 +108,7 @@ sync_local_to_b2() {
   email=$(cfg_account_email "$idx")
   [[ "$email" != "null" && -n "$email" ]] || log_fatal "Invalid account index: $idx"
 
-  sanitized_email=$(echo "$email" | tr '@.' '-')
+  sanitized_email=$(echo "$email" | tr '@.' '_')
   backup_root=$(cfg_server_backup_path)
   bucket_prefix=$(cfg_b2_prefix)
 
@@ -125,7 +125,7 @@ sync_local_to_b2() {
       continue
     fi
 
-    remote_name="b2-${category}"
+    remote_name="b2_${category}"
     bucket_name="${bucket_prefix}-${category}"
     b2_path="${remote_name}:${bucket_name}/${sanitized_email}"
 
@@ -170,7 +170,7 @@ cmd_backup_account() {
 
   local backup_root sanitized_email
   backup_root=$(cfg_server_backup_path)
-  sanitized_email=$(echo "$email" | tr '@.' '-')
+  sanitized_email=$(echo "$email" | tr '@.' '_')
 
   log_info "=== Backup pipeline: $email (index $idx) ==="
 

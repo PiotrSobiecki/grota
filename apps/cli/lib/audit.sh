@@ -28,7 +28,7 @@ cmd_audit_permissions() {
   require_cmd rclone jq
   _init_report "permission-audit"
 
-  local workspace_remote="workspace-drive"
+  local workspace_remote="workspace_drive"
 
   _out "========================================="
   _out "Grota Permission Audit - $(date '+%Y-%m-%d %H:%M')"
@@ -116,7 +116,7 @@ cmd_audit_storage() {
     for (( i=0; i<account_count; i++ )); do
       local email sanitized_email account_dir
       email=$(cfg_account_email "$i")
-      sanitized_email=$(echo "$email" | tr '@.' '-')
+      sanitized_email=$(echo "$email" | tr '@.' '_')
       account_dir="${backup_root}/${sanitized_email}"
 
       if [[ -d "$account_dir" ]]; then
@@ -159,7 +159,7 @@ cmd_audit_storage() {
   _out "--- B2 Storage ---"
 
   for category in dokumenty projekty media; do
-    local remote_name="b2-${category}"
+    local remote_name="b2_${category}"
     local bucket_name="${bucket_prefix}-${category}"
 
     if ! rclone listremotes | grep -q "^${remote_name}:$"; then
@@ -208,13 +208,13 @@ cmd_audit_backup() {
   for (( i=0; i<account_count; i++ )); do
     local email sanitized_email
     email=$(cfg_account_email "$i")
-    sanitized_email=$(echo "$email" | tr '@.' '-')
+    sanitized_email=$(echo "$email" | tr '@.' '_')
 
     _out "--- $email ---"
 
     for category in dokumenty projekty media; do
       local local_dir="${backup_root}/${sanitized_email}/${category}"
-      local remote_name="b2-${category}"
+      local remote_name="b2_${category}"
       local bucket_name="${bucket_prefix}-${category}"
       local b2_path="${remote_name}:${bucket_name}/${sanitized_email}"
 
