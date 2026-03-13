@@ -19,13 +19,33 @@ build_rclone_token() {
     '{access_token: "", token_type: "Bearer", refresh_token: $refresh, expiry: "2000-01-01T00:00:00Z"}'
 }
 
+write_rclone_remote() {
+  local name="$1" client_id="$2" client_secret="$3" scope="$4" token_json="$5"
+  # Remove existing section if present
+  if [[ -f "$RCLONE_CONFIG" ]]; then
+    sed -i "/^\[${name}\]$/,/^\[/{ /^\[${name}\]$/d; /^\[/!d; }" "$RCLONE_CONFIG"
+  fi
+  cat >> "$RCLONE_CONFIG" <<EOF
+[${name}]
+type = drive
+client_id = ${client_id}
+client_secret = ${client_secret}
+scope = ${scope}
+token = ${token_json}
+
+EOF
+}
+
 # -- grota setup rclone ----------------------------------------
 cmd_setup_rclone() {
   init_logging "setup-rclone"
-  require_cmd rclone jq
+  require_cmd jq
 
   mkdir -p "$(dirname "$RCLONE_CONFIG")"
   require_env GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET
+
+  # Start fresh config
+  : > "$RCLONE_CONFIG"
 
   local account_count
   account_count=$(cfg_account_count)
@@ -47,14 +67,7 @@ cmd_setup_rclone() {
 
     log_info "Configuring remote: $remote_name ($email)"
 
-    rclone config delete "$remote_name" 2>/dev/null || true
-
-    rclone config create "$remote_name" drive \
-      client_id "$GOOGLE_CLIENT_ID" \
-      client_secret "$GOOGLE_CLIENT_SECRET" \
-      scope "drive.readonly" \
-      token "$rclone_token" \
-      --non-interactive >/dev/null
+    write_rclone_remote "$remote_name" "$GOOGLE_CLIENT_ID" "$GOOGLE_CLIENT_SECRET" "drive.readonly" "$rclone_token"
 
     created=$((created + 1))
   done
@@ -67,14 +80,8 @@ cmd_setup_rclone() {
     ws_rclone_token=$(build_rclone_token "$ws_token")
 
     log_info "Configuring workspace remote: workspace-drive"
-    rclone config delete "workspace-drive" 2>/dev/null || true
 
-    rclone config create "workspace-drive" drive \
-      client_id "$GOOGLE_CLIENT_ID" \
-      client_secret "$GOOGLE_CLIENT_SECRET" \
-      scope "drive" \
-      token "$ws_rclone_token" \
-      --non-interactive >/dev/null
+    write_rclone_remote "workspace-drive" "$GOOGLE_CLIENT_ID" "$GOOGLE_CLIENT_SECRET" "drive" "$ws_rclone_token"
 
     created=$((created + 1))
     log_info "Created workspace-drive remote (full Drive scope)"
