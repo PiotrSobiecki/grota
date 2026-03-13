@@ -44,6 +44,13 @@ if [[ -f "$ENV_FILE" ]]; then
   load_env "$ENV_FILE"
 fi
 
+# Source rclone env-based remotes
+RCLONE_ENV_FILE="${RCLONE_ENV_FILE:-/etc/grota/rclone-env.sh}"
+if [[ -f "$RCLONE_ENV_FILE" ]]; then
+  # shellcheck disable=SC1090
+  source "$RCLONE_ENV_FILE"
+fi
+
 # ── Route subcommands ──────────────────────────────
 cmd="${1:-}"
 subcmd="${2:-}"

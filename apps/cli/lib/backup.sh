@@ -5,8 +5,6 @@ set -euo pipefail
 
 [[ "$(type -t log_info)" == "function" ]] || source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 
-RCLONE_CONFIG="${RCLONE_CONFIG:-/etc/rclone/rclone.conf}"
-export RCLONE_CONFIG
 
 # ── Helpers ────────────────────────────────────────
 _find_account_index() {
