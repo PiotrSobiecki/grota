@@ -66,7 +66,6 @@ cmd_setup_rclone() {
     rclone_token=$(build_rclone_token "$token")
 
     log_info "Configuring remote: $remote_name ($email)"
-    log_info "DEBUG token=[${token:0:20}...] rclone_token=[${rclone_token:0:80}...]"
 
     write_rclone_remote "$remote_name" "$GOOGLE_CLIENT_ID" "$GOOGLE_CLIENT_SECRET" "drive.readonly" "$rclone_token"
 
