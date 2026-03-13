@@ -38,7 +38,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
 import {
 	createDepartment,
 	deleteDepartment,
@@ -56,6 +55,7 @@ import {
 } from "@/core/functions/employees/binding";
 import { generateAdminMagicLink } from "@/core/functions/magic-links/binding";
 import { sendNotifications } from "@/core/functions/notifications/binding";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_auth/dashboard/$id/")({
 	loader: ({ params }) => getDeploymentById({ data: { id: params.id } }),
@@ -500,7 +500,11 @@ function ServerConfigCard({ deployment, onUpdated }: ServerConfigCardProps) {
 												<TooltipTrigger asChild>
 													<Info className="h-3 w-3 cursor-help" />
 												</TooltipTrigger>
-												<TooltipContent>{"Identyfikator klucza B2 (Backblaze). Znajdziesz go w panelu B2 > App Keys."}</TooltipContent>
+												<TooltipContent>
+													{
+														"Identyfikator klucza B2 (Backblaze). Znajdziesz go w panelu B2 > App Keys."
+													}
+												</TooltipContent>
 											</Tooltip>
 										</label>
 										<Input
@@ -521,7 +525,10 @@ function ServerConfigCard({ deployment, onUpdated }: ServerConfigCardProps) {
 												<TooltipTrigger asChild>
 													<Info className="h-3 w-3 cursor-help" />
 												</TooltipTrigger>
-												<TooltipContent>Tajny klucz aplikacji B2. Widoczny tylko przy tworzeniu — zapisz go od razu.</TooltipContent>
+												<TooltipContent>
+													Tajny klucz aplikacji B2. Widoczny tylko przy tworzeniu — zapisz go od
+													razu.
+												</TooltipContent>
 											</Tooltip>
 										</label>
 										<Input
@@ -542,7 +549,10 @@ function ServerConfigCard({ deployment, onUpdated }: ServerConfigCardProps) {
 												<TooltipTrigger asChild>
 													<Info className="h-3 w-3 cursor-help" />
 												</TooltipTrigger>
-												<TooltipContent>Prefix nazwy bucketa B2. Bucket zostanie utworzony jako prefix-backup, prefix-audit itp.</TooltipContent>
+												<TooltipContent>
+													Prefix nazwy bucketa B2. Bucket zostanie utworzony jako prefix-backup,
+													prefix-audit itp.
+												</TooltipContent>
 											</Tooltip>
 										</label>
 										<Input
@@ -559,95 +569,106 @@ function ServerConfigCard({ deployment, onUpdated }: ServerConfigCardProps) {
 						<Collapsible open={showAdvanced} onOpenChange={setShowAdvanced}>
 							<CollapsibleTrigger asChild>
 								<Button variant="ghost" size="sm" type="button" className="gap-1">
-									<ChevronDown className={cn("h-4 w-4 transition-transform", showAdvanced && "rotate-180")} />
+									<ChevronDown
+										className={cn("h-4 w-4 transition-transform", showAdvanced && "rotate-180")}
+									/>
 									Zaawansowane
 								</Button>
 							</CollapsibleTrigger>
 							<CollapsibleContent className="space-y-3 pt-2">
-							<form.Field name="backupPath">
-								{(field) => (
-									<div>
-										<label className="text-sm text-muted-foreground flex items-center gap-1">
-											Backup Path
-											<Tooltip>
-												<TooltipTrigger asChild>
-													<Info className="h-3 w-3 cursor-help" />
-												</TooltipTrigger>
-												<TooltipContent>Sciezka na serwerze, gdzie rclone zapisuje kopie plikow z Google Drive.</TooltipContent>
-											</Tooltip>
-										</label>
-										<Input
-											value={field.state.value}
-											onChange={(e) => field.handleChange(e.target.value)}
-											onBlur={field.handleBlur}
-											className="h-8"
-										/>
-									</div>
-								)}
-							</form.Field>
-							<form.Field name="bwlimit">
-								{(field) => (
-									<div>
-										<label className="text-sm text-muted-foreground flex items-center gap-1">
-											Bandwidth Limit
-											<Tooltip>
-												<TooltipTrigger asChild>
-													<Info className="h-3 w-3 cursor-help" />
-												</TooltipTrigger>
-												<TooltipContent>Limit transferu rclone, np. 08:00,5M 23:00,50M (5 MB/s w dzien, 50 MB/s w nocy).</TooltipContent>
-											</Tooltip>
-										</label>
-										<Input
-											value={field.state.value}
-											onChange={(e) => field.handleChange(e.target.value)}
-											onBlur={field.handleBlur}
-											className="h-8"
-										/>
-									</div>
-								)}
-							</form.Field>
-							<form.Field name="sshHost">
-								{(field) => (
-									<div>
-										<label className="text-sm text-muted-foreground flex items-center gap-1">
-											SSH Host (opcjonalny)
-											<Tooltip>
-												<TooltipTrigger asChild>
-													<Info className="h-3 w-3 cursor-help" />
-												</TooltipTrigger>
-												<TooltipContent>Adres serwera do zdalnego dostepu, np. 192.168.1.10 lub serwer.firma.pl.</TooltipContent>
-											</Tooltip>
-										</label>
-										<Input
-											value={field.state.value}
-											onChange={(e) => field.handleChange(e.target.value)}
-											onBlur={field.handleBlur}
-											className="h-8"
-										/>
-									</div>
-								)}
-							</form.Field>
-							<form.Field name="sshUser">
-								{(field) => (
-									<div>
-										<label className="text-sm text-muted-foreground flex items-center gap-1">
-											SSH User (opcjonalny)
-											<Tooltip>
-												<TooltipTrigger asChild>
-													<Info className="h-3 w-3 cursor-help" />
-												</TooltipTrigger>
-												<TooltipContent>Uzytkownik SSH na serwerze docelowym, np. backup lub root.</TooltipContent>
-											</Tooltip>
-										</label>
-										<Input
-											value={field.state.value}
-											onChange={(e) => field.handleChange(e.target.value)}
-											onBlur={field.handleBlur}
-											className="h-8"
-										/>
-									</div>
-								)}
-							</form.Field>
+								<form.Field name="backupPath">
+									{(field) => (
+										<div>
+											<label className="text-sm text-muted-foreground flex items-center gap-1">
+												Backup Path
+												<Tooltip>
+													<TooltipTrigger asChild>
+														<Info className="h-3 w-3 cursor-help" />
+													</TooltipTrigger>
+													<TooltipContent>
+														Sciezka na serwerze, gdzie rclone zapisuje kopie plikow z Google Drive.
+													</TooltipContent>
+												</Tooltip>
+											</label>
+											<Input
+												value={field.state.value}
+												onChange={(e) => field.handleChange(e.target.value)}
+												onBlur={field.handleBlur}
+												className="h-8"
+											/>
+										</div>
+									)}
+								</form.Field>
+								<form.Field name="bwlimit">
+									{(field) => (
+										<div>
+											<label className="text-sm text-muted-foreground flex items-center gap-1">
+												Bandwidth Limit
+												<Tooltip>
+													<TooltipTrigger asChild>
+														<Info className="h-3 w-3 cursor-help" />
+													</TooltipTrigger>
+													<TooltipContent>
+														Limit transferu rclone, np. 08:00,5M 23:00,50M (5 MB/s w dzien, 50 MB/s
+														w nocy).
+													</TooltipContent>
+												</Tooltip>
+											</label>
+											<Input
+												value={field.state.value}
+												onChange={(e) => field.handleChange(e.target.value)}
+												onBlur={field.handleBlur}
+												className="h-8"
+											/>
+										</div>
+									)}
+								</form.Field>
+								<form.Field name="sshHost">
+									{(field) => (
+										<div>
+											<label className="text-sm text-muted-foreground flex items-center gap-1">
+												SSH Host (opcjonalny)
+												<Tooltip>
+													<TooltipTrigger asChild>
+														<Info className="h-3 w-3 cursor-help" />
+													</TooltipTrigger>
+													<TooltipContent>
+														Adres serwera do zdalnego dostepu, np. 192.168.1.10 lub serwer.firma.pl.
+													</TooltipContent>
+												</Tooltip>
+											</label>
+											<Input
+												value={field.state.value}
+												onChange={(e) => field.handleChange(e.target.value)}
+												onBlur={field.handleBlur}
+												className="h-8"
+											/>
+										</div>
+									)}
+								</form.Field>
+								<form.Field name="sshUser">
+									{(field) => (
+										<div>
+											<label className="text-sm text-muted-foreground flex items-center gap-1">
+												SSH User (opcjonalny)
+												<Tooltip>
+													<TooltipTrigger asChild>
+														<Info className="h-3 w-3 cursor-help" />
+													</TooltipTrigger>
+													<TooltipContent>
+														Uzytkownik SSH na serwerze docelowym, np. backup lub root.
+													</TooltipContent>
+												</Tooltip>
+											</label>
+											<Input
+												value={field.state.value}
+												onChange={(e) => field.handleChange(e.target.value)}
+												onBlur={field.handleBlur}
+												className="h-8"
+											/>
+										</div>
+									)}
+								</form.Field>
 							</CollapsibleContent>
 						</Collapsible>
 
@@ -661,63 +682,65 @@ function ServerConfigCard({ deployment, onUpdated }: ServerConfigCardProps) {
 					</form>
 				) : (
 					<div className="space-y-4">
-					<div className="space-y-2">
-						<p className="text-sm font-medium text-foreground">B2 Config</p>
-						{deployment.b2Config ? (
-							<>
-								<div className="text-sm">
-									<span className="text-muted-foreground">Key ID: </span>
-									<span className="text-foreground">{deployment.b2Config.key_id}</span>
-								</div>
-								<div className="text-sm">
-									<span className="text-muted-foreground">App Key: </span>
-									<span className="text-foreground">{"*".repeat(8)}</span>
-								</div>
-								<div className="text-sm">
-									<span className="text-muted-foreground">Bucket Prefix: </span>
-									<span className="text-foreground">{deployment.b2Config.bucket_prefix}</span>
-								</div>
-							</>
-						) : (
-							<p className="text-sm text-muted-foreground">Nie skonfigurowano</p>
-						)}
-					</div>
-					<Collapsible open={showAdvanced} onOpenChange={setShowAdvanced}>
-						<CollapsibleTrigger asChild>
-							<Button variant="ghost" size="sm" type="button" className="gap-1">
-								<ChevronDown className={cn("h-4 w-4 transition-transform", showAdvanced && "rotate-180")} />
-								Zaawansowane
-							</Button>
-						</CollapsibleTrigger>
-						<CollapsibleContent className="space-y-2 pt-2">
-						{deployment.serverConfig ? (
-							<>
-								<div className="text-sm">
-									<span className="text-muted-foreground">Backup Path: </span>
-									<span className="text-foreground">{deployment.serverConfig.backup_path}</span>
-								</div>
-								<div className="text-sm">
-									<span className="text-muted-foreground">BW Limit: </span>
-									<span className="text-foreground">{deployment.serverConfig.bwlimit}</span>
-								</div>
-								{deployment.serverConfig.ssh_host && (
+						<div className="space-y-2">
+							<p className="text-sm font-medium text-foreground">B2 Config</p>
+							{deployment.b2Config ? (
+								<>
 									<div className="text-sm">
-										<span className="text-muted-foreground">SSH Host: </span>
-										<span className="text-foreground">{deployment.serverConfig.ssh_host}</span>
+										<span className="text-muted-foreground">Key ID: </span>
+										<span className="text-foreground">{deployment.b2Config.key_id}</span>
 									</div>
-								)}
-								{deployment.serverConfig.ssh_user && (
 									<div className="text-sm">
-										<span className="text-muted-foreground">SSH User: </span>
-										<span className="text-foreground">{deployment.serverConfig.ssh_user}</span>
+										<span className="text-muted-foreground">App Key: </span>
+										<span className="text-foreground">{"*".repeat(8)}</span>
 									</div>
+									<div className="text-sm">
+										<span className="text-muted-foreground">Bucket Prefix: </span>
+										<span className="text-foreground">{deployment.b2Config.bucket_prefix}</span>
+									</div>
+								</>
+							) : (
+								<p className="text-sm text-muted-foreground">Nie skonfigurowano</p>
+							)}
+						</div>
+						<Collapsible open={showAdvanced} onOpenChange={setShowAdvanced}>
+							<CollapsibleTrigger asChild>
+								<Button variant="ghost" size="sm" type="button" className="gap-1">
+									<ChevronDown
+										className={cn("h-4 w-4 transition-transform", showAdvanced && "rotate-180")}
+									/>
+									Zaawansowane
+								</Button>
+							</CollapsibleTrigger>
+							<CollapsibleContent className="space-y-2 pt-2">
+								{deployment.serverConfig ? (
+									<>
+										<div className="text-sm">
+											<span className="text-muted-foreground">Backup Path: </span>
+											<span className="text-foreground">{deployment.serverConfig.backup_path}</span>
+										</div>
+										<div className="text-sm">
+											<span className="text-muted-foreground">BW Limit: </span>
+											<span className="text-foreground">{deployment.serverConfig.bwlimit}</span>
+										</div>
+										{deployment.serverConfig.ssh_host && (
+											<div className="text-sm">
+												<span className="text-muted-foreground">SSH Host: </span>
+												<span className="text-foreground">{deployment.serverConfig.ssh_host}</span>
+											</div>
+										)}
+										{deployment.serverConfig.ssh_user && (
+											<div className="text-sm">
+												<span className="text-muted-foreground">SSH User: </span>
+												<span className="text-foreground">{deployment.serverConfig.ssh_user}</span>
+											</div>
+										)}
+									</>
+								) : (
+									<p className="text-sm text-muted-foreground">Nie skonfigurowano</p>
 								)}
-							</>
-						) : (
-							<p className="text-sm text-muted-foreground">Nie skonfigurowano</p>
-						)}
-						</CollapsibleContent>
-					</Collapsible>
+							</CollapsibleContent>
+						</Collapsible>
 					</div>
 				)}
 			</CardContent>

@@ -1,46 +1,46 @@
 {
-  "deployment_id": "00000000-0000-0000-0000-000000000001",
-  "client_name": "TestFirma",
-  "domain": "testfirma.pl",
-  "created_at": "2026-03-01T00:00:00.000Z",
-  "workspace": {
-    "oauth_refresh_token": "test-workspace-refresh-token",
-    "shared_drives": [
-      { "name": "TestFirma-Dokumenty", "category": "dokumenty" },
-      { "name": "TestFirma-Projekty", "category": "projekty" }
-    ]
-  },
-  "accounts": [
-    {
-      "email": "jan@gmail.com",
-      "name": "Jan Kowalski",
-      "role": "ksiegowosc",
-      "oauth_refresh_token": "test-refresh-token-jan",
-      "folders": [
-        { "id": "folder-001", "name": "Faktury 2024", "category": "dokumenty" },
-        { "id": "folder-002", "name": "Projekty", "category": "projekty" },
-        { "id": "folder-003", "name": "Filmy firmowe", "category": "media" }
-      ]
-    },
-    {
-      "email": "anna@gmail.com",
-      "name": "Anna Nowak",
-      "role": "projekty",
-      "oauth_refresh_token": "test-refresh-token-anna",
-      "folders": [
-        { "id": "folder-004", "name": "Dokumenty projektowe", "category": "projekty" },
-        { "id": "folder-005", "name": "Zdjecia", "category": "media" },
-        { "id": "folder-006", "name": "Prywatne", "category": "prywatne" }
-      ]
-    }
-  ],
-  "b2": {
-    "key_id": "test-b2-key-id",
-    "app_key": "test-b2-app-key",
-    "bucket_prefix": "testfirma"
-  },
-  "server": {
-    "backup_path": "/srv/backup/gdrive",
-    "bwlimit": "08:00,5M 23:00,50M"
-  }
+	"deployment_id": "00000000-0000-0000-0000-000000000001",
+	"client_name": "TestFirma",
+	"domain": "testfirma.pl",
+	"created_at": "2026-03-01T00:00:00.000Z",
+	"workspace": {
+		"oauth_refresh_token": "test-workspace-refresh-token",
+		"shared_drives": [
+			{ "name": "TestFirma-Dokumenty", "category": "dokumenty" },
+			{ "name": "TestFirma-Projekty", "category": "projekty" }
+		]
+	},
+	"accounts": [
+		{
+			"email": "jan@gmail.com",
+			"name": "Jan Kowalski",
+			"role": "ksiegowosc",
+			"oauth_refresh_token": "test-refresh-token-jan",
+			"folders": [
+				{ "id": "folder-001", "name": "Faktury 2024", "category": "dokumenty" },
+				{ "id": "folder-002", "name": "Projekty", "category": "projekty" },
+				{ "id": "folder-003", "name": "Filmy firmowe", "category": "media" }
+			]
+		},
+		{
+			"email": "anna@gmail.com",
+			"name": "Anna Nowak",
+			"role": "projekty",
+			"oauth_refresh_token": "test-refresh-token-anna",
+			"folders": [
+				{ "id": "folder-004", "name": "Dokumenty projektowe", "category": "projekty" },
+				{ "id": "folder-005", "name": "Zdjecia", "category": "media" },
+				{ "id": "folder-006", "name": "Prywatne", "category": "prywatne" }
+			]
+		}
+	],
+	"b2": {
+		"key_id": "test-b2-key-id",
+		"app_key": "test-b2-app-key",
+		"bucket_prefix": "testfirma"
+	},
+	"server": {
+		"backup_path": "/srv/backup/gdrive",
+		"bwlimit": "08:00,5M 23:00,50M"
+	}
 }

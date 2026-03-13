@@ -1,8 +1,8 @@
-import { eq } from "drizzle-orm";
-import { hashPassword } from "better-auth/crypto";
 import { randomUUID } from "node:crypto";
+import { hashPassword } from "better-auth/crypto";
+import { eq } from "drizzle-orm";
+import { auth_account, auth_user } from "../../drizzle/auth-schema";
 import { initDatabase } from "../setup";
-import { auth_user, auth_account } from "../../drizzle/auth-schema";
 
 async function createUser() {
 	const email = process.argv[2];
