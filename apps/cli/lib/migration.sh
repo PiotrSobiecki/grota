@@ -22,12 +22,16 @@ _get_shared_drive_id() {
   echo "$drive_id"
 }
 
-# ── Map category -> Shared Drive name from config ──
-_get_drive_name_for_category() {
-  local category="$1"
+# ── Map category -> Shared Drive field from config ──
+_get_drive_field_for_category() {
+  local category="$1" field="$2"
   local drives_json
   drives_json=$(cfg_shared_drives)
-  echo "$drives_json" | jq -r ".[] | select(.category == \"$category\") | .name"
+  echo "$drives_json" | jq -r ".[] | select(.category == \"$category\") | .$field // empty"
+}
+
+_get_drive_name_for_category() {
+  _get_drive_field_for_category "$1" "name"
 }
 
 # ── grota migrate ──────────────────────────────────
@@ -56,17 +60,21 @@ cmd_migrate() {
     log_fatal "Remote '$WORKSPACE_REMOTE' not found. Run: grota setup rclone"
   fi
 
-  # Resolve Shared Drive IDs from config
+  # Resolve Shared Drive IDs from config (use stored ID if available, fallback to rclone)
   local dok_name dok_id proj_name proj_id
-  dok_name=$(_get_drive_name_for_category "dokumenty")
-  proj_name=$(_get_drive_name_for_category "projekty")
+  dok_name=$(_get_drive_field_for_category "dokumenty" "name")
+  proj_name=$(_get_drive_field_for_category "projekty" "name")
+  dok_id=$(_get_drive_field_for_category "dokumenty" "id")
+  proj_id=$(_get_drive_field_for_category "projekty" "id")
 
   [[ -n "$dok_name" ]] || log_fatal "No shared_drive configured for 'dokumenty' in workspace.shared_drives"
   [[ -n "$proj_name" ]] || log_fatal "No shared_drive configured for 'projekty' in workspace.shared_drives"
 
-  log_info "Looking up Shared Drive IDs..."
-  dok_id=$(_get_shared_drive_id "$dok_name")
-  proj_id=$(_get_shared_drive_id "$proj_name")
+  if [[ -z "$dok_id" ]] || [[ -z "$proj_id" ]]; then
+    log_info "Looking up Shared Drive IDs via rclone..."
+    [[ -z "$dok_id" ]] && dok_id=$(_get_shared_drive_id "$dok_name")
+    [[ -z "$proj_id" ]] && proj_id=$(_get_shared_drive_id "$proj_name")
+  fi
   log_info "  $dok_name: $dok_id"
   log_info "  $proj_name: $proj_id"
 
@@ -152,10 +160,12 @@ _verify_migration() {
   require_cmd rclone jq
 
   local dok_name dok_id proj_name proj_id
-  dok_name=$(_get_drive_name_for_category "dokumenty")
-  proj_name=$(_get_drive_name_for_category "projekty")
-  dok_id=$(_get_shared_drive_id "$dok_name")
-  proj_id=$(_get_shared_drive_id "$proj_name")
+  dok_name=$(_get_drive_field_for_category "dokumenty" "name")
+  proj_name=$(_get_drive_field_for_category "projekty" "name")
+  dok_id=$(_get_drive_field_for_category "dokumenty" "id")
+  proj_id=$(_get_drive_field_for_category "projekty" "id")
+  [[ -z "$dok_id" ]] && dok_id=$(_get_shared_drive_id "$dok_name")
+  [[ -z "$proj_id" ]] && proj_id=$(_get_shared_drive_id "$proj_name")
 
   _count_files() {
     local remote_path="$1"

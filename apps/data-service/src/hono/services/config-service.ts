@@ -64,7 +64,16 @@ export async function buildConfigJson(
 		client_name: data.deployment.clientName,
 		domain: data.deployment.domain,
 		created_at: data.deployment.createdAt.toISOString(),
-		workspace: workspaceRefreshToken ? { oauth_refresh_token: workspaceRefreshToken } : null,
+		workspace: workspaceRefreshToken
+			? {
+					oauth_refresh_token: workspaceRefreshToken,
+					shared_drives: data.sharedDrives.map((sd) => ({
+						name: sd.name,
+						category: sd.category,
+						id: sd.googleDriveId,
+					})),
+				}
+			: null,
 		accounts,
 		b2: data.deployment.b2Config ?? null,
 		server: data.deployment.serverConfig ?? null,

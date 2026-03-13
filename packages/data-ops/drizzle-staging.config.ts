@@ -10,6 +10,7 @@ const config: Config = {
 		"./src/deployment/table.ts",
 		"./src/employee/table.ts",
 		"./src/folder-selection/table.ts",
+		"./src/shared-drive/table.ts",
 	],
 	dialect: "postgresql",
 	dbCredentials: {

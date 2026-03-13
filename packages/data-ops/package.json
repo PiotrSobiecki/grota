@@ -39,6 +39,10 @@
 			"types": "./dist/notification/index.d.ts",
 			"default": "./dist/notification/index.js"
 		},
+		"./shared-drive": {
+			"types": "./dist/shared-drive/index.d.ts",
+			"default": "./dist/shared-drive/index.js"
+		},
 		"./auth/*": {
 			"types": "./dist/auth/*.d.ts",
 			"default": "./dist/auth/*.js"

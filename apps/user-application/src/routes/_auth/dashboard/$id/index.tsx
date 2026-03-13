@@ -1048,6 +1048,7 @@ function EmployeeSection({
 	const employeeTotal = employeesQuery.data?.total ?? 0;
 	const completedCount = employees.filter((e) => e.selectionStatus === "completed").length;
 	const canMarkReady = deploymentStatus === "employees_pending" && completedCount > 0;
+	const linksSent = employees.some((e) => e.magicLinkSentAt);
 
 	return (
 		<Card>
@@ -1090,7 +1091,7 @@ function EmployeeSection({
 							</AlertDialog>
 						)}
 						<Button
-							variant="outline"
+							variant={linksSent || sendLinksMutation.isSuccess ? "outline" : "default"}
 							onClick={() => sendLinksMutation.mutate()}
 							disabled={
 								sendLinksMutation.isPending || employeeTotal === 0 || deploymentStatus === "active"

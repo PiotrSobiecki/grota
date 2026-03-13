@@ -59,7 +59,7 @@ export async function bulkCreateEmployees(
 
 	await Promise.all([
 		updateDeploymentStatus(deploymentId, "employees_pending"),
-		updateOnboardingStep(deploymentId, 4),
+		updateOnboardingStep(deploymentId, 5),
 	]);
 
 	const clientName = deployment.clientName;

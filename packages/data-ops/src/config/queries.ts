@@ -3,6 +3,7 @@ import { getDb } from "@/database/setup";
 import { deployments } from "../deployment/table";
 import { employees } from "../employee/table";
 import { folderSelections } from "../folder-selection/table";
+import { sharedDrives } from "../shared-drive/table";
 
 export interface ConfigAssemblyData {
 	deployment: {
@@ -26,6 +27,7 @@ export interface ConfigAssemblyData {
 			category: string;
 		}>;
 	}>;
+	sharedDrives: Array<{ name: string; category: string; googleDriveId: string | null }>;
 }
 
 export async function getConfigAssemblyData(
@@ -39,6 +41,11 @@ export async function getConfigAssemblyData(
 		.where(eq(deployments.id, deploymentId));
 	const deployment = deploymentResult[0];
 	if (!deployment) return null;
+
+	const sharedDriveRows = await db
+		.select()
+		.from(sharedDrives)
+		.where(eq(sharedDrives.deploymentId, deploymentId));
 
 	const employeeList = await db
 		.select()
@@ -78,5 +85,10 @@ export async function getConfigAssemblyData(
 			createdAt: deployment.createdAt,
 		},
 		accounts,
+		sharedDrives: sharedDriveRows.map((sd) => ({
+			name: sd.name,
+			category: sd.category,
+			googleDriveId: sd.googleDriveId,
+		})),
 	};
 }

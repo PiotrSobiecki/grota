@@ -2,7 +2,17 @@ import type { Department } from "@repo/data-ops/department";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { ArrowLeft, CheckCircle2, Copy, ExternalLink, Loader2, Plus, Trash2 } from "lucide-react";
+import {
+	ArrowLeft,
+	ArrowRight,
+	CheckCircle2,
+	Copy,
+	ExternalLink,
+	HardDrive,
+	Loader2,
+	Plus,
+	Trash2,
+} from "lucide-react";
 import { useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -11,6 +21,11 @@ import { Input } from "@/components/ui/input";
 import { getDepartments } from "@/core/functions/departments/binding";
 import { bulkCreateEmployees, getEmployeesByDeployment } from "@/core/functions/employees/binding";
 import { verifyAdminToken } from "@/core/functions/magic-links/binding";
+import {
+	createAndSaveSharedDrives,
+	getSharedDrives,
+	saveSharedDrives,
+} from "@/core/functions/shared-drives/binding";
 import { cn } from "@/lib/utils";
 
 interface OnboardSearchParams {
@@ -37,14 +52,18 @@ function OnboardingWizard() {
 	const navigate = Route.useNavigate();
 
 	const isLocked = loaderData.status === "ready" || loaderData.status === "active";
-	const isCompleted = loaderData.step >= 4;
+	const isCompleted = loaderData.step >= 5;
+	const [forceSummary, setForceSummary] = useState(false);
 
 	const serverStep = loaderData.step > 0 ? loaderData.step : 1;
 	const currentStep = searchStep ?? (oauth === "success" ? 2 : serverStep);
 
-	const goTo = (step: number) => navigate({ search: { step } });
+	const goTo = (step: number) => {
+		setForceSummary(false);
+		navigate({ search: { step } });
+	};
 
-	if ((isCompleted || isLocked) && !searchStep) {
+	if (((isCompleted || isLocked) && !searchStep) || forceSummary) {
 		return (
 			<div className="min-h-screen bg-background p-6">
 				<div className="max-w-2xl mx-auto space-y-6">
@@ -65,7 +84,7 @@ function OnboardingWizard() {
 				<h1 className="text-2xl font-bold text-foreground">Grota -- Onboarding</h1>
 
 				<div className="flex gap-2">
-					{[1, 2, 3, 4].map((s) => (
+					{[1, 2, 3, 4, 5].map((s) => (
 						<div
 							key={s}
 							className={`h-2 flex-1 rounded ${s <= currentStep ? "bg-primary" : "bg-muted"}`}
@@ -99,15 +118,197 @@ function OnboardingWizard() {
 					/>
 				)}
 				{currentStep === 4 && (
+					<SharedDriveStep
+						deploymentId={loaderData.deploymentId}
+						clientName={loaderData.clientName}
+						locked={isLocked}
+						onNext={() => goTo(5)}
+						onBack={() => goTo(3)}
+					/>
+				)}
+				{currentStep === 5 && (
 					<EmployeeListStep
 						deploymentId={loaderData.deploymentId}
 						locked={isLocked}
-						onBack={() => goTo(3)}
-						onSummary={() => navigate({ search: {} })}
+						onBack={() => goTo(4)}
+						onSummary={() => setForceSummary(true)}
 					/>
 				)}
 			</div>
 		</div>
+	);
+}
+
+const SHARED_DRIVE_CATEGORIES = ["dokumenty", "projekty", "media"] as const;
+
+const SHARED_DRIVE_CATEGORY_LABELS: Record<string, string> = {
+	dokumenty: "Dokumenty",
+	projekty: "Projekty",
+	media: "Media",
+};
+
+function SharedDriveStep({
+	deploymentId,
+	clientName,
+	locked,
+	onNext,
+	onBack,
+}: {
+	deploymentId: string;
+	clientName: string;
+	locked: boolean;
+	onNext: () => void;
+	onBack: () => void;
+}) {
+	const query = useQuery({
+		queryKey: ["shared-drives", deploymentId],
+		queryFn: () => getSharedDrives({ data: { deploymentId } }),
+	});
+
+	const [failures, setFailures] = useState<Array<{ name: string; error: string }>>([]);
+
+	const createMutation = useMutation({
+		mutationFn: (drives: Array<{ name: string; category: "dokumenty" | "projekty" | "media" }>) =>
+			createAndSaveSharedDrives({ data: { deploymentId, drives } }),
+		onSuccess: (result) => {
+			setFailures(result.failures);
+			query.refetch();
+			if (result.failures.length === 0) {
+				onNext();
+			}
+		},
+	});
+
+	const saveMutation = useMutation({
+		mutationFn: (drives: Array<{ name: string; category: "dokumenty" | "projekty" | "media" }>) =>
+			saveSharedDrives({ data: { deploymentId, drives } }),
+		onSuccess: () => {
+			query.refetch();
+			onNext();
+		},
+	});
+
+	const currentDrives = query.data?.data ?? [];
+	const hasExistingDrives = currentDrives.some((d) => d.googleDriveId);
+	const mutation = hasExistingDrives ? saveMutation : createMutation;
+	const isPending = createMutation.isPending || saveMutation.isPending;
+
+	const defaultName = (cat: string) => `${clientName}-${SHARED_DRIVE_CATEGORY_LABELS[cat]}`;
+
+	const form = useForm({
+		defaultValues: {
+			dokumenty:
+				currentDrives.find((d) => d.category === "dokumenty")?.name ?? defaultName("dokumenty"),
+			projekty:
+				currentDrives.find((d) => d.category === "projekty")?.name ?? defaultName("projekty"),
+			media: currentDrives.find((d) => d.category === "media")?.name ?? defaultName("media"),
+		},
+		onSubmit: async ({ value }) => {
+			const drives = SHARED_DRIVE_CATEGORIES.filter((cat) => value[cat].trim()).map((cat) => ({
+				name: value[cat].trim(),
+				category: cat,
+			}));
+			setFailures([]);
+			mutation.reset();
+			if (hasExistingDrives) {
+				await saveMutation.mutateAsync(drives);
+			} else {
+				await createMutation.mutateAsync(drives);
+			}
+		},
+	});
+
+	return (
+		<Card>
+			<CardHeader>
+				<CardTitle className="flex items-center gap-2">
+					<HardDrive className="h-5 w-5" />
+					Krok 4: Dyski wspoldzielone
+				</CardTitle>
+			</CardHeader>
+			<CardContent className="space-y-4">
+				<p className="text-muted-foreground">
+					{hasExistingDrives
+						? "Dyski zostaly utworzone. Mozesz zmienic nazwy i zapisac."
+						: "Dyski zostana automatycznie utworzone w Google Workspace."}
+				</p>
+
+				{mutation.isError && <p className="text-sm text-destructive">{mutation.error.message}</p>}
+
+				{failures.length > 0 && (
+					<div className="space-y-1">
+						{failures.map((f) => (
+							<p key={f.name} className="text-sm text-destructive">
+								{f.name}: {f.error}
+							</p>
+						))}
+					</div>
+				)}
+
+				{query.isPending ? (
+					<div className="flex items-center gap-2 text-muted-foreground">
+						<Loader2 className="h-4 w-4 animate-spin" />
+						Ladowanie...
+					</div>
+				) : (
+					<form
+						onSubmit={(e) => {
+							e.preventDefault();
+							form.handleSubmit();
+						}}
+						className="space-y-3"
+					>
+						{SHARED_DRIVE_CATEGORIES.map((cat) => (
+							<form.Field key={cat} name={cat}>
+								{(field) => (
+									<div>
+										<label className="text-sm font-medium text-foreground">
+											{SHARED_DRIVE_CATEGORY_LABELS[cat]}
+										</label>
+										<Input
+											value={field.state.value}
+											onChange={(e) => field.handleChange(e.target.value)}
+											onBlur={field.handleBlur}
+											placeholder={`np. ${defaultName(cat)}`}
+											disabled={locked}
+										/>
+									</div>
+								)}
+							</form.Field>
+						))}
+
+						<div className="flex gap-2 pt-2">
+							<Button type="button" variant="outline" onClick={onBack}>
+								<ArrowLeft className="mr-2 h-4 w-4" />
+								Wstecz
+							</Button>
+							{locked ? (
+								<Button type="button" onClick={onNext}>
+									Dalej
+								</Button>
+							) : (
+								<form.Subscribe selector={(s) => s.canSubmit}>
+									{(canSubmit) => (
+										<Button type="submit" disabled={!canSubmit || isPending}>
+											{isPending ? (
+												<>
+													<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+													{hasExistingDrives ? "Zapisywanie..." : "Tworzenie dyskow..."}
+												</>
+											) : hasExistingDrives ? (
+												"Zapisz i dalej"
+											) : (
+												"Utworz dyski i dalej"
+											)}
+										</Button>
+									)}
+								</form.Subscribe>
+							)}
+						</div>
+					</form>
+				)}
+			</CardContent>
+		</Card>
 	);
 }
 
@@ -440,7 +641,7 @@ function EmployeeListStep({ deploymentId, locked, onBack, onSummary }: EmployeeL
 		return (
 			<Card>
 				<CardHeader>
-					<CardTitle>Krok 4: Lista pracownikow</CardTitle>
+					<CardTitle>Krok 5: Lista pracownikow</CardTitle>
 				</CardHeader>
 				<CardContent className="space-y-4">
 					<div className="flex items-center gap-3 text-foreground">
@@ -463,7 +664,7 @@ function EmployeeListStep({ deploymentId, locked, onBack, onSummary }: EmployeeL
 		return (
 			<Card>
 				<CardHeader>
-					<CardTitle>Krok 4: Lista pracownikow</CardTitle>
+					<CardTitle>Krok 5: Lista pracownikow</CardTitle>
 				</CardHeader>
 				<CardContent>
 					<div className="flex items-center gap-2 text-muted-foreground">
@@ -478,7 +679,7 @@ function EmployeeListStep({ deploymentId, locked, onBack, onSummary }: EmployeeL
 	return (
 		<Card>
 			<CardHeader>
-				<CardTitle>Krok 4: Lista pracownikow</CardTitle>
+				<CardTitle>Krok 5: Lista pracownikow</CardTitle>
 			</CardHeader>
 			<CardContent className="space-y-4">
 				{existingEmployees.length > 0 && (
@@ -650,6 +851,12 @@ function EmployeeListStep({ deploymentId, locked, onBack, onSummary }: EmployeeL
 										</Button>
 									)}
 								</form.Subscribe>
+								{existingEmployees.length > 0 && (
+									<Button type="button" variant="outline" onClick={onSummary}>
+										Dalej
+										<ArrowRight className="ml-2 h-4 w-4" />
+									</Button>
+								)}
 							</div>
 						</form>
 					</>

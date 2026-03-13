@@ -8,6 +8,13 @@ export const ConfigJsonSchema = z.object({
 	workspace: z
 		.object({
 			oauth_refresh_token: z.string(),
+			shared_drives: z.array(
+				z.object({
+					name: z.string(),
+					category: z.string(),
+					id: z.string().nullable().optional(),
+				}),
+			),
 		})
 		.nullable(),
 	accounts: z.array(

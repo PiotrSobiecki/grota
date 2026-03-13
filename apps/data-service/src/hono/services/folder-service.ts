@@ -17,6 +17,7 @@ import {
 	getFolderSelectionsByEmployee,
 } from "@repo/data-ops/folder-selection";
 import type { Result } from "../types/result";
+import { refreshAccessToken } from "./google-token-service";
 
 // ============================================
 // Auto-suggestion rules
@@ -220,44 +221,4 @@ async function checkDeploymentCompletion(deploymentId: string): Promise<void> {
 	if (allCompleted && allEmployees.length > 0) {
 		await updateDeploymentStatus(deploymentId, "ready");
 	}
-}
-
-async function refreshAccessToken(
-	refreshToken: string,
-	env: Env,
-): Promise<Result<{ access_token: string; expiry_date: number }>> {
-	const response = await fetch("https://oauth2.googleapis.com/token", {
-		method: "POST",
-		headers: { "Content-Type": "application/x-www-form-urlencoded" },
-		body: new URLSearchParams({
-			client_id: env.GOOGLE_CLIENT_ID,
-			client_secret: env.GOOGLE_CLIENT_SECRET,
-			refresh_token: refreshToken,
-			grant_type: "refresh_token",
-		}),
-	});
-
-	if (!response.ok) {
-		return {
-			ok: false,
-			error: {
-				code: "TOKEN_REFRESH_FAILED",
-				message: "Nie udalo sie odswiezyc tokenu Google. Prosimy o ponowna autoryzacje.",
-				status: 401,
-			},
-		};
-	}
-
-	const data = (await response.json()) as {
-		access_token: string;
-		expires_in: number;
-	};
-
-	return {
-		ok: true,
-		data: {
-			access_token: data.access_token,
-			expiry_date: Date.now() + data.expires_in * 1000,
-		},
-	};
 }

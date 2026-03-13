@@ -50,6 +50,13 @@
       "when": 1772562809622,
       "tag": "0006_swift_shooting_star",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1773408880403,
+      "tag": "0007_curious_prowler",
+      "breakpoints": true
     }
   ]
 }

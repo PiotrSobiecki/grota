@@ -3,6 +3,7 @@ import { deploymentDepartments, employeeDepartments } from "../department/table"
 import { deployments } from "../deployment/table";
 import { employees } from "../employee/table";
 import { folderSelections } from "../folder-selection/table";
+import { sharedDrives } from "../shared-drive/table";
 import { auth_user } from "./auth-schema";
 
 export const deploymentRelations = relations(deployments, ({ one, many }) => ({
@@ -12,6 +13,7 @@ export const deploymentRelations = relations(deployments, ({ one, many }) => ({
 	}),
 	employees: many(employees),
 	departments: many(deploymentDepartments),
+	sharedDrives: many(sharedDrives),
 }));
 
 export const employeeRelations = relations(employees, ({ one, many }) => ({
@@ -27,6 +29,13 @@ export const folderSelectionRelations = relations(folderSelections, ({ one }) =>
 	employee: one(employees, {
 		fields: [folderSelections.employeeId],
 		references: [employees.id],
+	}),
+}));
+
+export const sharedDriveRelations = relations(sharedDrives, ({ one }) => ({
+	deployment: one(deployments, {
+		fields: [sharedDrives.deploymentId],
+		references: [deployments.id],
 	}),
 }));
 
