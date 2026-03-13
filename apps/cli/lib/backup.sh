@@ -194,26 +194,33 @@ cmd_backup_account() {
 
   local drive_status=$rc
 
-  # ── Step 3: Local -> B2
-  log_info "Step 2/3: Local -> B2"
+  # ── Step 3: Local -> B2 (optional)
   local b2_rc=0
-  sync_local_to_b2 "$idx" || b2_rc=$?
+  local b2_prefix
+  b2_prefix=$(cfg_b2_prefix)
 
-  if (( b2_rc != 0 && b2_rc != 7 )); then
-    log_error "B2 sync failed for $email (exit $b2_rc)"
-    exit 1
-  fi
+  if [[ -n "$b2_prefix" ]]; then
+    log_info "Step 2/3: Local -> B2"
+    sync_local_to_b2 "$idx" || b2_rc=$?
 
-  # ── Step 4: Local retention cleanup
-  log_info "Step 3/3: Local retention cleanup (media >90d)"
-  local media_dir="${backup_root}/${sanitized_email}/media"
-  if [[ -d "$media_dir" ]]; then
-    local old_count
-    old_count=$(find "$media_dir" -type f -mtime +90 | wc -l)
-    if (( old_count > 0 )); then
-      log_info "  Cleaning $old_count files older than 90d from $media_dir"
-      find "$media_dir" -type f -mtime +90 -delete
+    if (( b2_rc != 0 && b2_rc != 7 )); then
+      log_error "B2 sync failed for $email (exit $b2_rc)"
+      exit 1
     fi
+
+    # Local retention cleanup only when B2 is the archive
+    log_info "Step 3/3: Local retention cleanup (media >90d)"
+    local media_dir="${backup_root}/${sanitized_email}/media"
+    if [[ -d "$media_dir" ]]; then
+      local old_count
+      old_count=$(find "$media_dir" -type f -mtime +90 | wc -l)
+      if (( old_count > 0 )); then
+        log_info "  Cleaning $old_count files older than 90d from $media_dir"
+        find "$media_dir" -type f -mtime +90 -delete
+      fi
+    fi
+  else
+    log_info "Step 2/3: B2 not configured, skipping remote sync (local-only backup)"
   fi
 
   # Clean old version dirs (>30d)

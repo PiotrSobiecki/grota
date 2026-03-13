@@ -102,17 +102,6 @@ export async function exportConfig(deploymentId: string, env: Env): Promise<Resu
 		};
 	}
 
-	if (!deployment.b2Config) {
-		return {
-			ok: false,
-			error: {
-				code: "MISSING_B2_CONFIG",
-				message: "Konfiguracja B2 jest wymagana do eksportu. Uzupelnij key_id i app_key.",
-				status: 400,
-			},
-		};
-	}
-
 	const configResult = await buildConfigJson(deploymentId, env.ENCRYPTION_KEY);
 	if (!configResult.ok) return configResult;
 

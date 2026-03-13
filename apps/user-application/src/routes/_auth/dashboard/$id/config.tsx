@@ -145,13 +145,6 @@ function ConfigPage() {
 					<CardTitle>Eksport do R2</CardTitle>
 				</CardHeader>
 				<CardContent className="space-y-4">
-					{!config.b2 && (
-						<Alert variant="warning">
-							<AlertDescription>
-								B2 nie skonfigurowane — uzupelnij w ustawieniach serwera przed eksportem.
-							</AlertDescription>
-						</Alert>
-					)}
 					{exportResult ? (
 						<div className="space-y-2">
 							<p className="text-sm text-green-600 dark:text-green-400">
@@ -186,7 +179,7 @@ function ConfigPage() {
 							</p>
 							<Button
 								onClick={() => exportMutation.mutate()}
-								disabled={exportMutation.isPending || !config.b2}
+								disabled={exportMutation.isPending}
 							>
 								{exportMutation.isPending ? "Eksportowanie..." : "Eksportuj do R2"}
 							</Button>
