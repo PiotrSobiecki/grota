@@ -64,8 +64,8 @@ function PrivacyPage() {
 			<h2>Podstawy prawne przetwarzania</h2>
 			<ul>
 				<li>
-					<strong>Wykonanie umowy</strong> (art. 6 ust. 1 lit. b RODO) &mdash; przetwarzanie niezbedne
-					do swiadczenia uslugi
+					<strong>Wykonanie umowy</strong> (art. 6 ust. 1 lit. b RODO) &mdash; przetwarzanie
+					niezbedne do swiadczenia uslugi
 				</li>
 				<li>
 					<strong>Prawnie uzasadniony interes</strong> (art. 6 ust. 1 lit. f RODO) &mdash;
@@ -84,8 +84,8 @@ function PrivacyPage() {
 				<li>Sprzeciwu wobec przetwarzania</li>
 			</ul>
 			<p>
-				Zadania mozna zglaszac poprzez formularz kontaktowy w Serwisie lub bezposrednio na adres e-mail
-				Operatora.
+				Zadania mozna zglaszac poprzez formularz kontaktowy w Serwisie lub bezposrednio na adres
+				e-mail Operatora.
 			</p>
 
 			<h2>Bezpieczenstwo</h2>
@@ -99,14 +99,14 @@ function PrivacyPage() {
 
 			<h2>Pliki cookie</h2>
 			<p>
-				Stosowane wylacznie niezbedne pliki cookie (sesja, uwierzytelnianie). Brak plikow sledzacych i
-				marketingowych.
+				Stosowane wylacznie niezbedne pliki cookie (sesja, uwierzytelnianie). Brak plikow sledzacych
+				i marketingowych.
 			</p>
 
 			<h2>Kontakt i skargi</h2>
 			<p>
-				Pytania dotyczace prywatnosci mozna kierowac przez formularz kontaktowy w Serwisie. Uzytkownicy
-				maja prawo zlozenia skargi do Prezesa Urzedu Ochrony Danych Osobowych (PUODO).
+				Pytania dotyczace prywatnosci mozna kierowac przez formularz kontaktowy w Serwisie.
+				Uzytkownicy maja prawo zlozenia skargi do Prezesa Urzedu Ochrony Danych Osobowych (PUODO).
 			</p>
 
 			<p className="text-muted-foreground text-sm mt-12">

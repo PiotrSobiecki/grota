@@ -177,10 +177,7 @@ function ConfigPage() {
 								Plik zostanie zapisany w R2 jako:{" "}
 								<code className="text-foreground">configs/{deploymentId}/config.json</code>
 							</p>
-							<Button
-								onClick={() => exportMutation.mutate()}
-								disabled={exportMutation.isPending}
-							>
+							<Button onClick={() => exportMutation.mutate()} disabled={exportMutation.isPending}>
 								{exportMutation.isPending ? "Eksportowanie..." : "Eksportuj do R2"}
 							</Button>
 						</>

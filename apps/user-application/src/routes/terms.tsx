@@ -12,9 +12,9 @@ function TermsPage() {
 			<p className="text-muted-foreground text-sm">Ostatnia aktualizacja: 13 marca 2026 r.</p>
 
 			<p>
-				Niniejszy regulamin okresla zasady korzystania z serwisu Grota (dalej
-				&ldquo;Serwis&rdquo;), udostepnianego przez Auditmos (dalej &ldquo;Operator&rdquo;). Korzystanie
-				z Serwisu oznacza akceptacje ponizszych warunkow.
+				Niniejszy regulamin okresla zasady korzystania z serwisu Grota (dalej &ldquo;Serwis&rdquo;),
+				udostepnianego przez Auditmos (dalej &ldquo;Operator&rdquo;). Korzystanie z Serwisu oznacza
+				akceptacje ponizszych warunkow.
 			</p>
 
 			<h2>1. Definicje</h2>
@@ -32,20 +32,21 @@ function TermsPage() {
 					Workspace jest zarzadzane za posrednictwem Serwisu.
 				</li>
 				<li>
-					<strong>&ldquo;Dane&rdquo;</strong> &mdash; informacje przetwarzane w ramach Serwisu, w tym
-					dane z Google Workspace Organizacji.
+					<strong>&ldquo;Dane&rdquo;</strong> &mdash; informacje przetwarzane w ramach Serwisu, w
+					tym dane z Google Workspace Organizacji.
 				</li>
 			</ol>
 
 			<h2>2. Charakter serwisu</h2>
 			<ol>
 				<li>
-					Serwis umozliwia zarzadzanie srodowiskiem Google Workspace, w szczegolnosci: onboarding nowych
-					uzytkownikow, tworzenie kopii zapasowych (backup 3-2-1), reorganizacje uprawnien dostepu oraz
-					archiwizacje kont.
+					Serwis umozliwia zarzadzanie srodowiskiem Google Workspace, w szczegolnosci: onboarding
+					nowych uzytkownikow, tworzenie kopii zapasowych (backup 3-2-1), reorganizacje uprawnien
+					dostepu oraz archiwizacje kont.
 				</li>
 				<li>
-					Korzystanie z Serwisu wymaga rejestracji i autoryzacji dostepu do Google Workspace Organizacji.
+					Korzystanie z Serwisu wymaga rejestracji i autoryzacji dostepu do Google Workspace
+					Organizacji.
 				</li>
 				<li>
 					Serwis dziala w modelu SaaS (Software as a Service) i jest dostepny przez przegladarke
@@ -80,7 +81,8 @@ function TermsPage() {
 				</li>
 				<li>Dane sa szyfrowane w transmisji (TLS) oraz w spoczynku (AES-256).</li>
 				<li>
-					Kopie zapasowe tworzone sa zgodnie z zasada 3-2-1 (3 kopie, 2 rozne media, 1 kopia offsite).
+					Kopie zapasowe tworzone sa zgodnie z zasada 3-2-1 (3 kopie, 2 rozne media, 1 kopia
+					offsite).
 				</li>
 			</ol>
 
@@ -97,7 +99,8 @@ function TermsPage() {
 			<h2>6. Wlasnosc intelektualna</h2>
 			<ol>
 				<li>
-					Operator zachowuje wszelkie prawa do Serwisu, jego kodu, projektu graficznego i algorytmow.
+					Operator zachowuje wszelkie prawa do Serwisu, jego kodu, projektu graficznego i
+					algorytmow.
 				</li>
 				<li>Dane Organizacji przetwarzane w Serwisie pozostaja wlasnoscia Organizacji.</li>
 			</ol>
@@ -110,7 +113,8 @@ function TermsPage() {
 					konserwacyjnych i zdarzen sily wyzszej.
 				</li>
 				<li>
-					Operator nie ponosi odpowiedzialnosci za szkody posrednie wynikajace z korzystania z Serwisu.
+					Operator nie ponosi odpowiedzialnosci za szkody posrednie wynikajace z korzystania z
+					Serwisu.
 				</li>
 				<li>
 					Calkowita odpowiedzialnosc Operatora ograniczona jest do kwoty oplat uiszczonych przez
