@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import cliNotifyHandlers from "./handlers/cli-notify-handlers";
 import configHandlers from "./handlers/config-handlers";
 import departmentHandlers from "./handlers/department-handlers";
 import deployments from "./handlers/deployment-handlers";
@@ -26,4 +27,5 @@ App.route("/employees", employeeHandlers);
 App.route("/folders", folderHandlers);
 App.route("/magic-links", magicLinkHandlers);
 App.route("/notifications", notificationHandlers);
+App.route("/notify", cliNotifyHandlers);
 App.route("/api/oauth", oauthHandlers);

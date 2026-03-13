@@ -35,6 +35,10 @@
 			"types": "./dist/health/index.d.ts",
 			"default": "./dist/health/index.js"
 		},
+		"./notification": {
+			"types": "./dist/notification/index.d.ts",
+			"default": "./dist/notification/index.js"
+		},
 		"./auth/*": {
 			"types": "./dist/auth/*.d.ts",
 			"default": "./dist/auth/*.js"
