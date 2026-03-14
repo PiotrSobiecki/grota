@@ -2,6 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, Bell, Loader2 } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
 	AlertDialog,
@@ -52,7 +53,11 @@ function ConfigPage() {
 
 	const exportMutation = useMutation({
 		mutationFn: () => exportConfig({ data: { deploymentId } }),
-		onSuccess: (data) => setExportResult(data),
+		onSuccess: (data) => {
+			setExportResult(data);
+			toast.success("Konfiguracja wyeksportowana");
+		},
+		onError: (error) => toast.error(error.message),
 	});
 
 	if (previewQuery.isPending) {
@@ -224,6 +229,12 @@ function NotificationButton({ deploymentId }: NotificationButtonProps) {
 
 	const notifyMutation = useMutation({
 		mutationFn: () => sendNotifications({ data: { deploymentId } }),
+		onSuccess: (data) => {
+			const tg = data.telegram ? "OK" : "blad";
+			const em = data.email ? "OK" : "pominiety";
+			toast.success(`Powiadomienia wyslane (Telegram: ${tg}, Email: ${em})`);
+		},
+		onError: (error) => toast.error(error.message),
 	});
 
 	const handleConfirm = () => {
@@ -234,15 +245,6 @@ function NotificationButton({ deploymentId }: NotificationButtonProps) {
 
 	return (
 		<>
-			{notifyMutation.isSuccess && (
-				<p className="text-sm text-primary">
-					Telegram: {notifyMutation.data.telegram ? "OK" : "blad"}, Email:{" "}
-					{notifyMutation.data.email ? "OK" : "pominiety"}
-				</p>
-			)}
-			{notifyMutation.isError && (
-				<p className="text-sm text-destructive">{notifyMutation.error.message}</p>
-			)}
 			<AlertDialog open={open} onOpenChange={setOpen}>
 				<AlertDialogTrigger asChild>
 					<Button variant="outline" disabled={notifyMutation.isPending}>

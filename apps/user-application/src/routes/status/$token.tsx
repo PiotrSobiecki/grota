@@ -1,6 +1,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Loader2, RefreshCw } from "lucide-react";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -108,6 +109,8 @@ function EmployeeStatusRow({ employee }: EmployeeStatusRowProps) {
 
 	const resendMutation = useMutation({
 		mutationFn: () => resendEmployeeMagicLink({ data: { employeeId: employee.id } }),
+		onSuccess: () => toast.success("Link wyslany ponownie"),
+		onError: (error) => toast.error(error.message),
 	});
 
 	const isRateLimited = (() => {

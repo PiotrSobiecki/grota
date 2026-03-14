@@ -3,6 +3,7 @@ import { DeploymentStatusSchema } from "@repo/data-ops/deployment";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { z } from "zod";
 import {
 	AlertDialog,
@@ -146,7 +147,11 @@ function DeleteDeploymentButton({ id, clientName }: { id: string; clientName: st
 	const router = useRouter();
 	const mutation = useMutation({
 		mutationFn: () => deleteDeploymentById({ data: { id } }),
-		onSuccess: () => router.invalidate(),
+		onSuccess: () => {
+			router.invalidate();
+			toast.success("Wdrozenie usuniete");
+		},
+		onError: (error) => toast.error(error.message),
 	});
 
 	const handleClick = (e: React.MouseEvent) => {

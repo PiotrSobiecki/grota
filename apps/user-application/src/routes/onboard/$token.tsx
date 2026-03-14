@@ -14,6 +14,7 @@ import {
 	Trash2,
 } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -174,9 +175,13 @@ function SharedDriveStep({
 			setFailures(result.failures);
 			query.refetch();
 			if (result.failures.length === 0) {
+				toast.success("Dyski utworzone");
 				onNext();
+			} else {
+				toast.error("Nie udalo sie utworzyc niektorych dyskow");
 			}
 		},
+		onError: (error) => toast.error(error.message),
 	});
 
 	const saveMutation = useMutation({
@@ -184,8 +189,10 @@ function SharedDriveStep({
 			saveSharedDrives({ data: { deploymentId, drives } }),
 		onSuccess: () => {
 			query.refetch();
+			toast.success("Dyski zapisane");
 			onNext();
 		},
+		onError: (error) => toast.error(error.message),
 	});
 
 	const currentDrives = query.data?.data ?? [];
@@ -622,6 +629,8 @@ function EmployeeListStep({ deploymentId, locked, onBack, onSummary }: EmployeeL
 	const mutation = useMutation({
 		mutationFn: (data: { deploymentId: string; employees: EmployeeRow[] }) =>
 			bulkCreateEmployees({ data }),
+		onSuccess: () => toast.success("Pracownicy dodani"),
+		onError: (error) => toast.error(error.message),
 	});
 
 	const form = useForm({

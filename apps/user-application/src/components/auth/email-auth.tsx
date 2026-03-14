@@ -3,6 +3,7 @@ import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
+import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,6 +35,7 @@ export function EmailAuth() {
 		onSubmit: async ({ value }) => {
 			mutation.reset();
 			await mutation.mutateAsync(value);
+			toast.success("Zalogowano");
 			navigate({ to: "/dashboard" });
 		},
 	});

@@ -21,6 +21,7 @@ import {
 	X,
 } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -96,7 +97,9 @@ function DeploymentDetailPage() {
 		mutationFn: () => generateAdminMagicLink({ data: { deploymentId: deployment.id } }),
 		onSuccess: () => {
 			router.invalidate();
+			toast.success("Link wygenerowany");
 		},
+		onError: (error) => toast.error(error.message),
 	});
 
 	const handleCopyLink = async () => {
@@ -167,6 +170,12 @@ function DetailNotificationButton({ deploymentId }: DetailNotificationButtonProp
 
 	const notifyMutation = useMutation({
 		mutationFn: () => sendNotifications({ data: { deploymentId } }),
+		onSuccess: (data) => {
+			const tg = data.telegram ? "OK" : "blad";
+			const em = data.email ? "OK" : "pominiety";
+			toast.success(`Powiadomienia wyslane (Telegram: ${tg}, Email: ${em})`);
+		},
+		onError: (error) => toast.error(error.message),
 	});
 
 	const handleConfirm = () => {
@@ -177,15 +186,6 @@ function DetailNotificationButton({ deploymentId }: DetailNotificationButtonProp
 
 	return (
 		<>
-			{notifyMutation.isSuccess && (
-				<p className="text-sm text-primary">
-					Telegram: {notifyMutation.data.telegram ? "OK" : "blad"}, Email:{" "}
-					{notifyMutation.data.email ? "OK" : "pominiety"}
-				</p>
-			)}
-			{notifyMutation.isError && (
-				<p className="text-sm text-destructive">{notifyMutation.error.message}</p>
-			)}
 			<AlertDialog open={open} onOpenChange={setOpen}>
 				<AlertDialogTrigger asChild>
 					<Button variant="outline" disabled={notifyMutation.isPending}>
@@ -244,7 +244,9 @@ function ClientDataCard({ deployment, onUpdated }: ClientDataCardProps) {
 		onSuccess: () => {
 			onUpdated();
 			setIsEditing(false);
+			toast.success("Dane zapisane");
 		},
+		onError: (error) => toast.error(error.message),
 	});
 
 	const form = useForm({
@@ -411,7 +413,9 @@ function ServerConfigCard({ deployment, onUpdated }: ServerConfigCardProps) {
 		onSuccess: () => {
 			onUpdated();
 			setIsEditing(false);
+			toast.success("Konfiguracja zapisana");
 		},
+		onError: (error) => toast.error(error.message),
 	});
 
 	const form = useForm({
@@ -859,14 +863,18 @@ function DepartmentSection({
 		onSuccess: () => {
 			departmentsQuery.refetch();
 			setNewDeptName("");
+			toast.success("Dzial utworzony");
 		},
+		onError: (error) => toast.error(error.message),
 	});
 
 	const deleteMutation = useMutation({
 		mutationFn: (departmentId: string) => deleteDepartment({ data: { departmentId } }),
 		onSuccess: () => {
 			departmentsQuery.refetch();
+			toast.success("Dzial usuniety");
 		},
+		onError: (error) => toast.error(error.message),
 	});
 
 	const renameMutation = useMutation({
@@ -875,7 +883,9 @@ function DepartmentSection({
 		onSuccess: () => {
 			departmentsQuery.refetch();
 			setEditing(null);
+			toast.success("Dzial przemianowany");
 		},
+		onError: (error) => toast.error(error.message),
 	});
 
 	const departments = departmentsQuery.data?.data ?? [];
@@ -1034,6 +1044,8 @@ function EmployeeSection({
 
 	const sendLinksMutation = useMutation({
 		mutationFn: () => sendEmployeeMagicLinks({ data: { deploymentId } }),
+		onSuccess: (data) => toast.success(`Wyslano linki do ${data.sent} pracownikow`),
+		onError: (error) => toast.error(error.message),
 	});
 
 	const readyMutation = useMutation({
@@ -1041,7 +1053,9 @@ function EmployeeSection({
 		onSuccess: () => {
 			setReadyDialogOpen(false);
 			onStatusChanged();
+			toast.success("Wdrozenie oznaczone jako gotowe");
 		},
+		onError: (error) => toast.error(error.message),
 	});
 
 	const employees = employeesQuery.data?.data ?? [];
@@ -1115,12 +1129,6 @@ function EmployeeSection({
 			<CardContent>
 				{sendLinksMutation.isError && (
 					<p className="mb-3 text-sm text-destructive">{sendLinksMutation.error.message}</p>
-				)}
-
-				{sendLinksMutation.isSuccess && (
-					<p className="mb-3 text-sm text-primary">
-						Wyslano linki do {sendLinksMutation.data.sent} pracownikow.
-					</p>
 				)}
 
 				{readyMutation.isError && (

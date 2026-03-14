@@ -2,6 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { AlertTriangle, CheckCircle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -146,7 +147,11 @@ function DriveOAuthStep({ token, oauthSuccess, onNext }: DriveOAuthStepProps) {
 			if (!response.ok) throw new Error("Nie udalo sie zweryfikowac tokenu");
 			return response.json() as Promise<{ employeeId: string }>;
 		},
-		onSuccess: (data) => onNext(data.employeeId),
+		onSuccess: (data) => {
+			toast.success("Token zweryfikowany");
+			onNext(data.employeeId);
+		},
+		onError: (error) => toast.error(error.message),
 	});
 
 	const handleAuthorize = () => {
@@ -380,7 +385,11 @@ function ConfirmStep({
 			if (!response.ok) throw new Error("Nie udalo sie zapisac wyboru");
 			return response.json();
 		},
-		onSuccess: () => setSaved(true),
+		onSuccess: () => {
+			setSaved(true);
+			toast.success("Wybor zapisany");
+		},
+		onError: (error) => toast.error(error.message),
 	});
 
 	const categoryCounts = folders.reduce<Record<string, number>>((acc, f) => {

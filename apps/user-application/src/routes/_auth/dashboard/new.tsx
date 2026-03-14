@@ -4,6 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Plus, X } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -65,6 +66,7 @@ function CreateDeploymentPage() {
 				adminEmail: value.adminEmail || undefined,
 				adminName: value.adminName || undefined,
 			});
+			toast.success("Wdrozenie utworzone");
 			navigate({ to: "/dashboard/$id", params: { id: result.id } });
 		},
 	});
