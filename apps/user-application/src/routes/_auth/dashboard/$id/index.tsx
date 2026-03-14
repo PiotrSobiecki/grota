@@ -423,7 +423,8 @@ function ServerConfigCard({ deployment, onUpdated }: ServerConfigCardProps) {
 			b2KeyId: deployment.b2Config?.key_id ?? "",
 			b2AppKey: deployment.b2Config?.app_key ?? "",
 			b2BucketPrefix: deployment.b2Config?.bucket_prefix ?? slugify(deployment.clientName),
-			backupPath: deployment.serverConfig?.backup_path ?? "",
+			backupPath:
+				deployment.serverConfig?.backup_path?.replace(/^\/srv\/backup\/gdrive\/?/, "") ?? "",
 			bwlimit: deployment.serverConfig?.bwlimit ?? "",
 			sshHost: deployment.serverConfig?.ssh_host ?? "",
 			sshUser: deployment.serverConfig?.ssh_user ?? "",
@@ -439,9 +440,10 @@ function ServerConfigCard({ deployment, onUpdated }: ServerConfigCardProps) {
 				};
 			}
 
-			if (value.backupPath) {
+			if (value.backupPath !== undefined) {
+				const suffix = value.backupPath.replace(/^\/+/, "");
 				updates.serverConfig = {
-					backup_path: value.backupPath,
+					backup_path: suffix ? `/srv/backup/gdrive/${suffix}` : "/srv/backup/gdrive",
 					bwlimit: value.bwlimit || "08:00,5M 23:00,50M",
 					...(value.sshHost ? { ssh_host: value.sshHost } : {}),
 					...(value.sshUser ? { ssh_user: value.sshUser } : {}),
@@ -597,13 +599,18 @@ function ServerConfigCard({ deployment, onUpdated }: ServerConfigCardProps) {
 													</TooltipContent>
 												</Tooltip>
 											</label>
-											<Input
-												value={field.state.value}
-												onChange={(e) => field.handleChange(e.target.value)}
-												onBlur={field.handleBlur}
-												placeholder="/srv/backup/gdrive"
-												className="h-8"
-											/>
+											<div className="flex items-center gap-0">
+												<span className="inline-flex h-8 items-center rounded-l-md border border-r-0 border-input bg-muted px-2 text-sm text-muted-foreground select-none">
+													/srv/backup/gdrive/
+												</span>
+												<Input
+													value={field.state.value}
+													onChange={(e) => field.handleChange(e.target.value)}
+													onBlur={field.handleBlur}
+													placeholder="nazwa-klienta"
+													className="h-8 rounded-l-none"
+												/>
+											</div>
 										</div>
 									)}
 								</form.Field>
