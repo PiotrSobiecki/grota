@@ -97,6 +97,14 @@ curl -fsSL https://raw.githubusercontent.com/auditmos/grota/main/apps/cli/instal
 
 Instaluje CLI `grota` + zależności (rclone, jq). Konfiguracja w `/etc/grota/grota.env`.
 
+### Odinstalowanie
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/auditmos/grota/main/apps/cli/uninstall.sh | bash
+```
+
+Flagi: `--keep-data` (zachowaj backupy), `--keep-config` (zachowaj credentiale), `--yes` (pomiń potwierdzenie).
+
 ### Flow operatora
 
 1. **Pobranie konfiguracji** — `grota` pobiera config JSON z R2 (wyeksportowany z portalu web). Zawiera tokeny OAuth pracowników, mapowanie folderów, dane Workspace.
@@ -117,8 +125,10 @@ Instaluje CLI `grota` + zależności (rclone, jq). Konfiguracja w `/etc/grota/gr
 
 4. **Migracja do Shared Drives** — przenosi dokumenty/projekty z prywatnych kont do firmowych Shared Drives w Workspace:
    ```bash
-   grota migrate --deployment abc123
-   grota migrate --deployment abc123 --verify   # raport diff
+   grota migrate                    # deployment_id z config JSON
+   grota migrate --verify           # raport diff
+   grota migrate --dry-run          # test bez kopiowania
+   grota migrate --account EMAIL    # pojedyncze konto
    ```
 
 5. **Harmonogram** — instaluje systemd timery (backup co noc o 01:00, weryfikacja integralności co tydzień):
