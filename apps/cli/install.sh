@@ -59,7 +59,7 @@ missing=0
 check_dep rclone   true  || missing=$((missing + 1))
 check_dep jq       true  || missing=$((missing + 1))
 check_dep curl     true  || missing=$((missing + 1))
-check_dep terraform false
+
 echo ""
 
 if (( missing > 0 )); then
@@ -157,7 +157,7 @@ echo "Next steps:"
 echo "  1. cp ${ETC_DIR}/grota.env.example ${ETC_DIR}/grota.env"
 echo "  2. Edit ${ETC_DIR}/grota.env with real credentials"
 echo "  3. grota setup rclone     # configure Drive remotes"
-echo "  4. grota setup b2         # configure B2 remotes"
+echo "  4. grota setup b2         # configure B2 remotes (optional)"
 echo "  5. grota verify remotes   # test all remotes"
 echo "  6. grota timers install   # enable daily backups"
 echo ""
