@@ -119,9 +119,11 @@ cmd_migrate() {
 
       log_info "  Migrating: $folder_name ($category) -> $target_path"
 
+      # No --drive-server-side-across-configs: personal Gmail → Workspace
+      # server-side copy fails for native Google Docs (404). Download+upload
+      # handles both native docs and uploaded files correctly.
       local rc=0
       rclone copy "${remote_name},drive_root_folder_id=${folder_id}:" "$target_path" \
-        --drive-server-side-across-configs \
         --drive-export-formats "docx,xlsx,pptx,pdf" \
         --retries 3 \
         --retries-sleep 30s \
