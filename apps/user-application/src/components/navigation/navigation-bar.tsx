@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { ExternalLink, LogIn, Menu } from "lucide-react";
+import { ExternalLink, Github, LogIn, Menu } from "lucide-react";
 import * as React from "react";
 import { AccountDialog } from "@/components/auth/account-dialog";
 import { ThemeToggle } from "@/components/theme";

@@ -73,7 +73,9 @@
 			"!**/worker-configuration.d.ts",
 			"!**/routeTree.gen.ts",
 			"!packages/data-ops/src/drizzle/migrations",
-			"!packages/data-ops/src/drizzle/auth-schema.ts"
+			"!packages/data-ops/src/drizzle/auth-schema.ts",
+			"!**/.wrangler",
+			"!configs"
 		]
 	},
 	"plugins": [

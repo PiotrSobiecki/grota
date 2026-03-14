@@ -16,7 +16,9 @@
 		"seed:production": "pnpm run --filter data-ops seed:production",
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",
-		"lint:ci": "biome ci ."
+		"lint:ci": "biome ci .",
+		"types": "pnpm run build:data-ops && pnpm run --filter data-service --filter user-application types",
+		"semantic-release": "semantic-release"
 	},
 	"keywords": [],
 	"author": "",
@@ -25,6 +27,7 @@
 	"devDependencies": {
 		"@biomejs/biome": "2.4.4",
 		"@types/node": "^22.18.12",
+		"semantic-release": "^25.0.3",
 		"typescript": "^5.9.3"
 	}
 }

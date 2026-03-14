@@ -11,7 +11,8 @@
 		"deploy:staging": "pnpm run build:staging && wrangler deploy --env=''",
 		"deploy:production": "pnpm run build:production && wrangler deploy --env=''",
 		"serve": "vite preview",
-		"cf-typegen": "wrangler types --env-interface Env --env dev"
+		"cf-typegen": "wrangler types --env-interface Env --env dev",
+		"types": "tsc --noEmit"
 	},
 	"dependencies": {
 		"@marsidev/react-turnstile": "^1.4.2",

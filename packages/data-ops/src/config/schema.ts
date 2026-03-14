@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { B2ConfigSchema, ServerConfigSchema } from "../deployment/schema";
 
 export const ConfigJsonSchema = z.object({
 	deployment_id: z.string().uuid(),
@@ -31,8 +32,8 @@ export const ConfigJsonSchema = z.object({
 			),
 		}),
 	),
-	b2: z.json().nullable(),
-	server: z.json().nullable(),
+	b2: B2ConfigSchema.nullable(),
+	server: ServerConfigSchema.nullable(),
 });
 
 export type ConfigJson = z.infer<typeof ConfigJsonSchema>;

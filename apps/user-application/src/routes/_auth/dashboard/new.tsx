@@ -287,9 +287,7 @@ function CreateDeploymentPage() {
 							{(canSubmit) => (
 								<Button
 									type="submit"
-									disabled={
-										!canSubmit || mutation.isPending || selectedDepartments.length === 0
-									}
+									disabled={!canSubmit || mutation.isPending || selectedDepartments.length === 0}
 									className="w-full"
 								>
 									{mutation.isPending ? "Tworzenie..." : "Utworz wdrozenie"}

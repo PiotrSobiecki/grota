@@ -77,6 +77,7 @@ export const DeploymentUpdateRequestSchema = z
 		adminName: z.string().min(1).max(100).optional(),
 		b2Config: B2ConfigSchema.optional(),
 		serverConfig: ServerConfigSchema.optional(),
+		r2ConfigKey: z.string().optional(),
 	})
 	.refine(
 		(data) =>
@@ -85,7 +86,8 @@ export const DeploymentUpdateRequestSchema = z
 			data.adminEmail ||
 			data.adminName ||
 			data.b2Config ||
-			data.serverConfig,
+			data.serverConfig ||
+			data.r2ConfigKey,
 		{ message: "Przynajmniej jedno pole jest wymagane" },
 	);
 

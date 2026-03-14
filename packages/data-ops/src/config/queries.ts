@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "@/database/setup";
+import type { B2Config, ServerConfig } from "../deployment/schema";
 import { deployments } from "../deployment/table";
 import { employees } from "../employee/table";
 import { folderSelections } from "../folder-selection/table";
@@ -11,8 +12,8 @@ export interface ConfigAssemblyData {
 		clientName: string;
 		domain: string;
 		workspaceOauthToken: string | null;
-		b2Config: unknown;
-		serverConfig: unknown;
+		b2Config: B2Config | null;
+		serverConfig: ServerConfig | null;
 		adminEmail: string | null;
 		createdAt: Date;
 	};

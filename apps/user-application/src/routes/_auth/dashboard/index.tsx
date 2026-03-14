@@ -160,7 +160,8 @@ function DeleteDeploymentButton({ id, clientName }: { id: string; clientName: st
 	};
 
 	return (
-		<div onClick={handleClick}>
+		// biome-ignore lint/a11y/noStaticElementInteractions: event propagation barrier for nested dialog trigger
+		<div onClick={handleClick} onKeyDown={(e) => e.stopPropagation()}>
 			<AlertDialog>
 				<AlertDialogTrigger asChild>
 					<Button
