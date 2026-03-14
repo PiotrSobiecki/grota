@@ -279,11 +279,17 @@ function CreateDeploymentPage() {
 							)}
 						</div>
 
+						{selectedDepartments.length === 0 && (
+							<p className="text-sm text-destructive">Wybierz przynajmniej jeden dzial</p>
+						)}
+
 						<form.Subscribe selector={(s) => s.canSubmit}>
 							{(canSubmit) => (
 								<Button
 									type="submit"
-									disabled={!canSubmit || mutation.isPending}
+									disabled={
+										!canSubmit || mutation.isPending || selectedDepartments.length === 0
+									}
 									className="w-full"
 								>
 									{mutation.isPending ? "Tworzenie..." : "Utworz wdrozenie"}
