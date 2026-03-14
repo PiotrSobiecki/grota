@@ -791,13 +791,28 @@ function EmployeeListStep({ deploymentId, locked, onBack, onSummary }: EmployeeL
 															</form.Field>
 														</div>
 
-														<form.Field name={`employees[${i}].departmentIds`}>
+														<form.Field
+															name={`employees[${i}].departmentIds`}
+															validators={{
+																onChange: ({ value }: { value: string[] }) =>
+																	value.length === 0
+																		? "Wybierz przynajmniej jeden dzial"
+																		: undefined,
+															}}
+														>
 															{(field) => (
-																<DepartmentMultiSelect
-																	departments={departments}
-																	selectedIds={field.state.value}
-																	onChange={(ids) => field.handleChange(ids)}
-																/>
+																<div>
+																	<DepartmentMultiSelect
+																		departments={departments}
+																		selectedIds={field.state.value}
+																		onChange={(ids) => field.handleChange(ids)}
+																	/>
+																	{field.state.meta.errors.length > 0 && (
+																		<p className="mt-1 text-xs text-destructive">
+																			{field.state.meta.errors[0]}
+																		</p>
+																	)}
+																</div>
 															)}
 														</form.Field>
 													</div>
