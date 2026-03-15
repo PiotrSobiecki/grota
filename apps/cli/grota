@@ -16,9 +16,10 @@ usage() {
   cat <<EOF
 grota v${GROTA_VERSION} -- Google Workspace backup & migration toolkit
 
-Usage: grota <command> [args]
+Usage: grota [--deployment ID] <command> [args]
 
 Commands:
+  each <cmd>                 Run <cmd> for each deployment in DEPLOYMENT_IDS
   backup account <email>     Backup single account (Drive -> local -> B2)
   backup all                 Backup all accounts in deployment
   migrate --deployment ID    Migrate folders to Shared Drives
@@ -33,6 +34,7 @@ Commands:
   timers status              Show timer status
 
 Options:
+  --deployment ID            Target specific deployment
   --version                  Show version
   --help                     Show this help
 EOF
@@ -51,11 +53,35 @@ if [[ -f "$RCLONE_ENV_FILE" ]]; then
   source "$RCLONE_ENV_FILE"
 fi
 
+# ── Parse --deployment flag ────────────────────────
+if [[ "${1:-}" == "--deployment" ]]; then
+  export DEPLOYMENT_ID="$2"
+  shift 2
+fi
+
 # ── Route subcommands ──────────────────────────────
 cmd="${1:-}"
 subcmd="${2:-}"
 
 case "$cmd" in
+  each)
+    shift 1
+    # Resolve list: DEPLOYMENT_IDS (comma-sep) or fall back to single DEPLOYMENT_ID
+    ids_str="${DEPLOYMENT_IDS:-${DEPLOYMENT_ID:-}}"
+    [[ -n "$ids_str" ]] || { echo "No DEPLOYMENT_ID or DEPLOYMENT_IDS set"; exit 1; }
+    IFS=',' read -ra ids <<< "$ids_str"
+
+    worst_rc=0
+    for id in "${ids[@]}"; do
+      id="${id// /}"  # trim whitespace
+      log_info "── deployment: $id ──"
+      rc=0
+      bash "$0" --deployment "$id" "$@" || rc=$?
+      (( rc > worst_rc )) && worst_rc=$rc
+    done
+    exit $worst_rc
+    ;;
+
   backup)
     source "${LIB_DIR}/config.sh"
     source "${LIB_DIR}/notify.sh"

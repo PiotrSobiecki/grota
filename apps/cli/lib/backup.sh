@@ -39,7 +39,7 @@ sync_gdrive_to_local() {
 
   check_disk_space "$backup_root" 10
 
-  acquire_lock "backup-${sanitized_email}"
+  acquire_lock "backup-${DEPLOYMENT_ID:-unknown}-${sanitized_email}"
 
   local folders_json folder_count synced=0 failed=0
   folders_json=$(cfg_account_folders "$idx")

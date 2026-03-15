@@ -29,7 +29,7 @@ cmd_backup_all() {
 
   check_disk_space "$backup_root" 10
 
-  acquire_lock "backup-all"
+  acquire_lock "backup-all-${deployment_id}"
 
   # ── Run backups in parallel ────────────────────────
   local results_dir
