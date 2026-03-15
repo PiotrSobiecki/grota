@@ -185,37 +185,35 @@ function DetailNotificationButton({ deploymentId }: DetailNotificationButtonProp
 	};
 
 	return (
-		<>
-			<AlertDialog open={open} onOpenChange={setOpen}>
-				<AlertDialogTrigger asChild>
-					<Button variant="outline" disabled={notifyMutation.isPending}>
-						{notifyMutation.isPending ? (
-							<>
-								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-								Wysylanie...
-							</>
-						) : (
-							<>
-								<Bell className="mr-2 h-4 w-4" />
-								Wyslij powiadomienia
-							</>
-						)}
-					</Button>
-				</AlertDialogTrigger>
-				<AlertDialogContent>
-					<AlertDialogHeader>
-						<AlertDialogTitle>Wyslij powiadomienia</AlertDialogTitle>
-						<AlertDialogDescription>
-							Telegram i email zostana wyslane do administratora wdrozenia. Kontynuowac?
-						</AlertDialogDescription>
-					</AlertDialogHeader>
-					<AlertDialogFooter>
-						<AlertDialogCancel>Anuluj</AlertDialogCancel>
-						<AlertDialogAction onClick={handleConfirm}>Wyslij</AlertDialogAction>
-					</AlertDialogFooter>
-				</AlertDialogContent>
-			</AlertDialog>
-		</>
+		<AlertDialog open={open} onOpenChange={setOpen}>
+			<AlertDialogTrigger asChild>
+				<Button variant="outline" disabled={notifyMutation.isPending}>
+					{notifyMutation.isPending ? (
+						<>
+							<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+							Wysylanie...
+						</>
+					) : (
+						<>
+							<Bell className="mr-2 h-4 w-4" />
+							Wyslij powiadomienia
+						</>
+					)}
+				</Button>
+			</AlertDialogTrigger>
+			<AlertDialogContent>
+				<AlertDialogHeader>
+					<AlertDialogTitle>Wyslij powiadomienia</AlertDialogTitle>
+					<AlertDialogDescription>
+						Telegram i email zostana wyslane do administratora wdrozenia. Kontynuowac?
+					</AlertDialogDescription>
+				</AlertDialogHeader>
+				<AlertDialogFooter>
+					<AlertDialogCancel>Anuluj</AlertDialogCancel>
+					<AlertDialogAction onClick={handleConfirm}>Wyslij</AlertDialogAction>
+				</AlertDialogFooter>
+			</AlertDialogContent>
+		</AlertDialog>
 	);
 }
 
@@ -309,47 +307,47 @@ function ClientDataCard({ deployment, onUpdated }: ClientDataCardProps) {
 					>
 						<form.Field name="clientName">
 							{(field) => (
-								<div>
-									<label className="text-sm text-muted-foreground">Nazwa klienta</label>
+								<label className="text-sm text-muted-foreground">
+									Nazwa klienta
 									<Input
 										value={field.state.value}
 										onChange={(e) => field.handleChange(e.target.value)}
 										onBlur={field.handleBlur}
 										className="h-8"
 									/>
-								</div>
+								</label>
 							)}
 						</form.Field>
 						<form.Field name="domain">
 							{(field) => (
-								<div>
-									<label className="text-sm text-muted-foreground">Domena</label>
+								<label className="text-sm text-muted-foreground">
+									Domena
 									<Input
 										value={field.state.value}
 										onChange={(e) => field.handleChange(e.target.value)}
 										onBlur={field.handleBlur}
 										className="h-8"
 									/>
-								</div>
+								</label>
 							)}
 						</form.Field>
 						<form.Field name="adminName">
 							{(field) => (
-								<div>
-									<label className="text-sm text-muted-foreground">Administrator</label>
+								<label className="text-sm text-muted-foreground">
+									Administrator
 									<Input
 										value={field.state.value}
 										onChange={(e) => field.handleChange(e.target.value)}
 										onBlur={field.handleBlur}
 										className="h-8"
 									/>
-								</div>
+								</label>
 							)}
 						</form.Field>
 						<form.Field name="adminEmail">
 							{(field) => (
-								<div>
-									<label className="text-sm text-muted-foreground">Email</label>
+								<label className="text-sm text-muted-foreground">
+									Email
 									<Input
 										type="email"
 										value={field.state.value}
@@ -357,7 +355,7 @@ function ClientDataCard({ deployment, onUpdated }: ClientDataCardProps) {
 										onBlur={field.handleBlur}
 										className="h-8"
 									/>
-								</div>
+								</label>
 							)}
 						</form.Field>
 						<form.Subscribe selector={(s) => s.canSubmit}>
@@ -403,6 +401,112 @@ interface ServerConfigCardProps {
 	onUpdated: () => void;
 }
 
+function buildServerConfigUpdates(value: {
+	b2KeyId: string;
+	b2AppKey: string;
+	b2BucketPrefix: string;
+	backupPath: string;
+	bwlimit: string;
+	sshHost: string;
+	sshUser: string;
+}) {
+	const updates: { b2Config?: B2Config; serverConfig?: ServerConfig } = {};
+
+	if (value.b2KeyId && value.b2AppKey) {
+		updates.b2Config = {
+			key_id: value.b2KeyId,
+			app_key: value.b2AppKey,
+			bucket_prefix: value.b2BucketPrefix,
+		};
+	}
+
+	if (value.backupPath !== undefined) {
+		const suffix = value.backupPath.replace(/^\/+/, "");
+		updates.serverConfig = {
+			backup_path: suffix ? `/srv/backup/gdrive/${suffix}` : "/srv/backup/gdrive",
+			bwlimit: value.bwlimit || "08:00,5M 23:00,50M",
+			...(value.sshHost ? { ssh_host: value.sshHost } : {}),
+			...(value.sshUser ? { ssh_user: value.sshUser } : {}),
+		};
+	}
+
+	return updates;
+}
+
+function ServerConfigDisplay({
+	deployment,
+	showAdvanced,
+	setShowAdvanced,
+}: {
+	deployment: ServerConfigCardProps["deployment"];
+	showAdvanced: boolean;
+	setShowAdvanced: (v: boolean) => void;
+}) {
+	return (
+		<div className="space-y-4">
+			<div className="space-y-2">
+				<p className="text-sm font-medium text-foreground">B2 Config</p>
+				{deployment.b2Config ? (
+					<>
+						<div className="text-sm">
+							<span className="text-muted-foreground">Key ID: </span>
+							<span className="text-foreground">{deployment.b2Config.key_id}</span>
+						</div>
+						<div className="text-sm">
+							<span className="text-muted-foreground">App Key: </span>
+							<span className="text-foreground">{"*".repeat(8)}</span>
+						</div>
+						<div className="text-sm">
+							<span className="text-muted-foreground">Bucket Prefix: </span>
+							<span className="text-foreground">{deployment.b2Config.bucket_prefix}</span>
+						</div>
+					</>
+				) : (
+					<p className="text-sm text-muted-foreground">Nie skonfigurowano</p>
+				)}
+			</div>
+			<Collapsible open={showAdvanced} onOpenChange={setShowAdvanced}>
+				<CollapsibleTrigger asChild>
+					<Button variant="ghost" size="sm" type="button" className="gap-1">
+						<ChevronDown
+							className={cn("h-4 w-4 transition-transform", showAdvanced && "rotate-180")}
+						/>
+						Zaawansowane
+					</Button>
+				</CollapsibleTrigger>
+				<CollapsibleContent className="space-y-2 pt-2">
+					{deployment.serverConfig ? (
+						<>
+							<div className="text-sm">
+								<span className="text-muted-foreground">Backup Path: </span>
+								<span className="text-foreground">{deployment.serverConfig.backup_path}</span>
+							</div>
+							<div className="text-sm">
+								<span className="text-muted-foreground">BW Limit: </span>
+								<span className="text-foreground">{deployment.serverConfig.bwlimit}</span>
+							</div>
+							{deployment.serverConfig.ssh_host && (
+								<div className="text-sm">
+									<span className="text-muted-foreground">SSH Host: </span>
+									<span className="text-foreground">{deployment.serverConfig.ssh_host}</span>
+								</div>
+							)}
+							{deployment.serverConfig.ssh_user && (
+								<div className="text-sm">
+									<span className="text-muted-foreground">SSH User: </span>
+									<span className="text-foreground">{deployment.serverConfig.ssh_user}</span>
+								</div>
+							)}
+						</>
+					) : (
+						<p className="text-sm text-muted-foreground">Nie skonfigurowano</p>
+					)}
+				</CollapsibleContent>
+			</Collapsible>
+		</div>
+	);
+}
+
 function ServerConfigCard({ deployment, onUpdated }: ServerConfigCardProps) {
 	const [isEditing, setIsEditing] = useState(false);
 	const [showAdvanced, setShowAdvanced] = useState(!!deployment.serverConfig);
@@ -430,31 +534,11 @@ function ServerConfigCard({ deployment, onUpdated }: ServerConfigCardProps) {
 			sshUser: deployment.serverConfig?.ssh_user ?? "",
 		},
 		onSubmit: async ({ value }) => {
-			const updates: { b2Config?: B2Config; serverConfig?: ServerConfig } = {};
-
-			if (value.b2KeyId && value.b2AppKey) {
-				updates.b2Config = {
-					key_id: value.b2KeyId,
-					app_key: value.b2AppKey,
-					bucket_prefix: value.b2BucketPrefix,
-				};
-			}
-
-			if (value.backupPath !== undefined) {
-				const suffix = value.backupPath.replace(/^\/+/, "");
-				updates.serverConfig = {
-					backup_path: suffix ? `/srv/backup/gdrive/${suffix}` : "/srv/backup/gdrive",
-					bwlimit: value.bwlimit || "08:00,5M 23:00,50M",
-					...(value.sshHost ? { ssh_host: value.sshHost } : {}),
-					...(value.sshUser ? { ssh_user: value.sshUser } : {}),
-				};
-			}
-
+			const updates = buildServerConfigUpdates(value);
 			if (!updates.b2Config && !updates.serverConfig) {
 				setIsEditing(false);
 				return;
 			}
-
 			updateMutation.reset();
 			updateMutation.mutate(updates);
 		},
@@ -499,8 +583,8 @@ function ServerConfigCard({ deployment, onUpdated }: ServerConfigCardProps) {
 							<p className="text-sm font-medium text-foreground">B2 Config</p>
 							<form.Field name="b2KeyId">
 								{(field) => (
-									<div>
-										<label className="text-sm text-muted-foreground flex items-center gap-1">
+									<label className="text-sm text-muted-foreground">
+										<span className="flex items-center gap-1">
 											Key ID
 											<Tooltip>
 												<TooltipTrigger asChild>
@@ -512,7 +596,7 @@ function ServerConfigCard({ deployment, onUpdated }: ServerConfigCardProps) {
 													}
 												</TooltipContent>
 											</Tooltip>
-										</label>
+										</span>
 										<Input
 											value={field.state.value}
 											onChange={(e) => field.handleChange(e.target.value)}
@@ -520,13 +604,13 @@ function ServerConfigCard({ deployment, onUpdated }: ServerConfigCardProps) {
 											placeholder="0a1b2c3d4e5f"
 											className="h-8"
 										/>
-									</div>
+									</label>
 								)}
 							</form.Field>
 							<form.Field name="b2AppKey">
 								{(field) => (
-									<div>
-										<label className="text-sm text-muted-foreground flex items-center gap-1">
+									<label className="text-sm text-muted-foreground">
+										<span className="flex items-center gap-1">
 											App Key
 											<Tooltip>
 												<TooltipTrigger asChild>
@@ -537,7 +621,7 @@ function ServerConfigCard({ deployment, onUpdated }: ServerConfigCardProps) {
 													razu.
 												</TooltipContent>
 											</Tooltip>
-										</label>
+										</span>
 										<Input
 											value={field.state.value}
 											onChange={(e) => field.handleChange(e.target.value)}
@@ -545,13 +629,13 @@ function ServerConfigCard({ deployment, onUpdated }: ServerConfigCardProps) {
 											placeholder="K001abcdefghijklmnop"
 											className="h-8"
 										/>
-									</div>
+									</label>
 								)}
 							</form.Field>
 							<form.Field name="b2BucketPrefix">
 								{(field) => (
-									<div>
-										<label className="text-sm text-muted-foreground flex items-center gap-1">
+									<label className="text-sm text-muted-foreground">
+										<span className="flex items-center gap-1">
 											Bucket Prefix
 											<Tooltip>
 												<TooltipTrigger asChild>
@@ -562,7 +646,7 @@ function ServerConfigCard({ deployment, onUpdated }: ServerConfigCardProps) {
 													prefix-audit itp.
 												</TooltipContent>
 											</Tooltip>
-										</label>
+										</span>
 										<Input
 											value={field.state.value}
 											onChange={(e) => field.handleChange(e.target.value)}
@@ -570,7 +654,7 @@ function ServerConfigCard({ deployment, onUpdated }: ServerConfigCardProps) {
 											placeholder="nazwa-klienta"
 											className="h-8"
 										/>
-									</div>
+									</label>
 								)}
 							</form.Field>
 						</div>
@@ -587,8 +671,8 @@ function ServerConfigCard({ deployment, onUpdated }: ServerConfigCardProps) {
 							<CollapsibleContent className="space-y-3 pt-2">
 								<form.Field name="backupPath">
 									{(field) => (
-										<div>
-											<label className="text-sm text-muted-foreground flex items-center gap-1">
+										<label className="text-sm text-muted-foreground">
+											<span className="flex items-center gap-1">
 												Backup Path
 												<Tooltip>
 													<TooltipTrigger asChild>
@@ -598,7 +682,7 @@ function ServerConfigCard({ deployment, onUpdated }: ServerConfigCardProps) {
 														Sciezka na serwerze, gdzie rclone zapisuje kopie plikow z Google Drive.
 													</TooltipContent>
 												</Tooltip>
-											</label>
+											</span>
 											<div className="flex items-center gap-0">
 												<span className="inline-flex h-8 items-center rounded-l-md border border-r-0 border-input bg-muted px-2 text-sm text-muted-foreground select-none">
 													/srv/backup/gdrive/
@@ -611,13 +695,13 @@ function ServerConfigCard({ deployment, onUpdated }: ServerConfigCardProps) {
 													className="h-8 rounded-l-none"
 												/>
 											</div>
-										</div>
+										</label>
 									)}
 								</form.Field>
 								<form.Field name="bwlimit">
 									{(field) => (
-										<div>
-											<label className="text-sm text-muted-foreground flex items-center gap-1">
+										<label className="text-sm text-muted-foreground">
+											<span className="flex items-center gap-1">
 												Bandwidth Limit
 												<Tooltip>
 													<TooltipTrigger asChild>
@@ -628,7 +712,7 @@ function ServerConfigCard({ deployment, onUpdated }: ServerConfigCardProps) {
 														w nocy).
 													</TooltipContent>
 												</Tooltip>
-											</label>
+											</span>
 											<Input
 												value={field.state.value}
 												onChange={(e) => field.handleChange(e.target.value)}
@@ -636,13 +720,13 @@ function ServerConfigCard({ deployment, onUpdated }: ServerConfigCardProps) {
 												placeholder="08:00,5M 23:00,50M"
 												className="h-8"
 											/>
-										</div>
+										</label>
 									)}
 								</form.Field>
 								<form.Field name="sshHost">
 									{(field) => (
-										<div>
-											<label className="text-sm text-muted-foreground flex items-center gap-1">
+										<label className="text-sm text-muted-foreground">
+											<span className="flex items-center gap-1">
 												SSH Host (opcjonalny)
 												<Tooltip>
 													<TooltipTrigger asChild>
@@ -652,7 +736,7 @@ function ServerConfigCard({ deployment, onUpdated }: ServerConfigCardProps) {
 														Adres serwera do zdalnego dostepu, np. 192.168.1.10 lub serwer.firma.pl.
 													</TooltipContent>
 												</Tooltip>
-											</label>
+											</span>
 											<Input
 												value={field.state.value}
 												onChange={(e) => field.handleChange(e.target.value)}
@@ -660,13 +744,13 @@ function ServerConfigCard({ deployment, onUpdated }: ServerConfigCardProps) {
 												placeholder="192.168.1.10"
 												className="h-8"
 											/>
-										</div>
+										</label>
 									)}
 								</form.Field>
 								<form.Field name="sshUser">
 									{(field) => (
-										<div>
-											<label className="text-sm text-muted-foreground flex items-center gap-1">
+										<label className="text-sm text-muted-foreground">
+											<span className="flex items-center gap-1">
 												SSH User (opcjonalny)
 												<Tooltip>
 													<TooltipTrigger asChild>
@@ -676,7 +760,7 @@ function ServerConfigCard({ deployment, onUpdated }: ServerConfigCardProps) {
 														Uzytkownik SSH na serwerze docelowym, np. backup lub root.
 													</TooltipContent>
 												</Tooltip>
-											</label>
+											</span>
 											<Input
 												value={field.state.value}
 												onChange={(e) => field.handleChange(e.target.value)}
@@ -684,7 +768,7 @@ function ServerConfigCard({ deployment, onUpdated }: ServerConfigCardProps) {
 												placeholder="backup"
 												className="h-8"
 											/>
-										</div>
+										</label>
 									)}
 								</form.Field>
 							</CollapsibleContent>
@@ -699,67 +783,11 @@ function ServerConfigCard({ deployment, onUpdated }: ServerConfigCardProps) {
 						</form.Subscribe>
 					</form>
 				) : (
-					<div className="space-y-4">
-						<div className="space-y-2">
-							<p className="text-sm font-medium text-foreground">B2 Config</p>
-							{deployment.b2Config ? (
-								<>
-									<div className="text-sm">
-										<span className="text-muted-foreground">Key ID: </span>
-										<span className="text-foreground">{deployment.b2Config.key_id}</span>
-									</div>
-									<div className="text-sm">
-										<span className="text-muted-foreground">App Key: </span>
-										<span className="text-foreground">{"*".repeat(8)}</span>
-									</div>
-									<div className="text-sm">
-										<span className="text-muted-foreground">Bucket Prefix: </span>
-										<span className="text-foreground">{deployment.b2Config.bucket_prefix}</span>
-									</div>
-								</>
-							) : (
-								<p className="text-sm text-muted-foreground">Nie skonfigurowano</p>
-							)}
-						</div>
-						<Collapsible open={showAdvanced} onOpenChange={setShowAdvanced}>
-							<CollapsibleTrigger asChild>
-								<Button variant="ghost" size="sm" type="button" className="gap-1">
-									<ChevronDown
-										className={cn("h-4 w-4 transition-transform", showAdvanced && "rotate-180")}
-									/>
-									Zaawansowane
-								</Button>
-							</CollapsibleTrigger>
-							<CollapsibleContent className="space-y-2 pt-2">
-								{deployment.serverConfig ? (
-									<>
-										<div className="text-sm">
-											<span className="text-muted-foreground">Backup Path: </span>
-											<span className="text-foreground">{deployment.serverConfig.backup_path}</span>
-										</div>
-										<div className="text-sm">
-											<span className="text-muted-foreground">BW Limit: </span>
-											<span className="text-foreground">{deployment.serverConfig.bwlimit}</span>
-										</div>
-										{deployment.serverConfig.ssh_host && (
-											<div className="text-sm">
-												<span className="text-muted-foreground">SSH Host: </span>
-												<span className="text-foreground">{deployment.serverConfig.ssh_host}</span>
-											</div>
-										)}
-										{deployment.serverConfig.ssh_user && (
-											<div className="text-sm">
-												<span className="text-muted-foreground">SSH User: </span>
-												<span className="text-foreground">{deployment.serverConfig.ssh_user}</span>
-											</div>
-										)}
-									</>
-								) : (
-									<p className="text-sm text-muted-foreground">Nie skonfigurowano</p>
-								)}
-							</CollapsibleContent>
-						</Collapsible>
-					</div>
+					<ServerConfigDisplay
+						deployment={deployment}
+						showAdvanced={showAdvanced}
+						setShowAdvanced={setShowAdvanced}
+					/>
 				)}
 			</CardContent>
 		</Card>

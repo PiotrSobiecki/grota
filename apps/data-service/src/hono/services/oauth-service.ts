@@ -76,12 +76,11 @@ export async function handleCallback(
 
 	if (!tokenResponse.ok) {
 		const errorBody = await tokenResponse.text();
-		console.error("Token exchange failed:", errorBody);
 		return {
 			ok: false,
 			error: {
 				code: "TOKEN_EXCHANGE_FAILED",
-				message: "Nie udalo sie uzyskac tokenu Google",
+				message: `Nie udalo sie uzyskac tokenu Google: ${errorBody}`,
 				status: 502,
 			},
 		};

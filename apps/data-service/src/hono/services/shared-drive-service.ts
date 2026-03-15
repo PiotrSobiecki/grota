@@ -1,3 +1,4 @@
+import { type ConfigAssemblyData, getConfigAssemblyData } from "@repo/data-ops/config";
 import { updateOnboardingStep } from "@repo/data-ops/deployment";
 import {
 	deleteSharedDrivesByDeployment,
@@ -7,7 +8,7 @@ import {
 	upsertSharedDrives,
 } from "@repo/data-ops/shared-drive";
 import type { Result } from "../types/result";
-import { createSharedDrivesBulk } from "./google-drive-api-service";
+import { createSharedDrivesBulk, grantDrivePermissionsBulk } from "./google-drive-api-service";
 import { getValidWorkspaceAccessToken } from "./google-token-service";
 
 export async function listSharedDrives(
@@ -92,4 +93,78 @@ export async function createAndSaveSharedDrives(
 
 	await updateOnboardingStep(deploymentId, 4);
 	return { ok: true, data: { created: savedDrives, failures } };
+}
+
+const MIGRATED_CATEGORIES = new Set(["dokumenty", "projekty"]);
+
+interface PermissionGrant {
+	driveId: string;
+	email: string;
+}
+
+function buildPermissionGrants(data: ConfigAssemblyData): PermissionGrant[] {
+	const categoryToDriveId = new Map<string, string>();
+	for (const sd of data.sharedDrives) {
+		if (sd.googleDriveId) {
+			categoryToDriveId.set(sd.category, sd.googleDriveId);
+		}
+	}
+
+	const seen = new Set<string>();
+	const grants: PermissionGrant[] = [];
+
+	for (const account of data.accounts) {
+		const categories = new Set(
+			account.folders.filter((f) => MIGRATED_CATEGORIES.has(f.category)).map((f) => f.category),
+		);
+
+		for (const category of categories) {
+			const driveId = categoryToDriveId.get(category);
+			if (!driveId) continue;
+			const key = `${driveId}:${account.email}`;
+			if (seen.has(key)) continue;
+			seen.add(key);
+			grants.push({ driveId, email: account.email });
+		}
+	}
+
+	return grants;
+}
+
+interface GrantAccessResult {
+	granted: number;
+	skipped: number;
+	failed: number;
+	total: number;
+	failures: Array<{ driveId: string; email: string; error: string }>;
+}
+
+export async function grantAccessToMigratedDrives(
+	deploymentId: string,
+	env: Env,
+): Promise<Result<GrantAccessResult>> {
+	const data = await getConfigAssemblyData(deploymentId);
+	if (!data) {
+		return {
+			ok: false,
+			error: { code: "DEPLOYMENT_NOT_FOUND", message: "Deployment not found", status: 404 },
+		};
+	}
+
+	const grants = buildPermissionGrants(data);
+	if (grants.length === 0) {
+		return { ok: true, data: { granted: 0, skipped: 0, failed: 0, total: 0, failures: [] } };
+	}
+
+	const tokenResult = await getValidWorkspaceAccessToken(deploymentId, env);
+	if (!tokenResult.ok) return tokenResult;
+
+	const bulkResult = await grantDrivePermissionsBulk(tokenResult.data, grants);
+	if (!bulkResult.ok) return bulkResult;
+
+	const { granted, skipped, failures } = bulkResult.data;
+	return {
+		ok: true,
+		data: { granted, skipped, failed: failures.length, total: grants.length, failures },
+	};
 }

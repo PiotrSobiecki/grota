@@ -244,37 +244,35 @@ function NotificationButton({ deploymentId }: NotificationButtonProps) {
 	};
 
 	return (
-		<>
-			<AlertDialog open={open} onOpenChange={setOpen}>
-				<AlertDialogTrigger asChild>
-					<Button variant="outline" disabled={notifyMutation.isPending}>
-						{notifyMutation.isPending ? (
-							<>
-								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-								Wysylanie...
-							</>
-						) : (
-							<>
-								<Bell className="mr-2 h-4 w-4" />
-								Wyslij powiadomienia
-							</>
-						)}
-					</Button>
-				</AlertDialogTrigger>
-				<AlertDialogContent>
-					<AlertDialogHeader>
-						<AlertDialogTitle>Wyslij powiadomienia</AlertDialogTitle>
-						<AlertDialogDescription>
-							Telegram i email zostanal wyslane do administratora wdrozenia. Kontynuowac?
-						</AlertDialogDescription>
-					</AlertDialogHeader>
-					<AlertDialogFooter>
-						<AlertDialogCancel>Anuluj</AlertDialogCancel>
-						<AlertDialogAction onClick={handleConfirm}>Wyslij</AlertDialogAction>
-					</AlertDialogFooter>
-				</AlertDialogContent>
-			</AlertDialog>
-		</>
+		<AlertDialog open={open} onOpenChange={setOpen}>
+			<AlertDialogTrigger asChild>
+				<Button variant="outline" disabled={notifyMutation.isPending}>
+					{notifyMutation.isPending ? (
+						<>
+							<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+							Wysylanie...
+						</>
+					) : (
+						<>
+							<Bell className="mr-2 h-4 w-4" />
+							Wyslij powiadomienia
+						</>
+					)}
+				</Button>
+			</AlertDialogTrigger>
+			<AlertDialogContent>
+				<AlertDialogHeader>
+					<AlertDialogTitle>Wyslij powiadomienia</AlertDialogTitle>
+					<AlertDialogDescription>
+						Telegram i email zostanal wyslane do administratora wdrozenia. Kontynuowac?
+					</AlertDialogDescription>
+				</AlertDialogHeader>
+				<AlertDialogFooter>
+					<AlertDialogCancel>Anuluj</AlertDialogCancel>
+					<AlertDialogAction onClick={handleConfirm}>Wyslij</AlertDialogAction>
+				</AlertDialogFooter>
+			</AlertDialogContent>
+		</AlertDialog>
 	);
 }
 

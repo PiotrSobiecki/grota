@@ -268,10 +268,8 @@ function SharedDriveStep({
 						{SHARED_DRIVE_CATEGORIES.map((cat) => (
 							<form.Field key={cat} name={cat}>
 								{(field) => (
-									<div>
-										<label className="text-sm font-medium text-foreground">
-											{SHARED_DRIVE_CATEGORY_LABELS[cat]}
-										</label>
+									<label className="text-sm font-medium text-foreground">
+										{SHARED_DRIVE_CATEGORY_LABELS[cat]}
 										<Input
 											value={field.state.value}
 											onChange={(e) => field.handleChange(e.target.value)}
@@ -279,7 +277,7 @@ function SharedDriveStep({
 											placeholder={`np. ${defaultName(cat)}`}
 											disabled={locked}
 										/>
-									</div>
+									</label>
 								)}
 							</form.Field>
 						))}

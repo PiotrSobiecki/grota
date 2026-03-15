@@ -153,6 +153,20 @@ cmd_migrate() {
   fi
 
   notify_info "Migration complete: $migrated folders migrated"
+
+  # Grant employees read access to Shared Drives (non-fatal)
+  local deployment_id
+  deployment_id=$(cfg_deployment_id)
+  if [[ -n "${DATA_SERVICE_URL:-}" ]]; then
+    local grant_response
+    grant_response=$(curl -s -X POST \
+      "${DATA_SERVICE_URL}/shared-drives/${deployment_id}/grant-access" \
+      -H "Authorization: Bearer ${API_TOKEN:-}")
+    log_info "Grant access response: ${grant_response}"
+    if [[ $? -ne 0 ]]; then
+      notify_error "Grant shared drive access failed (non-fatal)" "$deployment_id"
+    fi
+  fi
 }
 
 # ── grota migrate --verify ────────────────────────

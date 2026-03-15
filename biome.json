@@ -30,7 +30,12 @@
 			"recommended": true,
 			"a11y": {
 				"useHtmlLang": "warn",
-				"noLabelWithoutControl": "warn",
+				"noLabelWithoutControl": {
+					"level": "warn",
+					"options": {
+						"inputComponents": ["Input", "Textarea", "Select"]
+					}
+				},
 				"noRedundantRoles": "warn",
 				"useSemanticElements": "warn"
 			},
@@ -78,6 +83,17 @@
 			"!configs"
 		]
 	},
+	"overrides": [
+		{
+			"includes": ["packages/data-ops/src/database/seed/**", "packages/data-ops/config/**"],
+			"linter": {
+				"rules": {
+					"suspicious": { "noConsole": "off" },
+					"style": { "noNonNullAssertion": "off" }
+				}
+			}
+		}
+	],
 	"plugins": [
 		"./plugins/no-raw-throw.grit",
 		"./plugins/no-then-chains.grit",

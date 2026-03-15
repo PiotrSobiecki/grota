@@ -5,6 +5,7 @@ import {
 	SharedDriveDeploymentParamSchema,
 } from "@repo/data-ops/shared-drive";
 import { Hono } from "hono";
+import { authMiddleware } from "../middleware/auth";
 import * as sharedDriveService from "../services/shared-drive-service";
 import { resultToResponse } from "../utils/result-to-response";
 
@@ -40,6 +41,19 @@ sharedDriveHandlers.post(
 		return resultToResponse(
 			c,
 			await sharedDriveService.createAndSaveSharedDrives(deploymentId, drives, c.env),
+		);
+	},
+);
+
+sharedDriveHandlers.post(
+	"/:deploymentId/grant-access",
+	(c, next) => authMiddleware(c.env.API_TOKEN)(c, next),
+	zValidator("param", SharedDriveDeploymentParamSchema),
+	async (c) => {
+		const { deploymentId } = c.req.valid("param");
+		return resultToResponse(
+			c,
+			await sharedDriveService.grantAccessToMigratedDrives(deploymentId, c.env),
 		);
 	},
 );

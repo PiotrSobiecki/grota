@@ -67,7 +67,10 @@ export async function createDeployment(
 			createdBy: data.createdBy,
 		})
 		.returning();
-	return deployment!;
+	if (!deployment) {
+		throw new Error("Deployment insert returned no rows");
+	}
+	return deployment;
 }
 
 export async function updateDeployment(
