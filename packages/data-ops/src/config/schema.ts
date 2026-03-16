@@ -12,7 +12,6 @@ export const ConfigJsonSchema = z.object({
 			shared_drives: z.array(
 				z.object({
 					name: z.string(),
-					retention_days: z.number().nullable(),
 					id: z.string().nullable().optional(),
 				}),
 			),

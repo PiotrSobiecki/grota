@@ -37,7 +37,7 @@ interface CreateAndSaveResult {
 	failures: Array<{ name: string; error: string }>;
 }
 
-type DriveInput = { name: string; retentionDays?: number | null };
+type DriveInput = { name: string };
 
 function splitByExistence(
 	drives: DriveInput[],
@@ -52,7 +52,6 @@ function splitByExistence(
 		if (ex?.googleDriveId) {
 			alreadyCreated.push({
 				name: drive.name,
-				retentionDays: drive.retentionDays ?? null,
 				googleDriveId: ex.googleDriveId,
 			});
 		} else {
@@ -85,7 +84,6 @@ export async function createAndSaveSharedDrives(
 			if (match) {
 				newlyCreated.push({
 					name: drive.name,
-					retentionDays: drive.retentionDays ?? null,
 					googleDriveId: match.id,
 				});
 			}

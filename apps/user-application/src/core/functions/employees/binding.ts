@@ -6,7 +6,7 @@ import { AppError } from "@/core/errors";
 import { protectedFunctionMiddleware } from "@/core/middleware/auth";
 import { fetchDataService } from "@/lib/data-service";
 
-interface EmployeeWithDepartments {
+interface EmployeeListItem {
 	id: string;
 	deploymentId: string;
 	email: string;
@@ -17,18 +17,10 @@ interface EmployeeWithDepartments {
 	magicLinkSentAt: string | null;
 	createdAt: string;
 	updatedAt: string;
-	departments: Array<{
-		id: string;
-		deploymentId: string;
-		name: string;
-		slug: string;
-		sortOrder: number;
-		createdAt: string;
-	}>;
 }
 
-interface EmployeeListWithDepartments {
-	data: EmployeeWithDepartments[];
+interface EmployeeListResponse {
+	data: EmployeeListItem[];
 	total: number;
 }
 
@@ -47,7 +39,7 @@ export const getEmployeesByDeployment = createServerFn({ method: "GET" })
 			);
 		}
 
-		return (await response.json()) as EmployeeListWithDepartments;
+		return (await response.json()) as EmployeeListResponse;
 	});
 
 /** Bulk create employees (called from wizard step 4). */
@@ -59,7 +51,6 @@ export const bulkCreateEmployees = createServerFn({ method: "POST" })
 				z.object({
 					email: z.string().email(),
 					name: z.string().optional().default(""),
-					departmentIds: z.array(z.string().uuid()).min(1),
 				}),
 			),
 		}),

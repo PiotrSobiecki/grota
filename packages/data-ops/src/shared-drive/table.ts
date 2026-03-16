@@ -1,4 +1,4 @@
-import { integer, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 import { deployments } from "../deployment/table";
 
 export const sharedDrives = pgTable(
@@ -9,7 +9,6 @@ export const sharedDrives = pgTable(
 			.notNull()
 			.references(() => deployments.id, { onDelete: "cascade" }),
 		name: text("name").notNull(),
-		retentionDays: integer("retention_days"),
 		googleDriveId: text("google_drive_id"),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 	},

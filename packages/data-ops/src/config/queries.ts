@@ -31,7 +31,6 @@ export interface ConfigAssemblyData {
 	sharedDrives: Array<{
 		id: string;
 		name: string;
-		retentionDays: number | null;
 		googleDriveId: string | null;
 	}>;
 }
@@ -99,7 +98,6 @@ export async function getConfigAssemblyData(
 		sharedDrives: sharedDriveRows.map((sd) => ({
 			id: sd.id,
 			name: sd.name,
-			retentionDays: sd.retentionDays,
 			googleDriveId: sd.googleDriveId,
 		})),
 	};

@@ -1,6 +1,5 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "@/database/setup";
-import { assignEmployeeDepartments } from "@/department/queries";
 import type { Employee, EmployeeCreateInput } from "./schema";
 import { employees } from "./table";
 
@@ -32,16 +31,6 @@ export async function createEmployees(
 		name: emp.name,
 	}));
 	const created = await db.insert(employees).values(values).returning();
-
-	// Assign departments M:N
-	await Promise.all(
-		created.map((employee, i) => {
-			const input = data[i];
-			if (!input) return Promise.resolve();
-			return assignEmployeeDepartments(employee.id, input.departmentIds);
-		}),
-	);
-
 	return created;
 }
 

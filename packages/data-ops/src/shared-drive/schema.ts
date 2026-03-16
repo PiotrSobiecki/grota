@@ -4,14 +4,12 @@ export const SharedDriveSchema = z.object({
 	id: z.string().uuid(),
 	deploymentId: z.string().uuid(),
 	name: z.string(),
-	retentionDays: z.number().int().positive().nullable(),
 	googleDriveId: z.string().nullable(),
 	createdAt: z.coerce.date(),
 });
 
 export const SharedDriveUpsertRequestSchema = z.object({
 	name: z.string().min(1, "Nazwa dysku jest wymagana"),
-	retentionDays: z.number().int().positive().nullable().optional(),
 	googleDriveId: z.string().nullable().optional(),
 });
 
@@ -29,7 +27,6 @@ export const SharedDriveCreateRequestSchema = z.object({
 		.array(
 			z.object({
 				name: z.string().min(1, "Nazwa dysku jest wymagana"),
-				retentionDays: z.number().int().positive().nullable().optional(),
 			}),
 		)
 		.min(1)

@@ -1,7 +1,6 @@
 import { Hono } from "hono";
 import cliNotifyHandlers from "./handlers/cli-notify-handlers";
 import configHandlers from "./handlers/config-handlers";
-import departmentHandlers from "./handlers/department-handlers";
 import deployments from "./handlers/deployment-handlers";
 import employeeHandlers from "./handlers/employee-handlers";
 import folderHandlers from "./handlers/folder-handlers";
@@ -22,7 +21,6 @@ App.use("*", createCorsMiddleware());
 
 App.route("/health", health);
 App.route("/config", configHandlers);
-App.route("/departments", departmentHandlers);
 App.route("/deployments", deployments);
 App.route("/employees", employeeHandlers);
 App.route("/folders", folderHandlers);

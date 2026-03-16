@@ -25,7 +25,6 @@ export async function upsertSharedDrives(
 			drives.map((d) => ({
 				deploymentId,
 				name: d.name,
-				retentionDays: d.retentionDays ?? null,
 				googleDriveId: d.googleDriveId ?? null,
 			})),
 		)

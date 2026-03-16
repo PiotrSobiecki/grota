@@ -1,4 +1,3 @@
-import { MAX_DEPARTMENTS_PER_DEPLOYMENT } from "@repo/data-ops/department";
 import type { B2Config, ServerConfig } from "@repo/data-ops/deployment";
 import { slugify } from "@repo/data-ops/utils";
 import { useForm } from "@tanstack/react-form";
@@ -9,14 +8,11 @@ import {
 	Bell,
 	ChevronDown,
 	Copy,
-	FolderTree,
 	Info,
 	Loader2,
 	Mail,
 	Pencil,
-	Plus,
 	Send,
-	Trash2,
 	Users,
 	X,
 } from "lucide-react";
@@ -39,12 +35,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import {
-	createDepartment,
-	deleteDepartment,
-	getDepartments,
-	renameDepartment,
-} from "@/core/functions/departments/binding";
 import {
 	getDeploymentById,
 	markDeploymentReady,
@@ -147,8 +137,6 @@ function DeploymentDetailPage() {
 			</div>
 
 			<ServerConfigCard deployment={deployment} onUpdated={() => router.invalidate()} />
-
-			<DepartmentSection deploymentId={deployment.id} deploymentStatus={deployment.status} />
 
 			{showEmployeeSection && (
 				<EmployeeSection
@@ -873,194 +861,6 @@ function MagicLinkCard({ deployment, magicLinkMutation, onCopyLink }: MagicLinkC
 	);
 }
 
-interface EditingDept {
-	id: string;
-	name: string;
-}
-
-function DepartmentSection({
-	deploymentId,
-	deploymentStatus,
-}: {
-	deploymentId: string;
-	deploymentStatus: string;
-}) {
-	const [newDeptName, setNewDeptName] = useState("");
-	const [editing, setEditing] = useState<EditingDept | null>(null);
-
-	const departmentsQuery = useQuery({
-		queryKey: ["departments", deploymentId],
-		queryFn: () => getDepartments({ data: { deploymentId } }),
-	});
-
-	const createMutation = useMutation({
-		mutationFn: (name: string) => createDepartment({ data: { deploymentId, name } }),
-		onSuccess: () => {
-			departmentsQuery.refetch();
-			setNewDeptName("");
-			toast.success("Dzial utworzony");
-		},
-		onError: (error) => toast.error(error.message),
-	});
-
-	const deleteMutation = useMutation({
-		mutationFn: (departmentId: string) => deleteDepartment({ data: { departmentId } }),
-		onSuccess: () => {
-			departmentsQuery.refetch();
-			toast.success("Dzial usuniety");
-		},
-		onError: (error) => toast.error(error.message),
-	});
-
-	const renameMutation = useMutation({
-		mutationFn: ({ departmentId, name }: { departmentId: string; name: string }) =>
-			renameDepartment({ data: { departmentId, name } }),
-		onSuccess: () => {
-			departmentsQuery.refetch();
-			setEditing(null);
-			toast.success("Dzial przemianowany");
-		},
-		onError: (error) => toast.error(error.message),
-	});
-
-	const departments = departmentsQuery.data?.data ?? [];
-	const canEdit = deploymentStatus === "draft" || deploymentStatus === "onboarding";
-	const atLimit = departments.length >= MAX_DEPARTMENTS_PER_DEPLOYMENT;
-
-	const handleAdd = () => {
-		const trimmed = newDeptName.trim();
-		if (!trimmed) return;
-		createMutation.mutate(trimmed);
-	};
-
-	const handleRenameSubmit = (departmentId: string, originalName: string) => {
-		const trimmed = editing?.name.trim() ?? "";
-		if (trimmed && trimmed !== originalName) {
-			renameMutation.mutate({ departmentId, name: trimmed });
-		} else {
-			setEditing(null);
-		}
-	};
-
-	return (
-		<Card>
-			<CardHeader>
-				<CardTitle className="flex items-center gap-2">
-					<FolderTree className="h-5 w-5" />
-					Dzialy wdrozenia
-					<span className="text-sm font-normal text-muted-foreground">
-						({departments.length}/{MAX_DEPARTMENTS_PER_DEPLOYMENT})
-					</span>
-				</CardTitle>
-			</CardHeader>
-			<CardContent className="space-y-3">
-				{createMutation.isError && (
-					<p className="text-sm text-destructive">{createMutation.error.message}</p>
-				)}
-				{deleteMutation.isError && (
-					<p className="text-sm text-destructive">{deleteMutation.error.message}</p>
-				)}
-				{renameMutation.isError && (
-					<p className="text-sm text-destructive">{renameMutation.error.message}</p>
-				)}
-
-				{departmentsQuery.isPending ? (
-					<div className="flex items-center gap-2 text-muted-foreground">
-						<Loader2 className="h-4 w-4 animate-spin" />
-						Ladowanie dzialow...
-					</div>
-				) : departments.length === 0 ? (
-					<p className="text-muted-foreground">Brak dzialow.</p>
-				) : (
-					<div className="flex flex-wrap gap-2">
-						{departments.map((dept) => (
-							<span
-								key={dept.id}
-								className="flex items-center gap-1 rounded-md border border-border bg-muted px-2 py-1 text-sm text-foreground"
-							>
-								{editing?.id === dept.id ? (
-									<Input
-										autoFocus
-										value={editing.name}
-										onChange={(e) => setEditing({ id: dept.id, name: e.target.value })}
-										onKeyDown={(e) => {
-											if (e.key === "Enter") {
-												e.preventDefault();
-												handleRenameSubmit(dept.id, dept.name);
-											}
-											if (e.key === "Escape") setEditing(null);
-										}}
-										onBlur={() => handleRenameSubmit(dept.id, dept.name)}
-										disabled={renameMutation.isPending}
-										className="h-7 w-32 text-sm"
-									/>
-								) : canEdit ? (
-									<button
-										type="button"
-										onClick={() => setEditing({ id: dept.id, name: dept.name })}
-										className="cursor-pointer hover:underline"
-									>
-										{dept.name}
-									</button>
-								) : (
-									<span>{dept.name}</span>
-								)}
-								{canEdit && editing?.id !== dept.id && (
-									<button
-										type="button"
-										onClick={() => deleteMutation.mutate(dept.id)}
-										disabled={deleteMutation.isPending}
-										className="text-muted-foreground hover:text-destructive"
-										title="Usun dzial"
-									>
-										<Trash2 className="h-3 w-3" />
-									</button>
-								)}
-							</span>
-						))}
-					</div>
-				)}
-
-				{canEdit && (
-					<div className="flex gap-2">
-						<Input
-							placeholder={atLimit ? "Osiagnieto limit dzialow" : "Nowy dzial..."}
-							disabled={atLimit}
-							value={newDeptName}
-							onChange={(e) => setNewDeptName(e.target.value)}
-							onKeyDown={(e) => {
-								if (e.key === "Enter") {
-									e.preventDefault();
-									handleAdd();
-								}
-							}}
-						/>
-						<Tooltip>
-							<TooltipTrigger asChild>
-								<span tabIndex={atLimit ? 0 : undefined}>
-									<Button
-										variant="outline"
-										size="icon"
-										onClick={handleAdd}
-										disabled={atLimit || createMutation.isPending}
-									>
-										<Plus className="h-4 w-4" />
-									</Button>
-								</span>
-							</TooltipTrigger>
-							{atLimit && (
-								<TooltipContent>
-									Maksymalnie {MAX_DEPARTMENTS_PER_DEPLOYMENT} dzialow na wdrozenie
-								</TooltipContent>
-							)}
-						</Tooltip>
-					</div>
-				)}
-			</CardContent>
-		</Card>
-	);
-}
-
 function EmployeeSection({
 	deploymentId,
 	deploymentStatus,
@@ -1183,7 +983,6 @@ interface EmployeeListItem {
 	oauthStatus: string;
 	selectionStatus: string;
 	magicLinkSentAt: string | null;
-	departments: Array<{ id: string; name: string; slug: string }>;
 }
 
 function EmployeeList({
@@ -1231,7 +1030,6 @@ function EmployeeList({
 						label: employee.selectionStatus,
 						variant: "outline" as const,
 					};
-					const deptNames = employee.departments.map((d) => d.name).join(", ");
 					const linkSent = !!employee.magicLinkSentAt;
 					return (
 						<div
@@ -1243,7 +1041,6 @@ function EmployeeList({
 									{employee.name || employee.email}
 								</p>
 								{employee.name && <p className="text-xs text-muted-foreground">{employee.email}</p>}
-								{deptNames && <p className="mt-0.5 text-xs text-muted-foreground">{deptNames}</p>}
 							</div>
 							<div className="flex gap-2">
 								{linkSent ? (

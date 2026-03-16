@@ -6,7 +6,6 @@ const config: Config = {
 	schema: [
 		"./src/drizzle/auth-schema.ts",
 		"./src/drizzle/relations.ts",
-		"./src/department/table.ts",
 		"./src/deployment/table.ts",
 		"./src/employee/table.ts",
 		"./src/folder-selection/table.ts",

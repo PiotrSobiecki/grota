@@ -69,7 +69,6 @@ export async function buildConfigJson(
 					oauth_refresh_token: workspaceRefreshToken,
 					shared_drives: data.sharedDrives.map((sd) => ({
 						name: sd.name,
-						retention_days: sd.retentionDays,
 						id: sd.googleDriveId,
 					})),
 				}

@@ -94,11 +94,6 @@ cfg_shared_drive_names() {
   cfg_raw '.workspace.shared_drives // [] | .[].name' | tr -d '"'
 }
 
-cfg_shared_drive_retention() {
-  local drive_name="$1"
-  cfg ".workspace.shared_drives[] | select(.name == \"$drive_name\") | .retention_days // empty"
-}
-
 cfg_b2_key_id()   { cfg '.b2.key_id // empty'; }
 cfg_b2_app_key()  { cfg '.b2.app_key // empty'; }
 cfg_b2_prefix()   { cfg '.b2.bucket_prefix // empty'; }

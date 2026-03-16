@@ -6,7 +6,37 @@ Employees currently select whole top-level Drive folders for backup/migration. T
 
 **Key decisions**: Navigator pattern (one level at a time, not tree), whole-folder semantics preserved, per-item drive assignment (no auto-suggestion — employee picks manually), auto-deselect children when parent selected, updated trust panel text, file size shown when available.
 
-**Prerequisite**: Doc 003 (Dynamic Shared Drives) must be implemented first — this doc uses `sharedDriveId`/`shared_drive_name` instead of category.
+**Prerequisite**: Doc 003 (Dynamic Shared Drives) -- already implemented (migration 0008). `shared_drive_id` FK already exists on `folder_selections`. Departments and `retentionDays` already removed (migration 0009).
+
+---
+
+## Current State (verified against codebase)
+
+**`folder_selections` table columns**: `id`, `employee_id`, `folder_id`, `folder_name`, `shared_drive_id` (FK), `created_at`
+
+**`shared_drives` table columns**: `id`, `deployment_id`, `name`, `google_drive_id`, `created_at` (unique on `deployment_id + name`)
+
+**`FolderSelectionCreateRequestSchema` fields**: `folderId`, `folderName`, `sharedDriveId`
+
+**`FolderSelectionBulkCreateRequestSchema`**: `employeeId` + `selections` array (min 1)
+
+**`DriveFolderSchema` fields**: `id`, `name`, `mimeType`
+
+**`DriveFolderListResponseSchema`**: `{ folders: DriveFolder[] }`
+
+**`listDriveFolders` signature**: `(employeeId: string, env: Env) => Promise<Result<{ folders: DriveFolder[] }>>`
+- Queries Google Drive API with: `'root' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`
+- Fields: `files(id,name,mimeType)`, pageSize 100
+
+**`ConfigAssemblyData.accounts[].folders[]`**: `{ folderId, folderName, shared_drive_name }`
+
+**`ConfigJsonSchema.accounts[].folders[]`**: `{ id, name, shared_drive_name }`
+
+**Frontend `$token.tsx`**: ~464 lines, 4-step flow (OAuth -> FolderList -> DriveAssignment -> Confirm), uses `FolderWithDrive` interface (not `FolderWithCategory`), state var `folders: FolderWithDrive[]`
+
+**CLI `backup.sh`**: reads `.id`, `.name`, `.shared_drive_name` from `folders_json` via jq
+
+**CLI `migration.sh`**: same fields, plus reads `.type` is NOT present yet
 
 ---
 
@@ -20,62 +50,104 @@ Rename columns + add 3 new:
 
 Generate + apply migration: `pnpm run drizzle:dev:generate && pnpm run drizzle:dev:migrate`
 
-Safe: `saveSelections` does delete-all + re-insert, no data migration concerns.
+Safe: `saveSelections` does delete-all + re-insert, no data migration concerns for renames.
 
 ## 2. Schemas & Types -- `packages/data-ops/src/folder-selection/schema.ts`
 
 - Add `ItemTypeSchema = z.enum(["folder", "file"])`
-- Rename fields in `FolderSelectionSchema`: `itemId`, `itemName`, add `itemType`, `parentFolderId`, `mimeType`
-- Update `FolderSelectionCreateRequestSchema` with new fields + `sharedDriveId` (from doc 003)
+- Rename fields in `FolderSelectionSchema`: `folderId` -> `itemId`, `folderName` -> `itemName`, add `itemType`, `parentFolderId`, `mimeType`
+- Update `FolderSelectionCreateRequestSchema`: rename `folderId` -> `itemId`, `folderName` -> `itemName`, add `itemType: ItemTypeSchema`, `parentFolderId: z.string().nullable()`, `mimeType: z.string().nullable()` (keep existing `sharedDriveId`)
 - Rename `DriveFolderSchema` -> `DriveItemSchema`, add `type: z.enum(["folder", "file"])`, add `size: z.number().nullable()` (null for native Google Docs)
 - Add `DriveItemListQuerySchema` for `parentId` + `pageToken` query params
-- Update `DriveFolderListResponseSchema` -> `DriveItemListResponseSchema`: `items` array + `nextPageToken` nullable
+- Update `DriveFolderListResponseSchema` -> `DriveItemListResponseSchema`: `items` array + `nextPageToken: z.string().nullable()`
 
-Update barrel: `packages/data-ops/src/folder-selection/index.ts`
+Update barrel: `packages/data-ops/src/folder-selection/index.ts` -- rename exported types/schemas (`DriveFolder` -> `DriveItem`, `DriveFolderSchema` -> `DriveItemSchema`, `DriveFolderListResponseSchema` -> `DriveItemListResponseSchema`, add `DriveItemListQuerySchema`, `ItemTypeSchema`)
 
 ## 3. Queries -- `packages/data-ops/src/folder-selection/queries.ts`
 
-Update `createFolderSelections` to map: `itemId`, `itemName`, `itemType`, `parentFolderId`, `mimeType`, `sharedDriveId`.
+Update `createFolderSelections` value mapping:
+```ts
+const values = selections.map((s) => ({
+  employeeId,
+  itemId: s.itemId,
+  itemName: s.itemName,
+  itemType: s.itemType,
+  parentFolderId: s.parentFolderId,
+  mimeType: s.mimeType,
+  sharedDriveId: s.sharedDriveId,
+}));
+```
+
+Update `getFolderSelectionsByEmployee` -- no query changes needed (returns all columns).
 
 ## 4. Config Assembly -- `packages/data-ops/src/config/`
 
-**`queries.ts`** -- Update `ConfigAssemblyData.accounts[].folders[]` to include `itemType`, `parentFolderId`, `mimeType` (read from renamed columns).
+**`queries.ts`** -- Update `ConfigAssemblyData.accounts[].folders[]` type:
+```ts
+folders: Array<{
+  itemId: string;      // was folderId
+  itemName: string;    // was folderName
+  shared_drive_name: string | null;
+  itemType: string;    // new
+  parentFolderId: string | null;  // new
+  mimeType: string | null;       // new
+}>;
+```
+Update the `selections.map()` to read from renamed columns: `s.itemId`, `s.itemName`, `s.itemType`, `s.parentFolderId`, `s.mimeType`.
 
 **`schema.ts`** -- Update `ConfigJsonSchema.accounts[].folders[]`:
-```
-{ id, name, shared_drive_name, type: enum("folder","file").default("folder"), parentId: string|null, mimeType: string|null }
+```ts
+z.object({
+  id: z.string(),
+  name: z.string(),
+  shared_drive_name: z.string().nullable(),
+  type: z.enum(["folder", "file"]).default("folder"),
+  parentId: z.string().nullable().optional(),
+  mimeType: z.string().nullable().optional(),
+})
 ```
 
 ## 5. API Service -- `apps/data-service/src/hono/services/folder-service.ts`
 
 **`listDriveItems(employeeId, parentId, pageToken, env)`** (rename from `listDriveFolders`):
-- Query: `'${parentId}' in parents and trashed = false` (remove mimeType filter)
-- Fields: `files(id,name,mimeType,size)`, pageSize 200
-- Sort: folders first, then files, alphabetical
+- Signature adds `parentId: string` (default `"root"`) and `pageToken: string | undefined`
+- Query: `'${parentId}' in parents and trashed = false` (remove `mimeType = 'application/vnd.google-apps.folder'` filter)
+- Fields: `files(id,name,mimeType,size),nextPageToken`, pageSize 200
+- Add `pageToken` to URLSearchParams if provided
+- Sort: folders first, then files, alphabetical within each group
 - Derive `type` from `mimeType === "application/vnd.google-apps.folder"`
-- `size`: Google returns `size` as string for non-native files, null for native Google Docs (`application/vnd.google-apps.*`)
+- `size`: Google returns `size` as string for non-native files, absent for native Google Docs (`application/vnd.google-apps.*`). Parse to number, default null.
 - Return `{ items: DriveItem[], nextPageToken: string | null }`
 - No auto-suggestion — employee picks shared drive manually
 
-Keep status update logic (mark `in_progress` on first call).
+Keep status update logic (mark `in_progress` on first call -- currently checks `employee.selectionStatus === "pending"`).
 
-**`saveSelections`** -- No logic change, just updated types from schema.
+**`saveSelections`** -- No logic change, just updated types from schema (fields renamed).
+
+**Import changes**: `DriveFolder` -> `DriveItem`, `FolderSelectionCreateInput` stays same name but has new fields.
 
 ## 6. API Handler -- `apps/data-service/src/hono/handlers/folder-handlers.ts`
 
-- `GET /drive/:employeeId` -> add `zValidator("query", DriveItemListQuerySchema)`, pass `parentId`/`pageToken` to service
-- `POST /selections` -> uses updated `FolderSelectionBulkCreateRequestSchema`
+- `GET /drive/:employeeId` -> add `zValidator("query", DriveItemListQuerySchema)`, pass `parentId`/`pageToken` to `folderService.listDriveItems(employeeId, parentId, pageToken, c.env)`
+- `POST /selections` -> no handler changes needed, `FolderSelectionBulkCreateRequestSchema` schema update propagates automatically
 
 ## 7. Config Service -- `apps/data-service/src/hono/services/config-service.ts`
 
-Update `buildConfigJson` folder mapping:
+Update `buildConfigJson` folder mapping (line ~53-56):
 ```ts
-{ id: f.itemId, name: f.itemName, shared_drive_name: f.sharedDriveName, type: f.itemType, parentId: f.parentFolderId, mimeType: f.mimeType }
+folders: account.folders.map((f) => ({
+  id: f.itemId,
+  name: f.itemName,
+  shared_drive_name: f.shared_drive_name,
+  type: f.itemType,
+  parentId: f.parentFolderId,
+  mimeType: f.mimeType,
+})),
 ```
 
 ## 8. Frontend -- Split `$token.tsx` into components
 
-Current file is ~450 lines; navigator adds ~200. Split:
+Current file is ~464 lines; navigator adds ~200. Split:
 
 ### `apps/user-application/src/components/employee/drive-navigator.tsx` (NEW, ~250 lines)
 
@@ -106,15 +178,17 @@ Core browsing component:
 
 ### `apps/user-application/src/components/employee/confirm-step.tsx` (EXTRACTED)
 
-Move `ConfirmStep` from `$token.tsx`. Update payload to include `itemType`, `parentFolderId`, `mimeType`. Group by shared drive name dynamically.
+Move `ConfirmStep` from `$token.tsx`. Update payload to include `itemType`, `parentFolderId`, `mimeType`. Update field names in POST body: `itemId` (was `folderId`), `itemName` (was `folderName`). Group by shared drive name dynamically (current grouping logic in `ConfirmStep` already does this via `driveIdToName` map).
 
 ### Update `apps/user-application/src/routes/employee/$token.tsx`
 
 - Import new components
-- **Revised 3-step flow**: OAuth -> Browse & Select -> Confirm
-- State: `selections: SelectedItem[]` instead of `folders: FolderWithCategory[]`
-- Pass `sharedDrives` from verification response (doc 003§4f) to `DriveNavigator`
-- Update trust panel text: "Nazwy folderow i plikow na poziomach, ktore przegladasz" / "Tresci plikow"
+- **Revised 3-step flow**: OAuth -> Browse & Select -> Confirm (collapse current steps 2+3 into one navigator step)
+- State: `selections: SelectedItem[]` instead of `folders: FolderWithDrive[]`
+- Remove `FolderListStep` and `DriveAssignmentStep` inline components (replaced by `DriveNavigator`)
+- Pass `sharedDrives` from verification response (`verifyEmployeeToken` returns `{ employeeId, deploymentId, sharedDrives }`) to `DriveNavigator`
+- Update trust panel text: "Nazwy folderow i plikow na poziomach, ktore przegladasz" (was "Nazwy folderow najwyzszego poziomu") / "Tresci plikow" (keep)
+- Update step progress bar from 4 steps to 3
 
 **Interface**:
 ```ts
@@ -131,31 +205,37 @@ interface SelectedItem {
 
 ## 9. CLI -- `apps/cli/lib/backup.sh`
 
-In `sync_gdrive_to_local()` loop, add type check:
+In `sync_gdrive_to_local()` loop (line ~52-97), add type check after reading folder fields:
 ```bash
 item_type=$(echo "$folders_json" | jq -r ".[$f].type // \"folder\"")
+parent_id=$(echo "$folders_json" | jq -r ".[$f].parentId // empty")
 ```
 
-- `type: "folder"` -> unchanged `rclone sync` with `--drive-root-folder-id`
-- `type: "file"` -> `rclone copy` with `--drive-root-folder-id "$parent_id" --include "/$file_name"`
+- `type: "folder"` -> unchanged `rclone sync` with `--drive-root-folder-id "$folder_id"`
+- `type: "file"` -> `rclone copy` with `--drive-root-folder-id "$parent_id" --include "/$folder_name"` (uses `folder_name` var which holds item name)
 
-Target dir for files: `${backup_root}/${sanitized_email}/${shared_drive_name}/_files/${file_name}`
+Target dir for files: `${backup_root}/${sanitized_email}/${shared_drive_name}/_files/${folder_name}`
 
 **Google Docs handling**: Native Google Docs (mimeType `application/vnd.google-apps.*`) have no extension in Drive. rclone's `--include` matches the source name (no extension), then `--drive-export-formats "docx,xlsx,pptx,pdf"` handles export. The `--include "/My Document"` will match the source name and rclone exports as `My Document.docx`. No special handling needed -- same `--drive-export-formats` flag used for both folder and file syncs.
 
 ## 10. CLI -- `apps/cli/lib/migration.sh`
 
-Same pattern in `cmd_migrate()` loop:
-- Folders: unchanged rclone copy
-- Files: `rclone copy "${remote_name},drive_root_folder_id=${parent_id}:" "$target_path" --include "/${file_name}"`
+Same pattern in `cmd_migrate()` inner loop (line ~98-141):
+```bash
+item_type=$(echo "$folders_json" | jq -r ".[$f].type // \"folder\"")
+parent_id=$(echo "$folders_json" | jq -r ".[$f].parentId // empty")
+```
 
-Target path for files: `${WORKSPACE_REMOTE},team_drive=${target_drive_id}:${name}/_files/${file_name}`
+- Folders: unchanged `rclone copy "${remote_name},drive_root_folder_id=${folder_id}:" "$target_path"`
+- Files: `rclone copy "${remote_name},drive_root_folder_id=${parent_id}:" "$target_path" --include "/${folder_name}"`
+
+Target path for files: `${WORKSPACE_REMOTE},team_drive=${target_drive_id}:${name}/_files/${folder_name}`
 
 Same Google Docs export handling applies -- `--drive-export-formats` works identically for file-level copies.
 
 ## 11. CLI -- `apps/cli/lib/config.sh`
 
-No changes needed -- `cfg_account_folders` returns raw JSON, callers already read individual fields via jq.
+No changes needed -- `cfg_account_folders` (line 82-85) returns raw JSON via `cfg_raw`, callers already read individual fields via jq. New fields (`type`, `parentId`, `mimeType`) become available automatically.
 
 ---
 
@@ -169,7 +249,7 @@ No changes needed -- `cfg_account_folders` returns raw JSON, callers already rea
 
 ## Verification
 
-1. `pnpm run drizzle:dev:generate` -- verify migration SQL looks correct
+1. `pnpm run drizzle:dev:generate` -- verify migration SQL has column renames + new columns
 2. `pnpm run drizzle:dev:migrate` -- apply
 3. `pnpm --filter @repo/data-ops build` -- confirm types compile
 4. `pnpm run dev:data-service` + `pnpm run dev:user-application`
@@ -189,3 +269,4 @@ No changes needed -- `cfg_account_folders` returns raw JSON, callers already rea
 - Auto-suggestion dropped -- employees pick shared drives manually from dropdown
 - File size shown in navigator when Google API provides it (null for native Google Docs)
 - Loading state: spinner inside folder content area while fetching items
+

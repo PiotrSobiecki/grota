@@ -1,5 +1,4 @@
 import { relations } from "drizzle-orm/relations";
-import { deploymentDepartments, employeeDepartments } from "../department/table";
 import { deployments } from "../deployment/table";
 import { employees } from "../employee/table";
 import { folderSelections } from "../folder-selection/table";
@@ -12,7 +11,6 @@ export const deploymentRelations = relations(deployments, ({ one, many }) => ({
 		references: [auth_user.id],
 	}),
 	employees: many(employees),
-	departments: many(deploymentDepartments),
 	sharedDrives: many(sharedDrives),
 }));
 
@@ -21,7 +19,6 @@ export const employeeRelations = relations(employees, ({ one, many }) => ({
 		fields: [employees.deploymentId],
 		references: [deployments.id],
 	}),
-	employeeDepartments: many(employeeDepartments),
 	folderSelections: many(folderSelections),
 }));
 
@@ -42,23 +39,4 @@ export const sharedDriveRelations = relations(sharedDrives, ({ one, many }) => (
 		references: [deployments.id],
 	}),
 	folderSelections: many(folderSelections),
-}));
-
-export const deploymentDepartmentRelations = relations(deploymentDepartments, ({ one, many }) => ({
-	deployment: one(deployments, {
-		fields: [deploymentDepartments.deploymentId],
-		references: [deployments.id],
-	}),
-	employeeDepartments: many(employeeDepartments),
-}));
-
-export const employeeDepartmentRelations = relations(employeeDepartments, ({ one }) => ({
-	employee: one(employees, {
-		fields: [employeeDepartments.employeeId],
-		references: [employees.id],
-	}),
-	department: one(deploymentDepartments, {
-		fields: [employeeDepartments.departmentId],
-		references: [deploymentDepartments.id],
-	}),
 }));

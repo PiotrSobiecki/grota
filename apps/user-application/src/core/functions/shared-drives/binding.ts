@@ -26,7 +26,6 @@ export const saveSharedDrives = createServerFn({ method: "POST" })
 			drives: z.array(
 				z.object({
 					name: z.string().min(1),
-					retentionDays: z.number().int().positive().nullable().optional(),
 				}),
 			),
 		}),
@@ -60,7 +59,6 @@ export const createAndSaveSharedDrives = createServerFn({ method: "POST" })
 			drives: z.array(
 				z.object({
 					name: z.string().min(1),
-					retentionDays: z.number().int().positive().nullable().optional(),
 				}),
 			),
 		}),

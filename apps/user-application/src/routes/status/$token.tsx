@@ -97,7 +97,6 @@ interface EmployeeStatusRowProps {
 		email: string;
 		oauthStatus: string;
 		magicLinkSentAt: string | null;
-		departments: Array<{ id: string; name: string; slug: string }>;
 	};
 }
 
@@ -119,14 +118,11 @@ function EmployeeStatusRow({ employee }: EmployeeStatusRowProps) {
 		return Date.now() - sentAt < RATE_LIMIT_MS;
 	})();
 
-	const deptNames = employee.departments.map((d) => d.name).join(", ");
-
 	return (
 		<div className="flex items-center justify-between rounded-md border border-border p-3">
 			<div className="space-y-1">
 				<p className="text-sm font-medium text-foreground">{employee.name}</p>
 				<p className="text-xs text-muted-foreground">{employee.email}</p>
-				{deptNames && <p className="text-xs text-muted-foreground">{deptNames}</p>}
 			</div>
 			<div className="flex items-center gap-3">
 				<Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>

@@ -186,7 +186,7 @@ cmd_backup_account() {
   check_disk_space "$backup_root" 10 || exit 5
 
   # -- Step 2: Drive -> Local
-  log_info "Step 1/3: Google Drive -> Local"
+  log_info "Step 1/2: Google Drive -> Local"
   local rc=0
   sync_gdrive_to_local "$idx" || rc=$?
 
@@ -200,13 +200,13 @@ cmd_backup_account() {
 
   local drive_status=$rc
 
-  # -- Step 3: Local -> B2 (optional)
+  # -- Step 2: Local -> B2 (optional)
   local b2_rc=0
   local b2_prefix
   b2_prefix=$(cfg_b2_prefix)
 
   if [[ -n "$b2_prefix" ]]; then
-    log_info "Step 2/3: Local -> B2"
+    log_info "Step 2/2: Local -> B2"
     sync_local_to_b2 "$idx" || b2_rc=$?
 
     if (( b2_rc != 0 && b2_rc != 7 )); then
@@ -214,26 +214,8 @@ cmd_backup_account() {
       exit 1
     fi
 
-    # Per-drive retention cleanup
-    log_info "Step 3/3: Local retention cleanup"
-    local drive_name retention_days
-    while IFS= read -r drive_name; do
-      [[ -n "$drive_name" ]] || continue
-      retention_days=$(cfg_shared_drive_retention "$drive_name")
-      if [[ -n "$retention_days" && "$retention_days" != "null" ]]; then
-        local drive_dir="${backup_root}/${sanitized_email}/${drive_name}"
-        if [[ -d "$drive_dir" ]]; then
-          local old_count
-          old_count=$(find "$drive_dir" -type f -mtime +"${retention_days}" | wc -l)
-          if (( old_count > 0 )); then
-            log_info "  Cleaning $old_count files older than ${retention_days}d from $drive_dir"
-            find "$drive_dir" -type f -mtime +"${retention_days}" -delete
-          fi
-        fi
-      fi
-    done < <(cfg_shared_drive_names)
   else
-    log_info "Step 2/3: B2 not configured, skipping remote sync (local-only backup)"
+    log_info "Step 2/2: B2 not configured, skipping remote sync (local-only backup)"
   fi
 
   # Clean old version dirs (>30d)

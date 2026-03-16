@@ -1,4 +1,3 @@
-import type { Department } from "@repo/data-ops/department";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
@@ -19,7 +18,6 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { getDepartments } from "@/core/functions/departments/binding";
 import { bulkCreateEmployees, getEmployeesByDeployment } from "@/core/functions/employees/binding";
 import { verifyAdminToken } from "@/core/functions/magic-links/binding";
 import {
@@ -27,7 +25,6 @@ import {
 	getSharedDrives,
 	saveSharedDrives,
 } from "@/core/functions/shared-drives/binding";
-import { cn } from "@/lib/utils";
 
 interface OnboardSearchParams {
 	step?: number;
@@ -121,7 +118,6 @@ function OnboardingWizard() {
 				{currentStep === 4 && (
 					<SharedDriveStep
 						deploymentId={loaderData.deploymentId}
-						clientName={loaderData.clientName}
 						locked={isLocked}
 						onNext={() => goTo(5)}
 						onBack={() => goTo(3)}
@@ -142,18 +138,15 @@ function OnboardingWizard() {
 
 interface DriveRow {
 	name: string;
-	retentionDays: string;
 }
 
 function SharedDriveStep({
 	deploymentId,
-	clientName,
 	locked,
 	onNext,
 	onBack,
 }: {
 	deploymentId: string;
-	clientName: string;
 	locked: boolean;
 	onNext: () => void;
 	onBack: () => void;
@@ -166,7 +159,7 @@ function SharedDriveStep({
 	const [failures, setFailures] = useState<Array<{ name: string; error: string }>>([]);
 
 	const createMutation = useMutation({
-		mutationFn: (drives: Array<{ name: string; retentionDays?: number | null }>) =>
+		mutationFn: (drives: Array<{ name: string }>) =>
 			createAndSaveSharedDrives({ data: { deploymentId, drives } }),
 		onSuccess: (result) => {
 			setFailures(result.failures);
@@ -182,7 +175,7 @@ function SharedDriveStep({
 	});
 
 	const saveMutation = useMutation({
-		mutationFn: (drives: Array<{ name: string; retentionDays?: number | null }>) =>
+		mutationFn: (drives: Array<{ name: string }>) =>
 			saveSharedDrives({ data: { deploymentId, drives } }),
 		onSuccess: () => {
 			query.refetch();
@@ -199,25 +192,15 @@ function SharedDriveStep({
 
 	const defaultRows: DriveRow[] =
 		currentDrives.length > 0
-			? currentDrives.map((d) => ({
-					name: d.name,
-					retentionDays: d.retentionDays != null ? String(d.retentionDays) : "",
-				}))
-			: [
-					{ name: `${clientName}-Dokumenty`, retentionDays: "" },
-					{ name: `${clientName}-Projekty`, retentionDays: "" },
-					{ name: `${clientName}-Media`, retentionDays: "90" },
-				];
+			? currentDrives.map((d) => ({ name: d.name }))
+			: [{ name: "Dokumenty" }, { name: "Media" }];
 
 	const form = useForm({
 		defaultValues: { drives: defaultRows },
 		onSubmit: async ({ value }) => {
 			const drives = value.drives
 				.filter((d) => d.name.trim())
-				.map((d) => ({
-					name: d.name.trim(),
-					retentionDays: d.retentionDays ? Number(d.retentionDays) : null,
-				}));
+				.map((d) => ({ name: d.name.trim() }));
 			if (drives.length === 0) return;
 			setFailures([]);
 			mutation.reset();
@@ -275,10 +258,10 @@ function SharedDriveStep({
 									{arrayField.state.value.map((_, i) => (
 										<div
 											key={`drive-${i.toString()}`}
-											className="rounded-md border border-border p-3 space-y-2"
+											className="rounded-md border border-border p-3"
 										>
 											<div className="flex items-start gap-2">
-												<div className="flex-1 space-y-2">
+												<div className="flex-1">
 													<form.Field
 														name={`drives[${i}].name`}
 														validators={{
@@ -303,19 +286,6 @@ function SharedDriveStep({
 															</div>
 														)}
 													</form.Field>
-													<form.Field name={`drives[${i}].retentionDays`}>
-														{(field) => (
-															<Input
-																type="number"
-																placeholder="Retencja (dni, puste = bez limitu)"
-																value={field.state.value}
-																onChange={(e) => field.handleChange(e.target.value)}
-																onBlur={field.handleBlur}
-																disabled={locked}
-																min={1}
-															/>
-														)}
-													</form.Field>
 												</div>
 												{!locked && arrayField.state.value.length > 1 && (
 													<Button
@@ -337,7 +307,7 @@ function SharedDriveStep({
 										<Button
 											type="button"
 											variant="outline"
-											onClick={() => arrayField.pushValue({ name: "", retentionDays: "" })}
+											onClick={() => arrayField.pushValue({ name: "" })}
 											className="w-full"
 										>
 											<Plus className="mr-2 h-4 w-4" />
@@ -626,21 +596,9 @@ function CompletedView({ deploymentId, locked, onAddMore }: CompletedViewProps) 
 						</p>
 						<div className="rounded-md border border-border divide-y divide-border">
 							{employees.map((emp) => (
-								<div key={emp.id} className="flex items-center justify-between px-3 py-2">
-									<div>
-										<p className="text-sm text-foreground">{emp.email}</p>
-										{emp.name && <p className="text-xs text-muted-foreground">{emp.name}</p>}
-									</div>
-									<div className="flex gap-1">
-										{emp.departments.map((d) => (
-											<span
-												key={d.id}
-												className="rounded-md border border-border px-2 py-0.5 text-xs text-muted-foreground"
-											>
-												{d.name}
-											</span>
-										))}
-									</div>
+								<div key={emp.id} className="px-3 py-2">
+									<p className="text-sm text-foreground">{emp.email}</p>
+									{emp.name && <p className="text-xs text-muted-foreground">{emp.name}</p>}
 								</div>
 							))}
 						</div>
@@ -666,7 +624,6 @@ function CompletedView({ deploymentId, locked, onAddMore }: CompletedViewProps) 
 interface EmployeeRow {
 	email: string;
 	name: string;
-	departmentIds: string[];
 }
 
 interface EmployeeListStepProps {
@@ -677,17 +634,11 @@ interface EmployeeListStepProps {
 }
 
 function EmployeeListStep({ deploymentId, locked, onBack, onSummary }: EmployeeListStepProps) {
-	const departmentsQuery = useQuery({
-		queryKey: ["departments", deploymentId],
-		queryFn: () => getDepartments({ data: { deploymentId } }),
-	});
-
 	const existingQuery = useQuery({
 		queryKey: ["employees", deploymentId],
 		queryFn: () => getEmployeesByDeployment({ data: { deploymentId } }),
 	});
 
-	const departments = departmentsQuery.data?.data ?? [];
 	const existingEmployees = existingQuery.data?.data ?? [];
 
 	const mutation = useMutation({
@@ -699,7 +650,7 @@ function EmployeeListStep({ deploymentId, locked, onBack, onSummary }: EmployeeL
 
 	const form = useForm({
 		defaultValues: {
-			employees: [{ email: "", name: "", departmentIds: [] as string[] }] as EmployeeRow[],
+			employees: [{ email: "", name: "" }] as EmployeeRow[],
 		},
 		onSubmit: async ({ value }) => {
 			mutation.reset();
@@ -733,22 +684,6 @@ function EmployeeListStep({ deploymentId, locked, onBack, onSummary }: EmployeeL
 		);
 	}
 
-	if (departmentsQuery.isPending) {
-		return (
-			<Card>
-				<CardHeader>
-					<CardTitle>Krok 5: Lista pracownikow</CardTitle>
-				</CardHeader>
-				<CardContent>
-					<div className="flex items-center gap-2 text-muted-foreground">
-						<Loader2 className="h-4 w-4 animate-spin" />
-						Ladowanie dzialow...
-					</div>
-				</CardContent>
-			</Card>
-		);
-	}
-
 	return (
 		<Card>
 			<CardHeader>
@@ -762,21 +697,9 @@ function EmployeeListStep({ deploymentId, locked, onBack, onSummary }: EmployeeL
 						</p>
 						<div className="rounded-md border border-border divide-y divide-border">
 							{existingEmployees.map((emp) => (
-								<div key={emp.id} className="flex items-center justify-between px-3 py-2">
-									<div>
-										<p className="text-sm text-foreground">{emp.email}</p>
-										{emp.name && <p className="text-xs text-muted-foreground">{emp.name}</p>}
-									</div>
-									<div className="flex gap-1">
-										{emp.departments.map((d) => (
-											<span
-												key={d.id}
-												className="rounded-md border border-border px-2 py-0.5 text-xs text-muted-foreground"
-											>
-												{d.name}
-											</span>
-										))}
-									</div>
+								<div key={emp.id} className="px-3 py-2">
+									<p className="text-sm text-foreground">{emp.email}</p>
+									{emp.name && <p className="text-xs text-muted-foreground">{emp.name}</p>}
 								</div>
 							))}
 						</div>
@@ -809,10 +732,10 @@ function EmployeeListStep({ deploymentId, locked, onBack, onSummary }: EmployeeL
 										{arrayField.state.value.map((_, i) => (
 											<div
 												key={`employee-${i.toString()}`}
-												className="rounded-md border border-border p-3 space-y-2"
+												className="rounded-md border border-border p-3"
 											>
 												<div className="flex items-start gap-2">
-													<div className="flex-1 space-y-2">
+													<div className="flex-1">
 														<div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
 															<form.Field
 																name={`employees[${i}].email`}
@@ -854,31 +777,6 @@ function EmployeeListStep({ deploymentId, locked, onBack, onSummary }: EmployeeL
 																)}
 															</form.Field>
 														</div>
-
-														<form.Field
-															name={`employees[${i}].departmentIds`}
-															validators={{
-																onChange: ({ value }: { value: string[] }) =>
-																	value.length === 0
-																		? "Wybierz przynajmniej jeden dzial"
-																		: undefined,
-															}}
-														>
-															{(field) => (
-																<div>
-																	<DepartmentMultiSelect
-																		departments={departments}
-																		selectedIds={field.state.value}
-																		onChange={(ids) => field.handleChange(ids)}
-																	/>
-																	{field.state.meta.errors.length > 0 && (
-																		<p className="mt-1 text-xs text-destructive">
-																			{field.state.meta.errors[0]}
-																		</p>
-																	)}
-																</div>
-															)}
-														</form.Field>
 													</div>
 
 													{arrayField.state.value.length > 1 && (
@@ -904,7 +802,6 @@ function EmployeeListStep({ deploymentId, locked, onBack, onSummary }: EmployeeL
 												arrayField.pushValue({
 													email: "",
 													name: "",
-													departmentIds: [],
 												})
 											}
 											className="w-full"
@@ -951,48 +848,5 @@ function EmployeeListStep({ deploymentId, locked, onBack, onSummary }: EmployeeL
 				)}
 			</CardContent>
 		</Card>
-	);
-}
-
-interface DepartmentMultiSelectProps {
-	departments: Department[];
-	selectedIds: string[];
-	onChange: (ids: string[]) => void;
-}
-
-function DepartmentMultiSelect({ departments, selectedIds, onChange }: DepartmentMultiSelectProps) {
-	const toggleDepartment = (id: string) => {
-		if (selectedIds.includes(id)) {
-			onChange(selectedIds.filter((sid) => sid !== id));
-		} else {
-			onChange([...selectedIds, id]);
-		}
-	};
-
-	if (departments.length === 0) {
-		return <p className="text-sm text-muted-foreground">Brak dzialow</p>;
-	}
-
-	return (
-		<div className="flex flex-wrap gap-2">
-			{departments.map((dept) => {
-				const selected = selectedIds.includes(dept.id);
-				return (
-					<button
-						key={dept.id}
-						type="button"
-						onClick={() => toggleDepartment(dept.id)}
-						className={cn(
-							"rounded-md border px-3 py-1.5 text-sm transition-colors",
-							selected
-								? "border-primary bg-primary/10 text-primary font-medium"
-								: "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground",
-						)}
-					>
-						{dept.name}
-					</button>
-				);
-			})}
-		</div>
 	);
 }

@@ -6,9 +6,9 @@
 	"workspace": {
 		"oauth_refresh_token": "test-workspace-refresh-token",
 		"shared_drives": [
-			{ "name": "TestFirma-Dokumenty", "retention_days": null },
-			{ "name": "TestFirma-Projekty", "retention_days": null },
-			{ "name": "TestFirma-Media", "retention_days": 90 }
+			{ "name": "TestFirma-Dokumenty" },
+			{ "name": "TestFirma-Projekty" },
+			{ "name": "TestFirma-Media" }
 		]
 	},
 	"accounts": [

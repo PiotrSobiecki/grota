@@ -49,7 +49,6 @@ export const EmployeeTokenParamSchema = z.object({
 export const EmployeeCreateRequestSchema = z.object({
 	email: z.string().email("Nieprawidlowy format email"),
 	name: z.string().max(100, "Maksymalnie 100 znakow").optional().default(""),
-	departmentIds: z.array(z.string().uuid()).min(1, "Przynajmniej jeden dzial wymagany"),
 });
 
 export const EmployeeBulkCreateRequestSchema = z.object({
