@@ -85,13 +85,11 @@ clean_rclone_conf() {
   local conf="$1"
   [[ -f "$conf" ]] || return 0
 
-  if grep -q 'gdrive_\|b2_dokumenty\|b2_projekty\|b2_media\|workspace_drive' "$conf" 2>/dev/null; then
+  if grep -q 'gdrive_\|b2_\|workspace_drive' "$conf" 2>/dev/null; then
     echo "  Cleaning grota remotes from ${conf}..."
     # Remove [gdrive_*], [b2_*], [workspace_drive] sections
     sed -i '/^\[gdrive_/,/^\[/{ /^\[gdrive_/d; /^\[/!d; }' "$conf"
-    sed -i '/^\[b2_dokumenty\]/,/^\[/{ /^\[b2_dokumenty\]/d; /^\[/!d; }' "$conf"
-    sed -i '/^\[b2_projekty\]/,/^\[/{ /^\[b2_projekty\]/d; /^\[/!d; }' "$conf"
-    sed -i '/^\[b2_media\]/,/^\[/{ /^\[b2_media\]/d; /^\[/!d; }' "$conf"
+    sed -i '/^\[b2_/,/^\[/{ /^\[b2_/d; /^\[/!d; }' "$conf"
     sed -i '/^\[workspace_drive\]/,/^\[/{ /^\[workspace_drive\]/d; /^\[/!d; }' "$conf"
     # Remove empty lines left behind
     sed -i '/^$/N;/^\n$/d' "$conf"
@@ -137,6 +135,4 @@ echo "=== Uninstall complete ==="
 echo ""
 echo "Note: B2 (Backblaze) buckets still contain synced data."
 echo "  Delete manually via B2 dashboard or:"
-echo "  rclone purge b2_dokumenty:<bucket>"
-echo "  rclone purge b2_projekty:<bucket>"
-echo "  rclone purge b2_media:<bucket>"
+echo "  rclone purge b2_<drive_name>:<bucket>"

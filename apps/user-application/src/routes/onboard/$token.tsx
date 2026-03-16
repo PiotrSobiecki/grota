@@ -140,13 +140,10 @@ function OnboardingWizard() {
 	);
 }
 
-const SHARED_DRIVE_CATEGORIES = ["dokumenty", "projekty", "media"] as const;
-
-const SHARED_DRIVE_CATEGORY_LABELS: Record<string, string> = {
-	dokumenty: "Dokumenty",
-	projekty: "Projekty",
-	media: "Media",
-};
+interface DriveRow {
+	name: string;
+	retentionDays: string;
+}
 
 function SharedDriveStep({
 	deploymentId,
@@ -169,7 +166,7 @@ function SharedDriveStep({
 	const [failures, setFailures] = useState<Array<{ name: string; error: string }>>([]);
 
 	const createMutation = useMutation({
-		mutationFn: (drives: Array<{ name: string; category: "dokumenty" | "projekty" | "media" }>) =>
+		mutationFn: (drives: Array<{ name: string; retentionDays?: number | null }>) =>
 			createAndSaveSharedDrives({ data: { deploymentId, drives } }),
 		onSuccess: (result) => {
 			setFailures(result.failures);
@@ -185,7 +182,7 @@ function SharedDriveStep({
 	});
 
 	const saveMutation = useMutation({
-		mutationFn: (drives: Array<{ name: string; category: "dokumenty" | "projekty" | "media" }>) =>
+		mutationFn: (drives: Array<{ name: string; retentionDays?: number | null }>) =>
 			saveSharedDrives({ data: { deploymentId, drives } }),
 		onSuccess: () => {
 			query.refetch();
@@ -200,21 +197,28 @@ function SharedDriveStep({
 	const mutation = hasExistingDrives ? saveMutation : createMutation;
 	const isPending = createMutation.isPending || saveMutation.isPending;
 
-	const defaultName = (cat: string) => `${clientName}-${SHARED_DRIVE_CATEGORY_LABELS[cat]}`;
+	const defaultRows: DriveRow[] =
+		currentDrives.length > 0
+			? currentDrives.map((d) => ({
+					name: d.name,
+					retentionDays: d.retentionDays != null ? String(d.retentionDays) : "",
+				}))
+			: [
+					{ name: `${clientName}-Dokumenty`, retentionDays: "" },
+					{ name: `${clientName}-Projekty`, retentionDays: "" },
+					{ name: `${clientName}-Media`, retentionDays: "90" },
+				];
 
 	const form = useForm({
-		defaultValues: {
-			dokumenty:
-				currentDrives.find((d) => d.category === "dokumenty")?.name ?? defaultName("dokumenty"),
-			projekty:
-				currentDrives.find((d) => d.category === "projekty")?.name ?? defaultName("projekty"),
-			media: currentDrives.find((d) => d.category === "media")?.name ?? defaultName("media"),
-		},
+		defaultValues: { drives: defaultRows },
 		onSubmit: async ({ value }) => {
-			const drives = SHARED_DRIVE_CATEGORIES.filter((cat) => value[cat].trim()).map((cat) => ({
-				name: value[cat].trim(),
-				category: cat,
-			}));
+			const drives = value.drives
+				.filter((d) => d.name.trim())
+				.map((d) => ({
+					name: d.name.trim(),
+					retentionDays: d.retentionDays ? Number(d.retentionDays) : null,
+				}));
+			if (drives.length === 0) return;
 			setFailures([]);
 			mutation.reset();
 			if (hasExistingDrives) {
@@ -265,22 +269,84 @@ function SharedDriveStep({
 						}}
 						className="space-y-3"
 					>
-						{SHARED_DRIVE_CATEGORIES.map((cat) => (
-							<form.Field key={cat} name={cat}>
-								{(field) => (
-									<label className="text-sm font-medium text-foreground">
-										{SHARED_DRIVE_CATEGORY_LABELS[cat]}
-										<Input
-											value={field.state.value}
-											onChange={(e) => field.handleChange(e.target.value)}
-											onBlur={field.handleBlur}
-											placeholder={`np. ${defaultName(cat)}`}
-											disabled={locked}
-										/>
-									</label>
-								)}
-							</form.Field>
-						))}
+						<form.Field name="drives" mode="array">
+							{(arrayField) => (
+								<div className="space-y-3">
+									{arrayField.state.value.map((_, i) => (
+										<div
+											key={`drive-${i.toString()}`}
+											className="rounded-md border border-border p-3 space-y-2"
+										>
+											<div className="flex items-start gap-2">
+												<div className="flex-1 space-y-2">
+													<form.Field
+														name={`drives[${i}].name`}
+														validators={{
+															onChange: ({ value }: { value: string }) =>
+																!value.trim() ? "Nazwa jest wymagana" : undefined,
+														}}
+													>
+														{(field) => (
+															<div>
+																<Input
+																	placeholder="Nazwa dysku"
+																	value={field.state.value}
+																	onChange={(e) => field.handleChange(e.target.value)}
+																	onBlur={field.handleBlur}
+																	disabled={locked}
+																/>
+																{field.state.meta.errors.length > 0 && (
+																	<p className="mt-1 text-xs text-destructive">
+																		{field.state.meta.errors[0]}
+																	</p>
+																)}
+															</div>
+														)}
+													</form.Field>
+													<form.Field name={`drives[${i}].retentionDays`}>
+														{(field) => (
+															<Input
+																type="number"
+																placeholder="Retencja (dni, puste = bez limitu)"
+																value={field.state.value}
+																onChange={(e) => field.handleChange(e.target.value)}
+																onBlur={field.handleBlur}
+																disabled={locked}
+																min={1}
+															/>
+														)}
+													</form.Field>
+												</div>
+												{!locked && arrayField.state.value.length > 1 && (
+													<Button
+														type="button"
+														variant="ghost"
+														size="icon"
+														onClick={() => arrayField.removeValue(i)}
+														className="mt-0 shrink-0"
+														title="Usun dysk"
+													>
+														<Trash2 className="h-4 w-4 text-muted-foreground" />
+													</Button>
+												)}
+											</div>
+										</div>
+									))}
+
+									{!locked && (
+										<Button
+											type="button"
+											variant="outline"
+											onClick={() => arrayField.pushValue({ name: "", retentionDays: "" })}
+											className="w-full"
+										>
+											<Plus className="mr-2 h-4 w-4" />
+											Dodaj dysk
+										</Button>
+									)}
+								</div>
+							)}
+						</form.Field>
 
 						<div className="flex gap-2 pt-2">
 							<Button type="button" variant="outline" onClick={onBack}>

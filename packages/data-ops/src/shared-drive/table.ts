@@ -1,6 +1,5 @@
-import { pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import { integer, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 import { deployments } from "../deployment/table";
-import { folderCategoryEnum } from "../folder-selection/table";
 
 export const sharedDrives = pgTable(
 	"shared_drives",
@@ -10,9 +9,9 @@ export const sharedDrives = pgTable(
 			.notNull()
 			.references(() => deployments.id, { onDelete: "cascade" }),
 		name: text("name").notNull(),
-		category: folderCategoryEnum("category").notNull(),
+		retentionDays: integer("retention_days"),
 		googleDriveId: text("google_drive_id"),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 	},
-	(t) => [unique().on(t.deploymentId, t.category)],
+	(t) => [unique().on(t.deploymentId, t.name)],
 );

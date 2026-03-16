@@ -25,10 +25,15 @@ export interface ConfigAssemblyData {
 		folders: Array<{
 			folderId: string;
 			folderName: string;
-			category: string;
+			shared_drive_name: string | null;
 		}>;
 	}>;
-	sharedDrives: Array<{ name: string; category: string; googleDriveId: string | null }>;
+	sharedDrives: Array<{
+		id: string;
+		name: string;
+		retentionDays: number | null;
+		googleDriveId: string | null;
+	}>;
 }
 
 export async function getConfigAssemblyData(
@@ -47,6 +52,11 @@ export async function getConfigAssemblyData(
 		.select()
 		.from(sharedDrives)
 		.where(eq(sharedDrives.deploymentId, deploymentId));
+
+	const driveIdToName = new Map<string, string>();
+	for (const sd of sharedDriveRows) {
+		driveIdToName.set(sd.id, sd.name);
+	}
 
 	const employeeList = await db
 		.select()
@@ -68,7 +78,7 @@ export async function getConfigAssemblyData(
 				folders: selections.map((s) => ({
 					folderId: s.folderId,
 					folderName: s.folderName,
-					category: s.category,
+					shared_drive_name: s.sharedDriveId ? (driveIdToName.get(s.sharedDriveId) ?? null) : null,
 				})),
 			};
 		}),
@@ -87,8 +97,9 @@ export async function getConfigAssemblyData(
 		},
 		accounts,
 		sharedDrives: sharedDriveRows.map((sd) => ({
+			id: sd.id,
 			name: sd.name,
-			category: sd.category,
+			retentionDays: sd.retentionDays,
 			googleDriveId: sd.googleDriveId,
 		})),
 	};

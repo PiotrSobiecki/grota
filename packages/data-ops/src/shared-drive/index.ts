@@ -6,13 +6,11 @@ export {
 export type {
 	SharedDrive,
 	SharedDriveBulkUpsertInput,
-	SharedDriveCategory,
 	SharedDriveCreateInput,
 	SharedDriveUpsertInput,
 } from "./schema";
 export {
 	SharedDriveBulkUpsertRequestSchema,
-	SharedDriveCategorySchema,
 	SharedDriveCreateRequestSchema,
 	SharedDriveDeploymentParamSchema,
 	SharedDriveListResponseSchema,

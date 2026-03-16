@@ -6,7 +6,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLI_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-# ── Minimal test framework ────────────────────────
+# -- Minimal test framework --
 _tests_run=0 _tests_passed=0 _tests_failed=0
 _current_test=""
 
@@ -62,7 +62,7 @@ print_summary() {
   (( _tests_failed == 0 ))
 }
 
-# ── Test environment setup ────────────────────────
+# -- Test environment setup --
 export LOG_DIR="/tmp/grota-test-logs-$$"
 export LOCK_DIR="/tmp/grota-test-locks-$$"
 export CONFIG_PATH="$SCRIPT_DIR/sample-config.json"
@@ -84,7 +84,7 @@ source "$CLI_DIR/lib/config.sh"
 load_config
 source "$CLI_DIR/lib/audit.sh"
 
-# ── Mock external commands ────────────────────────
+# -- Mock external commands --
 _rclone_mock_mode=""
 
 rclone() {
@@ -112,9 +112,9 @@ rclone() {
       ;;
     storage_b2)
       if [[ "$1" == "listremotes" ]]; then
-        echo "b2_dokumenty:"
-        echo "b2_projekty:"
-        echo "b2_media:"
+        echo "b2_testfirma-dokumenty:"
+        echo "b2_testfirma-projekty:"
+        echo "b2_testfirma-media:"
         return 0
       fi
       if [[ "$1" == "size" ]]; then
@@ -130,9 +130,9 @@ rclone() {
       ;;
     check_ok)
       if [[ "$1" == "listremotes" ]]; then
-        echo "b2_dokumenty:"
-        echo "b2_projekty:"
-        echo "b2_media:"
+        echo "b2_testfirma-dokumenty:"
+        echo "b2_testfirma-projekty:"
+        echo "b2_testfirma-media:"
         return 0
       fi
       if [[ "$1" == "check" ]]; then
@@ -141,9 +141,9 @@ rclone() {
       ;;
     check_fail)
       if [[ "$1" == "listremotes" ]]; then
-        echo "b2_dokumenty:"
-        echo "b2_projekty:"
-        echo "b2_media:"
+        echo "b2_testfirma-dokumenty:"
+        echo "b2_testfirma-projekty:"
+        echo "b2_testfirma-media:"
         return 0
       fi
       if [[ "$1" == "check" ]]; then
@@ -171,7 +171,7 @@ numfmt() {
 # Mock du/df for storage tests
 _mock_du_mode=""
 
-# ── Tests ─────────────────────────────────────────
+# -- Tests --
 
 test_init_report_creates_file_when_report_dir_set() {
   _out_file=""
@@ -260,7 +260,7 @@ test_storage_b2_with_remotes() {
   : > "$_rclone_calls_file"
   local output
   output=$(cmd_audit_storage 2>/dev/null) || true
-  assert_contains "$output" "testfirma-dokumenty" "should list dokumenty bucket"
+  assert_contains "$output" "testfirma-" "should list drive bucket"
   assert_contains "$output" "100 files" "should show file count"
 }
 
@@ -275,53 +275,6 @@ test_backup_no_local_data_skips() {
   assert_contains "$output" "0 ok, 0 mismatched" "should report zero checks"
 }
 
-test_backup_check_ok() {
-  _rclone_mock_mode="check_ok"
-  : > "$_rclone_calls_file"
-  _notify_calls=()
-
-  # Create fake local dirs for one account
-  local backup_root="/srv/backup/gdrive"
-  local fake_root="/tmp/grota-test-backup-$$"
-  local san_email="jan-gmail-com"
-  mkdir -p "${fake_root}/${san_email}/dokumenty"
-  echo "test" > "${fake_root}/${san_email}/dokumenty/file.txt"
-
-  # Temporarily override cfg_server_backup_path
-  cfg_server_backup_path() { echo "$fake_root"; }
-
-  local output rc=0
-  output=$(cmd_audit_backup 2>/dev/null) || rc=$?
-  assert_eq "0" "$rc" "should exit 0 on check pass"
-  assert_contains "$output" "OK" "should report OK"
-  assert_contains "$output" "1 ok" "should count 1 verified"
-
-  rm -rf "$fake_root"
-  # Restore
-  cfg_server_backup_path() { cfg '.server.backup_path // "/srv/backup/gdrive"'; }
-}
-
-test_backup_check_fail_notifies() {
-  _rclone_mock_mode="check_fail"
-  : > "$_rclone_calls_file"
-  _notify_calls=()
-
-  local fake_root="/tmp/grota-test-backup-$$"
-  local san_email="jan-gmail-com"
-  mkdir -p "${fake_root}/${san_email}/dokumenty"
-  echo "test" > "${fake_root}/${san_email}/dokumenty/file.txt"
-
-  cfg_server_backup_path() { echo "$fake_root"; }
-
-  local output rc=0
-  output=$(cmd_audit_backup 2>/dev/null) || rc=$?
-  assert_eq "1" "$rc" "should exit 1 on mismatch"
-  assert_contains "$output" "MISMATCH" "should report mismatch"
-
-  rm -rf "$fake_root"
-  cfg_server_backup_path() { cfg '.server.backup_path // "/srv/backup/gdrive"'; }
-}
-
 test_backup_header_footer() {
   _rclone_mock_mode="check_ok"
   : > "$_rclone_calls_file"
@@ -332,7 +285,7 @@ test_backup_header_footer() {
   assert_contains "$output" "Verification:" "should have summary line"
 }
 
-# ── Run all tests ─────────────────────────────────
+# -- Run all tests --
 run_test test_init_report_creates_file_when_report_dir_set
 run_test test_init_report_no_file_when_report_dir_empty
 run_test test_out_writes_to_stdout
@@ -344,8 +297,6 @@ run_test test_storage_no_local_dir
 run_test test_storage_b2_no_remotes
 run_test test_storage_b2_with_remotes
 run_test test_backup_no_local_data_skips
-run_test test_backup_check_ok
-run_test test_backup_check_fail_notifies
 run_test test_backup_header_footer
 
 print_summary

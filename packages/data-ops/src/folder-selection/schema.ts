@@ -1,12 +1,6 @@
 import { z } from "zod";
 
 // ============================================
-// Enums
-// ============================================
-
-export const FolderCategorySchema = z.enum(["dokumenty", "projekty", "media", "prywatne"]);
-
-// ============================================
 // Domain Model
 // ============================================
 
@@ -15,7 +9,7 @@ export const FolderSelectionSchema = z.object({
 	employeeId: z.string().uuid(),
 	folderId: z.string(),
 	folderName: z.string(),
-	category: FolderCategorySchema,
+	sharedDriveId: z.string().uuid().nullable(),
 	createdAt: z.coerce.date(),
 });
 
@@ -26,7 +20,7 @@ export const FolderSelectionSchema = z.object({
 export const FolderSelectionCreateRequestSchema = z.object({
 	folderId: z.string().min(1, "ID folderu jest wymagane"),
 	folderName: z.string().min(1, "Nazwa folderu jest wymagana"),
-	category: FolderCategorySchema,
+	sharedDriveId: z.string().uuid().nullable(),
 });
 
 export const FolderSelectionBulkCreateRequestSchema = z.object({
@@ -52,7 +46,6 @@ export const DriveFolderSchema = z.object({
 	id: z.string(),
 	name: z.string(),
 	mimeType: z.string(),
-	suggestedCategory: FolderCategorySchema.nullable(),
 });
 
 export const DriveFolderListResponseSchema = z.object({
@@ -63,7 +56,6 @@ export const DriveFolderListResponseSchema = z.object({
 // Types
 // ============================================
 
-export type FolderCategory = z.infer<typeof FolderCategorySchema>;
 export type FolderSelection = z.infer<typeof FolderSelectionSchema>;
 export type FolderSelectionCreateInput = z.infer<typeof FolderSelectionCreateRequestSchema>;
 export type FolderSelectionBulkCreateInput = z.infer<typeof FolderSelectionBulkCreateRequestSchema>;

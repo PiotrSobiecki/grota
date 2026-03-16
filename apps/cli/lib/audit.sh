@@ -22,7 +22,11 @@ _out() {
   [[ -n "$_out_file" ]] && echo "$@" >> "$_out_file" || true
 }
 
-# ── grota audit permissions ────────────────────────
+_sanitize_drive_name() {
+  echo "$1" | tr '[:upper:] ' '[:lower:]_' | tr -cd '[:alnum:]_-'
+}
+
+# -- grota audit permissions --
 cmd_audit_permissions() {
   init_logging "audit-permissions"
   require_cmd rclone jq
@@ -82,7 +86,7 @@ cmd_audit_permissions() {
   fi
 }
 
-# ── grota audit storage ───────────────────────────
+# -- grota audit storage --
 cmd_audit_storage() {
   init_logging "audit-storage"
   require_cmd rclone jq du
@@ -98,7 +102,7 @@ cmd_audit_storage() {
   _out "========================================="
   _out ""
 
-  # ── Local storage ─────────────────────────────────
+  # -- Local storage --
   _out "--- Local Storage ($backup_root) ---"
 
   if [[ -d "$backup_root" ]]; then
@@ -125,14 +129,16 @@ cmd_audit_storage() {
         size_human=$(du -sh "$account_dir" 2>/dev/null | awk '{print $1}')
         total_local=$((total_local + size_bytes))
 
-        for category in dokumenty projekty media; do
-          local cat_dir="${account_dir}/${category}"
-          if [[ -d "$cat_dir" ]]; then
-            local cat_size
-            cat_size=$(du -sh "$cat_dir" 2>/dev/null | awk '{print $1}')
-            _out "  $email / $category: $cat_size"
+        local drive_name
+        while IFS= read -r drive_name; do
+          [[ -n "$drive_name" ]] || continue
+          local drive_dir="${account_dir}/${drive_name}"
+          if [[ -d "$drive_dir" ]]; then
+            local drive_size
+            drive_size=$(du -sh "$drive_dir" 2>/dev/null | awk '{print $1}')
+            _out "  $email / $drive_name: $drive_size"
           fi
-        done
+        done < <(cfg_shared_drive_names)
         _out "  $email TOTAL: $size_human"
       else
         _out "  $email: (no local data)"
@@ -155,12 +161,15 @@ cmd_audit_storage() {
 
   _out ""
 
-  # ── B2 storage ────────────────────────────────────
+  # -- B2 storage --
   _out "--- B2 Storage ---"
 
-  for category in dokumenty projekty media; do
-    local remote_name="b2_${category}"
-    local bucket_name="${bucket_prefix}-${category}"
+  local drive_name sanitized_name
+  while IFS= read -r drive_name; do
+    [[ -n "$drive_name" ]] || continue
+    sanitized_name=$(_sanitize_drive_name "$drive_name")
+    local remote_name="b2_${sanitized_name}"
+    local bucket_name="${bucket_prefix}-${sanitized_name}"
 
     if ! rclone listremotes | grep -q "^${remote_name}:$"; then
       _out "  $bucket_name: (remote not configured)"
@@ -174,7 +183,7 @@ cmd_audit_storage() {
     human=$(echo "$bytes" | numfmt --to=iec 2>/dev/null || echo "${bytes} bytes")
 
     _out "  $bucket_name: $count files, $human"
-  done
+  done < <(cfg_shared_drive_names)
 
   _out ""
   _out "========================================="
@@ -186,7 +195,7 @@ cmd_audit_storage() {
   fi
 }
 
-# ── grota audit backup ────────────────────────────
+# -- grota audit backup --
 cmd_audit_backup() {
   init_logging "audit-backup"
   require_cmd rclone jq
@@ -212,10 +221,14 @@ cmd_audit_backup() {
 
     _out "--- $email ---"
 
-    for category in dokumenty projekty media; do
-      local local_dir="${backup_root}/${sanitized_email}/${category}"
-      local remote_name="b2_${category}"
-      local bucket_name="${bucket_prefix}-${category}"
+    local drive_name sanitized_name
+    while IFS= read -r drive_name; do
+      [[ -n "$drive_name" ]] || continue
+      sanitized_name=$(_sanitize_drive_name "$drive_name")
+
+      local local_dir="${backup_root}/${sanitized_email}/${drive_name}"
+      local remote_name="b2_${sanitized_name}"
+      local bucket_name="${bucket_prefix}-${sanitized_name}"
       local b2_path="${remote_name}:${bucket_name}/${sanitized_email}"
 
       if [[ ! -d "$local_dir" ]]; then
@@ -223,11 +236,11 @@ cmd_audit_backup() {
       fi
 
       if ! rclone listremotes | grep -q "^${remote_name}:$"; then
-        _out "  $category: SKIP (B2 remote not configured)"
+        _out "  $drive_name: SKIP (B2 remote not configured)"
         continue
       fi
 
-      _out "  $category: checking $local_dir vs $b2_path"
+      _out "  $drive_name: checking $local_dir vs $b2_path"
 
       local check_output rc=0
       check_output=$(mktemp)
@@ -240,12 +253,12 @@ cmd_audit_backup() {
         || rc=$?
 
       if (( rc == 0 )); then
-        _out "  $category: OK"
+        _out "  $drive_name: OK"
         verified=$((verified + 1))
       else
         local diff_count
         diff_count=$(grep -c "ERROR" "$check_output" 2>/dev/null || echo "?")
-        _out "  $category: MISMATCH ($diff_count differences)"
+        _out "  $drive_name: MISMATCH ($diff_count differences)"
         grep "ERROR" "$check_output" 2>/dev/null | head -5 | while IFS= read -r line; do
           _out "    $line"
         done
@@ -253,7 +266,7 @@ cmd_audit_backup() {
       fi
 
       rm -f "$check_output"
-    done
+    done < <(cfg_shared_drive_names)
     _out ""
   done
 
@@ -265,7 +278,7 @@ cmd_audit_backup() {
     log_info "Report saved to $_out_file"
   fi
 
-  # ── Notifications (via data-service POST /notify) ──
+  # -- Notifications (via data-service POST /notify) --
   if (( mismatches > 0 || errors > 0 )); then
     notify_error "Backup verification FAILED: $mismatches mismatches, $errors errors" \
       "$(cfg_deployment_id)"

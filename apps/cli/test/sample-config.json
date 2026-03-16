@@ -6,31 +6,34 @@
 	"workspace": {
 		"oauth_refresh_token": "test-workspace-refresh-token",
 		"shared_drives": [
-			{ "name": "TestFirma-Dokumenty", "category": "dokumenty" },
-			{ "name": "TestFirma-Projekty", "category": "projekty" }
+			{ "name": "TestFirma-Dokumenty", "retention_days": null },
+			{ "name": "TestFirma-Projekty", "retention_days": null },
+			{ "name": "TestFirma-Media", "retention_days": 90 }
 		]
 	},
 	"accounts": [
 		{
 			"email": "jan@gmail.com",
 			"name": "Jan Kowalski",
-			"role": "ksiegowosc",
 			"oauth_refresh_token": "test-refresh-token-jan",
 			"folders": [
-				{ "id": "folder-001", "name": "Faktury 2024", "category": "dokumenty" },
-				{ "id": "folder-002", "name": "Projekty", "category": "projekty" },
-				{ "id": "folder-003", "name": "Filmy firmowe", "category": "media" }
+				{ "id": "folder-001", "name": "Faktury 2024", "shared_drive_name": "TestFirma-Dokumenty" },
+				{ "id": "folder-002", "name": "Projekty", "shared_drive_name": "TestFirma-Projekty" },
+				{ "id": "folder-003", "name": "Filmy firmowe", "shared_drive_name": "TestFirma-Media" }
 			]
 		},
 		{
 			"email": "anna@gmail.com",
 			"name": "Anna Nowak",
-			"role": "projekty",
 			"oauth_refresh_token": "test-refresh-token-anna",
 			"folders": [
-				{ "id": "folder-004", "name": "Dokumenty projektowe", "category": "projekty" },
-				{ "id": "folder-005", "name": "Zdjecia", "category": "media" },
-				{ "id": "folder-006", "name": "Prywatne", "category": "prywatne" }
+				{
+					"id": "folder-004",
+					"name": "Dokumenty projektowe",
+					"shared_drive_name": "TestFirma-Projekty"
+				},
+				{ "id": "folder-005", "name": "Zdjecia", "shared_drive_name": "TestFirma-Media" },
+				{ "id": "folder-006", "name": "Prywatne", "shared_drive_name": null }
 			]
 		}
 	],

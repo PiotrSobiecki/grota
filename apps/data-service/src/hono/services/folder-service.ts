@@ -20,51 +20,6 @@ import type { Result } from "../types/result";
 import { refreshAccessToken } from "./google-token-service";
 
 // ============================================
-// Auto-suggestion rules
-// ============================================
-
-const CATEGORY_PATTERNS: Array<{
-	category: "dokumenty" | "projekty" | "media" | "prywatne";
-	patterns: RegExp[];
-}> = [
-	{
-		category: "dokumenty",
-		patterns: [
-			/faktur/i,
-			/umow/i,
-			/dokument/i,
-			/ksieg/i,
-			/admin/i,
-			/szablon/i,
-			/rachunk/i,
-			/pit/i,
-			/vat/i,
-		],
-	},
-	{
-		category: "projekty",
-		patterns: [/projekt/i, /praca/i, /zlecen/i, /brief/i],
-	},
-	{
-		category: "media",
-		patterns: [/zdj/i, /foto/i, /photo/i, /film/i, /video/i, /media/i, /galeri/i, /image/i],
-	},
-];
-
-function suggestCategory(
-	folderName: string,
-): "dokumenty" | "projekty" | "media" | "prywatne" | null {
-	for (const rule of CATEGORY_PATTERNS) {
-		for (const pattern of rule.patterns) {
-			if (pattern.test(folderName)) {
-				return rule.category;
-			}
-		}
-	}
-	return null;
-}
-
-// ============================================
 // Service functions
 // ============================================
 
@@ -174,7 +129,6 @@ export async function listDriveFolders(
 		id: file.id,
 		name: file.name,
 		mimeType: file.mimeType,
-		suggestedCategory: suggestCategory(file.name),
 	}));
 
 	// Update employee status to in_progress

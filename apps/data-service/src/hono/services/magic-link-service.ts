@@ -13,6 +13,7 @@ import {
 	isMagicLinkValid,
 	updateAdminMagicLink,
 } from "@repo/data-ops/magic-link";
+import { getSharedDrivesByDeployment } from "@repo/data-ops/shared-drive";
 import type { Result } from "../types/result";
 
 interface ResendSuccessResponse {
@@ -334,9 +335,13 @@ export async function resendEmployeeMagicLink(
 	return { ok: true, data: { sent: true } };
 }
 
-export async function verifyEmployeeToken(
-	token: string,
-): Promise<Result<{ employeeId: string; deploymentId: string }>> {
+export async function verifyEmployeeToken(token: string): Promise<
+	Result<{
+		employeeId: string;
+		deploymentId: string;
+		sharedDrives: Array<{ id: string; name: string }>;
+	}>
+> {
 	const employee = await getEmployeeByToken(token);
 
 	if (!employee) {
@@ -357,11 +362,14 @@ export async function verifyEmployeeToken(
 		};
 	}
 
+	const drives = await getSharedDrivesByDeployment(employee.deploymentId);
+
 	return {
 		ok: true,
 		data: {
 			employeeId: employee.id,
 			deploymentId: employee.deploymentId,
+			sharedDrives: drives.map((d) => ({ id: d.id, name: d.name })),
 		},
 	};
 }

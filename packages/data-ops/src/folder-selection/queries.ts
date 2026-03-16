@@ -19,7 +19,7 @@ export async function createFolderSelections(
 		employeeId,
 		folderId: s.folderId,
 		folderName: s.folderName,
-		category: s.category,
+		sharedDriveId: s.sharedDriveId,
 	}));
 	return db.insert(folderSelections).values(values).returning();
 }

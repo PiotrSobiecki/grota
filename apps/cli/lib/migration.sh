@@ -8,7 +8,7 @@ set -euo pipefail
 
 WORKSPACE_REMOTE="workspace_drive"
 
-# ── Get Shared Drive ID by name ────────────────────
+# -- Get Shared Drive ID by name --
 _get_shared_drive_id() {
   local name="$1"
   local drive_id
@@ -22,19 +22,15 @@ _get_shared_drive_id() {
   echo "$drive_id"
 }
 
-# ── Map category -> Shared Drive field from config ──
-_get_drive_field_for_category() {
-  local category="$1" field="$2"
+# -- Get Shared Drive field from config by name --
+_get_drive_field() {
+  local drive_name="$1" field="$2"
   local drives_json
   drives_json=$(cfg_shared_drives)
-  echo "$drives_json" | jq -r ".[] | select(.category == \"$category\") | .$field // empty"
+  echo "$drives_json" | jq -r ".[] | select(.name == \"$drive_name\") | .$field // empty"
 }
 
-_get_drive_name_for_category() {
-  _get_drive_field_for_category "$1" "name"
-}
-
-# ── grota migrate ──────────────────────────────────
+# -- grota migrate --
 cmd_migrate() {
   init_logging "migrate"
   require_cmd rclone jq
@@ -60,27 +56,23 @@ cmd_migrate() {
     log_fatal "Remote '$WORKSPACE_REMOTE' not found. Run: grota setup rclone"
   fi
 
-  # Resolve Shared Drive IDs from config (use stored ID if available, fallback to rclone)
-  local dok_name dok_id proj_name proj_id
-  dok_name=$(_get_drive_field_for_category "dokumenty" "name")
-  proj_name=$(_get_drive_field_for_category "projekty" "name")
-  dok_id=$(_get_drive_field_for_category "dokumenty" "id")
-  proj_id=$(_get_drive_field_for_category "projekty" "id")
-
-  [[ -n "$dok_name" ]] || log_fatal "No shared_drive configured for 'dokumenty' in workspace.shared_drives"
-  [[ -n "$proj_name" ]] || log_fatal "No shared_drive configured for 'projekty' in workspace.shared_drives"
-
-  if [[ -z "$dok_id" ]] || [[ -z "$proj_id" ]]; then
-    log_info "Looking up Shared Drive IDs via rclone..."
-    [[ -z "$dok_id" ]] && dok_id=$(_get_shared_drive_id "$dok_name")
-    [[ -z "$proj_id" ]] && proj_id=$(_get_shared_drive_id "$proj_name")
-  fi
-  log_info "  $dok_name: $dok_id"
-  log_info "  $proj_name: $proj_id"
+  # Build drive name -> ID map from config (use stored ID if available, fallback to rclone)
+  declare -A drive_id_map
+  local drive_name drive_id_from_config
+  while IFS= read -r drive_name; do
+    [[ -n "$drive_name" ]] || continue
+    drive_id_from_config=$(_get_drive_field "$drive_name" "id")
+    if [[ -z "$drive_id_from_config" ]]; then
+      log_info "Looking up Shared Drive ID for '$drive_name' via rclone..."
+      drive_id_from_config=$(_get_shared_drive_id "$drive_name")
+    fi
+    drive_id_map["$drive_name"]="$drive_id_from_config"
+    log_info "  $drive_name: $drive_id_from_config"
+  done < <(cfg_shared_drive_names)
 
   [[ -n "$dry_run" ]] && log_info "DRY RUN mode -- no files will be copied"
 
-  # ── Migrate ───────────────────────────────────────
+  # -- Migrate --
   local account_count migrated=0 failed=0 skipped=0
   account_count=$(cfg_account_count)
 
@@ -104,24 +96,28 @@ cmd_migrate() {
     folder_count=$(echo "$folders_json" | jq 'length')
 
     for (( f=0; f<folder_count; f++ )); do
-      local folder_id folder_name category target_drive_id target_path
+      local folder_id folder_name shared_drive_name target_drive_id target_path
       folder_id=$(echo "$folders_json" | jq -r ".[$f].id")
       folder_name=$(echo "$folders_json" | jq -r ".[$f].name")
-      category=$(echo "$folders_json" | jq -r ".[$f].category")
+      shared_drive_name=$(echo "$folders_json" | jq -r ".[$f].shared_drive_name")
 
-      case "$category" in
-        dokumenty) target_drive_id="$dok_id" ;;
-        projekty)  target_drive_id="$proj_id" ;;
-        *)         skipped=$((skipped + 1)); continue ;;
-      esac
+      # Skip folders not assigned to a shared drive
+      if [[ "$shared_drive_name" == "null" || -z "$shared_drive_name" ]]; then
+        skipped=$((skipped + 1))
+        continue
+      fi
+
+      target_drive_id="${drive_id_map[$shared_drive_name]:-}"
+      if [[ -z "$target_drive_id" ]]; then
+        log_warn "  No drive ID for '$shared_drive_name', skipping $folder_name"
+        skipped=$((skipped + 1))
+        continue
+      fi
 
       target_path="${WORKSPACE_REMOTE},team_drive=${target_drive_id}:${name}/${folder_name}"
 
-      log_info "  Migrating: $folder_name ($category) -> $target_path"
+      log_info "  Migrating: $folder_name ($shared_drive_name) -> $target_path"
 
-      # No --drive-server-side-across-configs: personal Gmail → Workspace
-      # server-side copy fails for native Google Docs (404). Download+upload
-      # handles both native docs and uploaded files correctly.
       local rc=0
       rclone copy "${remote_name},drive_root_folder_id=${folder_id}:" "$target_path" \
         --drive-export-formats "docx,xlsx,pptx,pdf" \
@@ -169,19 +165,23 @@ cmd_migrate() {
   fi
 }
 
-# ── grota migrate --verify ────────────────────────
+# -- grota migrate --verify --
 _verify_migration() {
   local account_filter="${1:-}"
   init_logging "verify-migration"
   require_cmd rclone jq
 
-  local dok_name dok_id proj_name proj_id
-  dok_name=$(_get_drive_field_for_category "dokumenty" "name")
-  proj_name=$(_get_drive_field_for_category "projekty" "name")
-  dok_id=$(_get_drive_field_for_category "dokumenty" "id")
-  proj_id=$(_get_drive_field_for_category "projekty" "id")
-  [[ -z "$dok_id" ]] && dok_id=$(_get_shared_drive_id "$dok_name")
-  [[ -z "$proj_id" ]] && proj_id=$(_get_shared_drive_id "$proj_name")
+  # Build drive name -> ID map
+  declare -A drive_id_map
+  local drive_name drive_id_from_config
+  while IFS= read -r drive_name; do
+    [[ -n "$drive_name" ]] || continue
+    drive_id_from_config=$(_get_drive_field "$drive_name" "id")
+    if [[ -z "$drive_id_from_config" ]]; then
+      drive_id_from_config=$(_get_shared_drive_id "$drive_name")
+    fi
+    drive_id_map["$drive_name"]="$drive_id_from_config"
+  done < <(cfg_shared_drive_names)
 
   _count_files() {
     local remote_path="$1"
@@ -211,16 +211,20 @@ _verify_migration() {
     folder_count=$(echo "$folders_json" | jq 'length')
 
     for (( f=0; f<folder_count; f++ )); do
-      local folder_id folder_name category target_drive_id
+      local folder_id folder_name shared_drive_name target_drive_id
       folder_id=$(echo "$folders_json" | jq -r ".[$f].id")
       folder_name=$(echo "$folders_json" | jq -r ".[$f].name")
-      category=$(echo "$folders_json" | jq -r ".[$f].category")
+      shared_drive_name=$(echo "$folders_json" | jq -r ".[$f].shared_drive_name")
 
-      case "$category" in
-        dokumenty) target_drive_id="$dok_id" ;;
-        projekty)  target_drive_id="$proj_id" ;;
-        *)         continue ;;
-      esac
+      # Skip unassigned folders
+      if [[ "$shared_drive_name" == "null" || -z "$shared_drive_name" ]]; then
+        continue
+      fi
+
+      target_drive_id="${drive_id_map[$shared_drive_name]:-}"
+      if [[ -z "$target_drive_id" ]]; then
+        continue
+      fi
 
       local source_path target_path source_count target_count status
       source_path="${remote_name},drive_root_folder_id=${folder_id}:"
@@ -237,7 +241,7 @@ _verify_migration() {
         mismatches=$((mismatches + 1))
       fi
 
-      report_lines+=("  $status: $email / $folder_name ($category) -- source: $source_count, target: $target_count")
+      report_lines+=("  $status: $email / $folder_name ($shared_drive_name) -- source: $source_count, target: $target_count")
       log_info "  $status: $folder_name -- source: $source_count, target: $target_count"
     done
   done

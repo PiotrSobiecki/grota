@@ -6,7 +6,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLI_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-# ── Minimal test framework ────────────────────────
+# -- Minimal test framework --
 _tests_run=0 _tests_passed=0 _tests_failed=0
 _current_test=""
 
@@ -62,7 +62,7 @@ print_summary() {
   (( _tests_failed == 0 ))
 }
 
-# ── Test environment setup ────────────────────────
+# -- Test environment setup --
 export LOG_DIR="/tmp/grota-test-logs-$$"
 export LOCK_DIR="/tmp/grota-test-locks-$$"
 export CONFIG_PATH="$SCRIPT_DIR/sample-config.json"
@@ -80,7 +80,7 @@ source "$CLI_DIR/lib/config.sh"
 load_config
 source "$CLI_DIR/lib/migration.sh"
 
-# ── Mock external commands ────────────────────────
+# -- Mock external commands --
 # Override rclone with a function stub
 _rclone_mock_mode=""
 _rclone_calls_file="/tmp/grota-test-rclone-calls-$$"
@@ -92,7 +92,7 @@ rclone() {
     drives_found)
       # mock: rclone backend drives workspace_drive:
       if [[ "$1" == "backend" && "$2" == "drives" ]]; then
-        echo '[{"name":"TestFirma-Dokumenty","id":"drive-dok-123"},{"name":"TestFirma-Projekty","id":"drive-proj-456"}]'
+        echo '[{"name":"TestFirma-Dokumenty","id":"drive-dok-123"},{"name":"TestFirma-Projekty","id":"drive-proj-456"},{"name":"TestFirma-Media","id":"drive-media-789"}]'
         return 0
       fi
       ;;
@@ -145,7 +145,7 @@ rclone() {
     listremotes) echo "workspace_drive:"; return 0 ;;
     backend)
       if [[ "$2" == "drives" ]]; then
-        echo '[{"name":"TestFirma-Dokumenty","id":"drive-dok-123"},{"name":"TestFirma-Projekty","id":"drive-proj-456"}]'
+        echo '[{"name":"TestFirma-Dokumenty","id":"drive-dok-123"},{"name":"TestFirma-Projekty","id":"drive-proj-456"},{"name":"TestFirma-Media","id":"drive-media-789"}]'
         return 0
       fi
       ;;
@@ -160,7 +160,7 @@ notify_error() { _notify_calls+=("error: $*"); }
 notify_info()  { _notify_calls+=("info: $*"); }
 _notify_calls=()
 
-# ── Tests ─────────────────────────────────────────
+# -- Tests --
 
 test_get_shared_drive_id_found() {
   _rclone_mock_mode="drives_found"
@@ -177,22 +177,16 @@ test_get_shared_drive_id_not_found() {
   assert_contains "$output" "Shared Drive not found" "should log fatal"
 }
 
-test_get_drive_name_for_category_dokumenty() {
+test_get_drive_field_dokumenty() {
   local result
-  result=$(_get_drive_name_for_category "dokumenty")
-  assert_eq "TestFirma-Dokumenty" "$result" "dokumenty -> TestFirma-Dokumenty"
+  result=$(_get_drive_field "TestFirma-Dokumenty" "name")
+  assert_eq "TestFirma-Dokumenty" "$result" "should return drive name"
 }
 
-test_get_drive_name_for_category_projekty() {
+test_get_drive_field_unknown() {
   local result
-  result=$(_get_drive_name_for_category "projekty")
-  assert_eq "TestFirma-Projekty" "$result" "projekty -> TestFirma-Projekty"
-}
-
-test_get_drive_name_for_category_unknown() {
-  local result
-  result=$(_get_drive_name_for_category "media")
-  assert_eq "" "$result" "unknown category -> empty"
+  result=$(_get_drive_field "NonExistent" "name")
+  assert_eq "" "$result" "unknown drive -> empty"
 }
 
 test_cmd_migrate_dry_run_flag() {
@@ -220,17 +214,16 @@ test_cmd_migrate_account_filter() {
   assert_contains "$output" "Processing account: Anna" "should process anna"
 }
 
-test_cmd_migrate_skips_non_dokumenty_projekty() {
+test_cmd_migrate_skips_null_drive() {
   _rclone_mock_mode=""
   : > "$_rclone_calls_file"
   _notify_calls=()
   local output
-  output=$(cmd_migrate --account jan@gmail.com 2>&1) || true
-  # jan has: dokumenty(Faktury 2024), projekty(Projekty), media(Filmy firmowe)
-  # media should be skipped -> 1 skipped
-  assert_contains "$output" "1 skipped" "should skip media folder"
-  # Should not migrate media folder
-  assert_not_contains "$output" "Migrating: Filmy firmowe" "should not migrate media"
+  output=$(cmd_migrate --account anna@gmail.com 2>&1) || true
+  # anna has: Dokumenty projektowe (TestFirma-Projekty), Zdjecia (TestFirma-Media), Prywatne (null)
+  # null should be skipped -> 1 skipped
+  assert_contains "$output" "1 skipped" "should skip null drive folder"
+  assert_not_contains "$output" "Migrating: Prywatne" "should not migrate null drive folder"
 }
 
 test_cmd_migrate_verify_flag() {
@@ -274,15 +267,14 @@ test_verify_migration_account_filter() {
   assert_not_contains "$output" "Verifying: Anna" "should skip anna"
 }
 
-# ── Run all tests ─────────────────────────────────
+# -- Run all tests --
 run_test test_get_shared_drive_id_found
 run_test test_get_shared_drive_id_not_found
-run_test test_get_drive_name_for_category_dokumenty
-run_test test_get_drive_name_for_category_projekty
-run_test test_get_drive_name_for_category_unknown
+run_test test_get_drive_field_dokumenty
+run_test test_get_drive_field_unknown
 run_test test_cmd_migrate_dry_run_flag
 run_test test_cmd_migrate_account_filter
-run_test test_cmd_migrate_skips_non_dokumenty_projekty
+run_test test_cmd_migrate_skips_null_drive
 run_test test_cmd_migrate_verify_flag
 run_test test_cmd_migrate_unknown_arg
 run_test test_verify_migration_counts_match

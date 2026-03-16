@@ -57,6 +57,13 @@
       "when": 1773408880403,
       "tag": "0007_curious_prowler",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1773868800000,
+      "tag": "0008_dynamic_shared_drives",
+      "breakpoints": true
     }
   ]
 }

@@ -37,30 +37,38 @@ interface CreateAndSaveResult {
 	failures: Array<{ name: string; error: string }>;
 }
 
-export async function createAndSaveSharedDrives(
-	deploymentId: string,
-	drives: Array<{ name: string; category: "dokumenty" | "projekty" | "media" }>,
-	env: Env,
-): Promise<Result<CreateAndSaveResult>> {
-	const existing = await getSharedDrivesByDeployment(deploymentId);
-	const existingByCategory = new Map(existing.map((d) => [d.category, d]));
+type DriveInput = { name: string; retentionDays?: number | null };
 
-	// Split: categories already created in Google vs need creation
-	const toCreate: typeof drives = [];
+function splitByExistence(
+	drives: DriveInput[],
+	existing: SharedDrive[],
+): { toCreate: DriveInput[]; alreadyCreated: SharedDriveUpsertInput[] } {
+	const existingByName = new Map(existing.map((d) => [d.name, d]));
+	const toCreate: DriveInput[] = [];
 	const alreadyCreated: SharedDriveUpsertInput[] = [];
 
 	for (const drive of drives) {
-		const ex = existingByCategory.get(drive.category);
+		const ex = existingByName.get(drive.name);
 		if (ex?.googleDriveId) {
 			alreadyCreated.push({
 				name: drive.name,
-				category: drive.category,
+				retentionDays: drive.retentionDays ?? null,
 				googleDriveId: ex.googleDriveId,
 			});
 		} else {
 			toCreate.push(drive);
 		}
 	}
+	return { toCreate, alreadyCreated };
+}
+
+export async function createAndSaveSharedDrives(
+	deploymentId: string,
+	drives: DriveInput[],
+	env: Env,
+): Promise<Result<CreateAndSaveResult>> {
+	const existing = await getSharedDrivesByDeployment(deploymentId);
+	const { toCreate, alreadyCreated } = splitByExistence(drives, existing);
 
 	const failures: Array<{ name: string; error: string }> = [];
 	const newlyCreated: SharedDriveUpsertInput[] = [];
@@ -77,7 +85,7 @@ export async function createAndSaveSharedDrives(
 			if (match) {
 				newlyCreated.push({
 					name: drive.name,
-					category: drive.category,
+					retentionDays: drive.retentionDays ?? null,
 					googleDriveId: match.id,
 				});
 			}
@@ -95,18 +103,16 @@ export async function createAndSaveSharedDrives(
 	return { ok: true, data: { created: savedDrives, failures } };
 }
 
-const MIGRATED_CATEGORIES = new Set(["dokumenty", "projekty"]);
-
 interface PermissionGrant {
 	driveId: string;
 	email: string;
 }
 
 function buildPermissionGrants(data: ConfigAssemblyData): PermissionGrant[] {
-	const categoryToDriveId = new Map<string, string>();
+	const driveNameToGoogleId = new Map<string, string>();
 	for (const sd of data.sharedDrives) {
 		if (sd.googleDriveId) {
-			categoryToDriveId.set(sd.category, sd.googleDriveId);
+			driveNameToGoogleId.set(sd.name, sd.googleDriveId);
 		}
 	}
 
@@ -114,12 +120,15 @@ function buildPermissionGrants(data: ConfigAssemblyData): PermissionGrant[] {
 	const grants: PermissionGrant[] = [];
 
 	for (const account of data.accounts) {
-		const categories = new Set(
-			account.folders.filter((f) => MIGRATED_CATEGORIES.has(f.category)).map((f) => f.category),
+		// Collect unique drive names this account has folders assigned to
+		const driveNames = new Set(
+			account.folders
+				.filter((f) => f.shared_drive_name !== null)
+				.map((f) => f.shared_drive_name as string),
 		);
 
-		for (const category of categories) {
-			const driveId = categoryToDriveId.get(category);
+		for (const driveName of driveNames) {
+			const driveId = driveNameToGoogleId.get(driveName);
 			if (!driveId) continue;
 			const key = `${driveId}:${account.email}`;
 			if (seen.has(key)) continue;

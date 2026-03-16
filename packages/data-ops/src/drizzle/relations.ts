@@ -30,13 +30,18 @@ export const folderSelectionRelations = relations(folderSelections, ({ one }) =>
 		fields: [folderSelections.employeeId],
 		references: [employees.id],
 	}),
+	sharedDrive: one(sharedDrives, {
+		fields: [folderSelections.sharedDriveId],
+		references: [sharedDrives.id],
+	}),
 }));
 
-export const sharedDriveRelations = relations(sharedDrives, ({ one }) => ({
+export const sharedDriveRelations = relations(sharedDrives, ({ one, many }) => ({
 	deployment: one(deployments, {
 		fields: [sharedDrives.deploymentId],
 		references: [deployments.id],
 	}),
+	folderSelections: many(folderSelections),
 }));
 
 export const deploymentDepartmentRelations = relations(deploymentDepartments, ({ one, many }) => ({

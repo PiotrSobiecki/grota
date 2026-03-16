@@ -5,7 +5,7 @@ set -euo pipefail
 # Source common if not already loaded
 [[ "$(type -t log_info)" == "function" ]] || source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 
-# ── Config loading ─────────────────────────────────
+# -- Config loading --
 CONFIG_JSON=""
 _config_tmp=""
 
@@ -45,7 +45,7 @@ load_config() {
   log_info "Config loaded from R2 (${#CONFIG_JSON} bytes)"
 }
 
-# ── Config accessors (jq wrappers) ────────────────
+# -- Config accessors (jq wrappers) --
 cfg() {
   local query="$1"
   echo "$CONFIG_JSON" | jq -r "$query"
@@ -84,10 +84,19 @@ cfg_account_folders() {
   cfg_raw ".accounts[$idx].folders"
 }
 
-cfg_account_folders_by_category() {
+cfg_account_folders_by_drive() {
   local idx="$1"
-  local category="$2"
-  cfg_raw ".accounts[$idx].folders | map(select(.category == \"$category\"))"
+  local drive_name="$2"
+  cfg_raw ".accounts[$idx].folders | map(select(.shared_drive_name == \"$drive_name\"))"
+}
+
+cfg_shared_drive_names() {
+  cfg_raw '.workspace.shared_drives // [] | .[].name' | tr -d '"'
+}
+
+cfg_shared_drive_retention() {
+  local drive_name="$1"
+  cfg ".workspace.shared_drives[] | select(.name == \"$drive_name\") | .retention_days // empty"
 }
 
 cfg_b2_key_id()   { cfg '.b2.key_id // empty'; }
@@ -103,8 +112,4 @@ cfg_shared_drives()       { cfg_raw '.workspace.shared_drives // []'; }
 cfg_shared_drive_name()   {
   local idx="$1"
   cfg ".workspace.shared_drives[$idx].name"
-}
-cfg_shared_drive_category() {
-  local idx="$1"
-  cfg ".workspace.shared_drives[$idx].category"
 }

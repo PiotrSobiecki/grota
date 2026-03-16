@@ -25,25 +25,24 @@ interface DriveFolder {
 	id: string;
 	name: string;
 	mimeType: string;
-	suggestedCategory: string | null;
 }
 
-interface FolderWithCategory extends DriveFolder {
-	selectedCategory: string;
+interface SharedDriveOption {
+	id: string;
+	name: string;
 }
 
-const CATEGORY_INFO: Record<string, { label: string; description: string }> = {
-	dokumenty: { label: "Dokumenty (firmowe)", description: "Faktury, umowy, ksiegowosc" },
-	media: { label: "Media (firmowe)", description: "Zdjecia, filmy" },
-	prywatne: { label: "Prywatne (pomijane)", description: "Nie bedzie backupowane" },
-};
+interface FolderWithDrive extends DriveFolder {
+	selectedSharedDriveId: string | null;
+}
 
 function EmployeeFlow() {
 	const { token } = Route.useParams();
 	const { step, oauth, employeeId } = Route.useSearch();
 	const navigate = Route.useNavigate();
 	const dataServiceUrl = import.meta.env.VITE_DATA_SERVICE_URL;
-	const [folders, setFolders] = useState<FolderWithCategory[]>([]);
+	const [folders, setFolders] = useState<FolderWithDrive[]>([]);
+	const [sharedDrives, setSharedDrives] = useState<SharedDriveOption[]>([]);
 
 	const effectiveStep = step >= 2 && !employeeId ? 1 : step;
 
@@ -63,7 +62,7 @@ function EmployeeFlow() {
 			setFolders(
 				foldersHydration.data.folders.map((f) => ({
 					...f,
-					selectedCategory: f.suggestedCategory ?? "dokumenty",
+					selectedSharedDriveId: null,
 				})),
 			);
 		}
@@ -72,7 +71,7 @@ function EmployeeFlow() {
 	return (
 		<div className="min-h-screen bg-background p-6">
 			<div className="max-w-2xl mx-auto space-y-6">
-				<h1 className="text-2xl font-bold text-foreground">Grota — Wybor folderow</h1>
+				<h1 className="text-2xl font-bold text-foreground">Grota -- Wybor folderow</h1>
 
 				<div className="flex gap-2">
 					{[1, 2, 3, 4].map((s) => (
@@ -87,7 +86,8 @@ function EmployeeFlow() {
 					<DriveOAuthStep
 						token={token}
 						oauthSuccess={oauth === "success"}
-						onNext={(resolvedEmployeeId) => {
+						onNext={(resolvedEmployeeId, drives) => {
+							setSharedDrives(drives);
 							navigate({ search: { step: 2, employeeId: resolvedEmployeeId } });
 						}}
 					/>
@@ -96,11 +96,11 @@ function EmployeeFlow() {
 					<FolderListStep
 						employeeId={employeeId}
 						onLoaded={(driveFolders) => {
-							const withCategories: FolderWithCategory[] = driveFolders.map((f) => ({
+							const withDrives: FolderWithDrive[] = driveFolders.map((f) => ({
 								...f,
-								selectedCategory: f.suggestedCategory ?? "dokumenty",
+								selectedSharedDriveId: null,
 							}));
-							setFolders(withCategories);
+							setFolders(withDrives);
 							navigate({
 								search: (prev) => ({
 									step: 3,
@@ -111,8 +111,9 @@ function EmployeeFlow() {
 					/>
 				)}
 				{effectiveStep === 3 && employeeId && (
-					<CategoryTaggingStep
+					<DriveAssignmentStep
 						folders={folders}
+						sharedDrives={sharedDrives}
 						onFoldersUpdated={setFolders}
 						onNext={() => {
 							navigate({
@@ -125,7 +126,7 @@ function EmployeeFlow() {
 					/>
 				)}
 				{effectiveStep === 4 && employeeId && (
-					<ConfirmStep employeeId={employeeId} folders={folders} />
+					<ConfirmStep employeeId={employeeId} folders={folders} sharedDrives={sharedDrives} />
 				)}
 			</div>
 		</div>
@@ -135,7 +136,7 @@ function EmployeeFlow() {
 interface DriveOAuthStepProps {
 	token: string;
 	oauthSuccess: boolean;
-	onNext: (employeeId: string) => void;
+	onNext: (employeeId: string, sharedDrives: SharedDriveOption[]) => void;
 }
 
 function DriveOAuthStep({ token, oauthSuccess, onNext }: DriveOAuthStepProps) {
@@ -145,11 +146,14 @@ function DriveOAuthStep({ token, oauthSuccess, onNext }: DriveOAuthStepProps) {
 		mutationFn: async () => {
 			const response = await fetch(`${dataServiceUrl}/magic-links/verify/employee/${token}`);
 			if (!response.ok) throw new Error("Nie udalo sie zweryfikowac tokenu");
-			return response.json() as Promise<{ employeeId: string }>;
+			return response.json() as Promise<{
+				employeeId: string;
+				sharedDrives: SharedDriveOption[];
+			}>;
 		},
 		onSuccess: (data) => {
 			toast.success("Token zweryfikowany");
-			onNext(data.employeeId);
+			onNext(data.employeeId, data.sharedDrives);
 		},
 		onError: (error) => toast.error(error.message),
 	});
@@ -284,32 +288,34 @@ function FolderListStep({
 	return null;
 }
 
-function CategoryTaggingStep({
+function DriveAssignmentStep({
 	folders,
+	sharedDrives,
 	onFoldersUpdated,
 	onNext,
 }: {
-	folders: FolderWithCategory[];
-	onFoldersUpdated: (folders: FolderWithCategory[]) => void;
+	folders: FolderWithDrive[];
+	sharedDrives: SharedDriveOption[];
+	onFoldersUpdated: (folders: FolderWithDrive[]) => void;
 	onNext: () => void;
 }) {
-	const handleCategoryChange = (folderId: string, category: string) => {
+	const handleDriveChange = (folderId: string, driveId: string) => {
 		const updated = folders.map((f) =>
-			f.id === folderId ? { ...f, selectedCategory: category } : f,
+			f.id === folderId ? { ...f, selectedSharedDriveId: driveId === "" ? null : driveId } : f,
 		);
 		onFoldersUpdated(updated);
 	};
 
-	const nonPrivateCount = folders.filter((f) => f.selectedCategory !== "prywatne").length;
+	const assignedCount = folders.filter((f) => f.selectedSharedDriveId !== null).length;
 
 	return (
 		<Card>
 			<CardHeader>
-				<CardTitle>Krok 3: Przypisz kategorie</CardTitle>
+				<CardTitle>Krok 3: Przypisz foldery do dyskow</CardTitle>
 			</CardHeader>
 			<CardContent className="space-y-4">
 				<p className="text-muted-foreground">
-					Dla kazdego folderu wybierz kategorie. Foldery oznaczone jako "Prywatne" nie beda
+					Dla kazdego folderu wybierz dysk wspoldzielony. Foldery oznaczone jako "Pomijane" nie beda
 					backupowane.
 				</p>
 
@@ -321,20 +327,16 @@ function CategoryTaggingStep({
 						>
 							<div className="min-w-0 flex-1">
 								<p className="truncate font-medium text-foreground">{folder.name}</p>
-								{folder.suggestedCategory && (
-									<p className="text-xs text-muted-foreground">
-										Sugerowana: {CATEGORY_INFO[folder.suggestedCategory]?.label}
-									</p>
-								)}
 							</div>
 							<select
-								value={folder.selectedCategory}
-								onChange={(e) => handleCategoryChange(folder.id, e.target.value)}
+								value={folder.selectedSharedDriveId ?? ""}
+								onChange={(e) => handleDriveChange(folder.id, e.target.value)}
 								className="rounded border border-input bg-background px-3 py-1.5 text-sm text-foreground"
 							>
-								{Object.entries(CATEGORY_INFO).map(([value, info]) => (
-									<option key={value} value={value}>
-										{info.label}
+								<option value="">Pomijane (prywatne)</option>
+								{sharedDrives.map((drive) => (
+									<option key={drive.id} value={drive.id}>
+										{drive.name}
 									</option>
 								))}
 							</select>
@@ -344,11 +346,9 @@ function CategoryTaggingStep({
 
 				<div className="flex items-center justify-between pt-4">
 					<p className="text-sm text-muted-foreground">
-						{nonPrivateCount} z {folders.length} folderow do backupu
+						{assignedCount} z {folders.length} folderow do backupu
 					</p>
-					<Button onClick={onNext} disabled={nonPrivateCount === 0}>
-						Dalej
-					</Button>
+					<Button onClick={onNext}>Dalej</Button>
 				</div>
 			</CardContent>
 		</Card>
@@ -358,9 +358,11 @@ function CategoryTaggingStep({
 function ConfirmStep({
 	employeeId,
 	folders,
+	sharedDrives,
 }: {
 	employeeId: string;
-	folders: FolderWithCategory[];
+	folders: FolderWithDrive[];
+	sharedDrives: SharedDriveOption[];
 }) {
 	const dataServiceUrl = import.meta.env.VITE_DATA_SERVICE_URL;
 	const [saved, setSaved] = useState(false);
@@ -370,7 +372,7 @@ function ConfirmStep({
 			const allSelections = folders.map((f) => ({
 				folderId: f.id,
 				folderName: f.name,
-				category: f.selectedCategory,
+				sharedDriveId: f.selectedSharedDriveId,
 			}));
 
 			const response = await fetch(`${dataServiceUrl}/folders/selections`, {
@@ -392,10 +394,19 @@ function ConfirmStep({
 		onError: (error) => toast.error(error.message),
 	});
 
-	const categoryCounts = folders.reduce<Record<string, number>>((acc, f) => {
-		acc[f.selectedCategory] = (acc[f.selectedCategory] ?? 0) + 1;
-		return acc;
-	}, {});
+	// Group folders by drive name
+	const driveIdToName = new Map(sharedDrives.map((d) => [d.id, d.name]));
+	const groupedByDrive = new Map<string, number>();
+	let skippedCount = 0;
+
+	for (const folder of folders) {
+		if (folder.selectedSharedDriveId === null) {
+			skippedCount++;
+		} else {
+			const driveName = driveIdToName.get(folder.selectedSharedDriveId) ?? "Nieznany";
+			groupedByDrive.set(driveName, (groupedByDrive.get(driveName) ?? 0) + 1);
+		}
+	}
 
 	return (
 		<Card>
@@ -415,18 +426,22 @@ function ConfirmStep({
 						<p className="text-muted-foreground">Sprawdz podsumowanie przed zatwierdzeniem:</p>
 
 						<div className="grid gap-2 sm:grid-cols-2">
-							{Object.entries(CATEGORY_INFO).map(([category, info]) => {
-								const count = categoryCounts[category] ?? 0;
-								if (count === 0) return null;
-								return (
-									<div key={category} className="rounded-lg border border-border p-3">
-										<p className="font-medium text-foreground">{info.label}</p>
-										<p className="text-sm text-muted-foreground">
-											{count} {count === 1 ? "folder" : "folderow"}
-										</p>
-									</div>
-								);
-							})}
+							{[...groupedByDrive.entries()].map(([driveName, count]) => (
+								<div key={driveName} className="rounded-lg border border-border p-3">
+									<p className="font-medium text-foreground">{driveName}</p>
+									<p className="text-sm text-muted-foreground">
+										{count} {count === 1 ? "folder" : "folderow"}
+									</p>
+								</div>
+							))}
+							{skippedCount > 0 && (
+								<div className="rounded-lg border border-border p-3">
+									<p className="font-medium text-foreground">Pomijane (prywatne)</p>
+									<p className="text-sm text-muted-foreground">
+										{skippedCount} {skippedCount === 1 ? "folder" : "folderow"}
+									</p>
+								</div>
+							)}
 						</div>
 
 						{saveMutation.isError && (

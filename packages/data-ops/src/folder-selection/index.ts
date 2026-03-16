@@ -5,7 +5,6 @@ export {
 } from "./queries";
 export type {
 	DriveFolder,
-	FolderCategory,
 	FolderSelection,
 	FolderSelectionBulkCreateInput,
 	FolderSelectionCreateInput,
@@ -13,11 +12,10 @@ export type {
 export {
 	DriveFolderListResponseSchema,
 	DriveFolderSchema,
-	FolderCategorySchema,
 	FolderSelectionBulkCreateRequestSchema,
 	FolderSelectionCreateRequestSchema,
 	FolderSelectionListResponseSchema,
 	FolderSelectionResponseSchema,
 	FolderSelectionSchema,
 } from "./schema";
-export { folderCategoryEnum, folderSelections } from "./table";
+export { folderSelections } from "./table";

@@ -142,5 +142,9 @@ export const verifyEmployeeToken = createServerFn({ method: "GET" })
 			);
 		}
 
-		return (await response.json()) as { employeeId: string; deploymentId: string };
+		return (await response.json()) as {
+			employeeId: string;
+			deploymentId: string;
+			sharedDrives: Array<{ id: string; name: string }>;
+		};
 	});

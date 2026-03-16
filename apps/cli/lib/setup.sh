@@ -146,34 +146,29 @@ cmd_setup_b2() {
 HEADER
   fi
 
-  for category in dokumenty projekty media; do
-    local upper key_id_var app_key_var key_id app_key remote_name bucket_name
-    upper=$(echo "$category" | tr '[:lower:]' '[:upper:]')
-    key_id_var="B2_${upper}_KEY_ID"
-    app_key_var="B2_${upper}_APP_KEY"
+  local key_id app_key
+  key_id=$(cfg_b2_key_id)
+  app_key=$(cfg_b2_app_key)
 
-    key_id="${!key_id_var:-}"
-    app_key="${!app_key_var:-}"
+  if [[ -z "$key_id" || -z "$app_key" ]]; then
+    log_warn "No B2 credentials in config, skipping all B2 remotes"
+    chmod 600 "$RCLONE_ENV_FILE"
+    log_info "B2 remote setup skipped"
+    return 0
+  fi
 
-    # Fallback: single B2 key from config JSON
-    if [[ -z "$key_id" ]]; then
-      key_id=$(cfg_b2_key_id)
-      app_key=$(cfg_b2_app_key)
-    fi
-
-    if [[ -z "$key_id" || -z "$app_key" ]]; then
-      log_warn "Skipping B2 remote for $category -- no credentials"
-      continue
-    fi
-
-    remote_name="b2_${category}"
-    bucket_name="${bucket_prefix}-${category}"
+  local drive_name sanitized_name remote_name bucket_name
+  while IFS= read -r drive_name; do
+    [[ -n "$drive_name" ]] || continue
+    sanitized_name=$(echo "$drive_name" | tr '[:upper:] ' '[:lower:]_' | tr -cd '[:alnum:]_-')
+    remote_name="b2_${sanitized_name}"
+    bucket_name="${bucket_prefix}-${sanitized_name}"
 
     log_info "Configuring B2 remote: $remote_name -> $bucket_name"
     write_b2_env "$remote_name" "$key_id" "$app_key"
 
     log_info "Remote $remote_name created (bucket: $bucket_name)"
-  done
+  done < <(cfg_shared_drive_names)
 
   chmod 600 "$RCLONE_ENV_FILE"
   log_info "B2 remote setup complete"
@@ -220,10 +215,13 @@ cmd_verify_remotes() {
   # Verify B2 remotes
   local bucket_prefix
   bucket_prefix=$(cfg_b2_prefix)
-  for category in dokumenty projekty media; do
-    local remote_name bucket_name
-    remote_name="b2_${category}"
-    bucket_name="${bucket_prefix}-${category}"
+
+  local drive_name sanitized_name
+  while IFS= read -r drive_name; do
+    [[ -n "$drive_name" ]] || continue
+    sanitized_name=$(echo "$drive_name" | tr '[:upper:] ' '[:lower:]_' | tr -cd '[:alnum:]_-')
+    local remote_name="b2_${sanitized_name}"
+    local bucket_name="${bucket_prefix}-${sanitized_name}"
 
     if ! rclone listremotes | grep -q "^${remote_name}:$"; then
       log_warn "Remote $remote_name not configured, skipping"
@@ -240,7 +238,7 @@ cmd_verify_remotes() {
       log_error "  FAIL: $remote_name"
       failed=$((failed + 1))
     fi
-  done
+  done < <(cfg_shared_drive_names)
 
   log_info "Verification complete: $passed/$total passed, $failed failed"
 

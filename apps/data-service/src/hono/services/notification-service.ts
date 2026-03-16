@@ -34,7 +34,7 @@ export async function sendDeploymentNotifications(
 	const accountCount = configData?.accounts.length ?? 0;
 	const folderCount =
 		configData?.accounts.reduce(
-			(sum, a) => sum + a.folders.filter((f) => f.category !== "prywatne").length,
+			(sum, a) => sum + a.folders.filter((f) => f.shared_drive_name !== null).length,
 			0,
 		) ?? 0;
 

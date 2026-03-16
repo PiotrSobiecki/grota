@@ -6,7 +6,7 @@ set -euo pipefail
 [[ "$(type -t log_info)" == "function" ]] || source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 
 
-# ── Helpers ────────────────────────────────────────
+# -- Helpers --
 _find_account_index() {
   local email="$1"
   local count
@@ -20,7 +20,11 @@ _find_account_index() {
   return 1
 }
 
-# ── sync_gdrive_to_local <account_index> ──────────
+_sanitize_drive_name() {
+  echo "$1" | tr '[:upper:] ' '[:lower:]_' | tr -cd '[:alnum:]_-'
+}
+
+# -- sync_gdrive_to_local <account_index> --
 sync_gdrive_to_local() {
   local idx="$1"
   require_cmd rclone jq
@@ -46,22 +50,22 @@ sync_gdrive_to_local() {
   folder_count=$(echo "$folders_json" | jq 'length')
 
   for (( f=0; f<folder_count; f++ )); do
-    local folder_id folder_name category local_dir version_dir
+    local folder_id folder_name shared_drive_name local_dir version_dir
     folder_id=$(echo "$folders_json" | jq -r ".[$f].id")
     folder_name=$(echo "$folders_json" | jq -r ".[$f].name")
-    category=$(echo "$folders_json" | jq -r ".[$f].category")
+    shared_drive_name=$(echo "$folders_json" | jq -r ".[$f].shared_drive_name")
 
-    # Skip private folders
-    if [[ "$category" == "prywatne" ]]; then
-      log_info "  Skipping: $folder_name (prywatne)"
+    # Skip folders not assigned to any shared drive (null = private/skip)
+    if [[ "$shared_drive_name" == "null" || -z "$shared_drive_name" ]]; then
+      log_info "  Skipping: $folder_name (not assigned)"
       continue
     fi
 
-    local_dir="${backup_root}/${sanitized_email}/${category}/${folder_name}"
+    local_dir="${backup_root}/${sanitized_email}/${shared_drive_name}/${folder_name}"
     version_dir="${backup_root}/.versions/${sanitized_email}/${timestamp}"
     mkdir -p "$local_dir" "$version_dir"
 
-    log_info "  Syncing: $folder_name ($category) -> $local_dir"
+    log_info "  Syncing: $folder_name ($shared_drive_name) -> $local_dir"
 
     local rc=0
     rclone sync "${remote_name}:" "$local_dir" \
@@ -99,7 +103,7 @@ sync_gdrive_to_local() {
   fi
 }
 
-# ── sync_local_to_b2 <account_index> ──────────────
+# -- sync_local_to_b2 <account_index> --
 sync_local_to_b2() {
   local idx="$1"
   require_cmd rclone jq
@@ -116,17 +120,21 @@ sync_local_to_b2() {
 
   local synced=0 failed=0
 
-  for category in dokumenty projekty media; do
+  local drive_name sanitized_name
+  while IFS= read -r drive_name; do
+    [[ -n "$drive_name" ]] || continue
+    sanitized_name=$(_sanitize_drive_name "$drive_name")
+
     local local_dir remote_name bucket_name b2_path
-    local_dir="${backup_root}/${sanitized_email}/${category}"
+    local_dir="${backup_root}/${sanitized_email}/${drive_name}"
 
     if [[ ! -d "$local_dir" ]]; then
-      log_info "  No local data for $category, skipping"
+      log_info "  No local data for $drive_name, skipping"
       continue
     fi
 
-    remote_name="b2_${category}"
-    bucket_name="${bucket_prefix}-${category}"
+    remote_name="b2_${sanitized_name}"
+    bucket_name="${bucket_prefix}-${sanitized_name}"
     b2_path="${remote_name}:${bucket_name}/${sanitized_email}"
 
     log_info "  Syncing: $local_dir -> $b2_path"
@@ -145,12 +153,12 @@ sync_local_to_b2() {
 
     if (( rc == 0 )); then
       synced=$((synced + 1))
-      log_info "  Done: $category -> B2"
+      log_info "  Done: $drive_name -> B2"
     else
-      log_error "  Failed: $category (rclone exit $rc)"
+      log_error "  Failed: $drive_name (rclone exit $rc)"
       failed=$((failed + 1))
     fi
-  done
+  done < <(cfg_shared_drive_names)
 
   log_info "Local -> B2 complete for $email: $synced synced, $failed failed"
 
@@ -159,7 +167,7 @@ sync_local_to_b2() {
   fi
 }
 
-# ── grota backup account <email> ──────────────────
+# -- grota backup account <email> --
 cmd_backup_account() {
   local email="${1:?Usage: grota backup account <email>}"
   init_logging "backup-account"
@@ -174,10 +182,10 @@ cmd_backup_account() {
 
   log_info "=== Backup pipeline: $email (index $idx) ==="
 
-  # ── Step 1: Pre-flight checks
+  # -- Step 1: Pre-flight checks
   check_disk_space "$backup_root" 10 || exit 5
 
-  # ── Step 2: Drive -> Local
+  # -- Step 2: Drive -> Local
   log_info "Step 1/3: Google Drive -> Local"
   local rc=0
   sync_gdrive_to_local "$idx" || rc=$?
@@ -192,7 +200,7 @@ cmd_backup_account() {
 
   local drive_status=$rc
 
-  # ── Step 3: Local -> B2 (optional)
+  # -- Step 3: Local -> B2 (optional)
   local b2_rc=0
   local b2_prefix
   b2_prefix=$(cfg_b2_prefix)
@@ -206,17 +214,24 @@ cmd_backup_account() {
       exit 1
     fi
 
-    # Local retention cleanup only when B2 is the archive
-    log_info "Step 3/3: Local retention cleanup (media >90d)"
-    local media_dir="${backup_root}/${sanitized_email}/media"
-    if [[ -d "$media_dir" ]]; then
-      local old_count
-      old_count=$(find "$media_dir" -type f -mtime +90 | wc -l)
-      if (( old_count > 0 )); then
-        log_info "  Cleaning $old_count files older than 90d from $media_dir"
-        find "$media_dir" -type f -mtime +90 -delete
+    # Per-drive retention cleanup
+    log_info "Step 3/3: Local retention cleanup"
+    local drive_name retention_days
+    while IFS= read -r drive_name; do
+      [[ -n "$drive_name" ]] || continue
+      retention_days=$(cfg_shared_drive_retention "$drive_name")
+      if [[ -n "$retention_days" && "$retention_days" != "null" ]]; then
+        local drive_dir="${backup_root}/${sanitized_email}/${drive_name}"
+        if [[ -d "$drive_dir" ]]; then
+          local old_count
+          old_count=$(find "$drive_dir" -type f -mtime +"${retention_days}" | wc -l)
+          if (( old_count > 0 )); then
+            log_info "  Cleaning $old_count files older than ${retention_days}d from $drive_dir"
+            find "$drive_dir" -type f -mtime +"${retention_days}" -delete
+          fi
+        fi
       fi
-    fi
+    done < <(cfg_shared_drive_names)
   else
     log_info "Step 2/3: B2 not configured, skipping remote sync (local-only backup)"
   fi
@@ -227,7 +242,7 @@ cmd_backup_account() {
     find "$versions_dir" -mindepth 1 -maxdepth 1 -type d -mtime +30 -exec rm -rf {} +
   fi
 
-  # ── Summary
+  # -- Summary
   if (( drive_status == 7 || b2_rc == 7 )); then
     log_warn "Backup completed with partial failures for $email"
     exit 7

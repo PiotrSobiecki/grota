@@ -53,7 +53,7 @@ export async function buildConfigJson(
 				folders: account.folders.map((f) => ({
 					id: f.folderId,
 					name: f.folderName,
-					category: f.category,
+					shared_drive_name: f.shared_drive_name,
 				})),
 			};
 		}),
@@ -69,7 +69,7 @@ export async function buildConfigJson(
 					oauth_refresh_token: workspaceRefreshToken,
 					shared_drives: data.sharedDrives.map((sd) => ({
 						name: sd.name,
-						category: sd.category,
+						retention_days: sd.retentionDays,
 						id: sd.googleDriveId,
 					})),
 				}
@@ -139,7 +139,7 @@ export async function exportConfig(deploymentId: string, env: Env): Promise<Resu
 			deployment.clientName,
 			configResult.data.accounts.length,
 			configResult.data.accounts.reduce(
-				(sum, a) => sum + a.folders.filter((f) => f.category !== "prywatne").length,
+				(sum, a) => sum + a.folders.filter((f) => f.shared_drive_name !== null).length,
 				0,
 			),
 			env,

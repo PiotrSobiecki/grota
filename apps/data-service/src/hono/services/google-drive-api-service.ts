@@ -63,7 +63,7 @@ export async function createSharedDrive(
 
 export async function createSharedDrivesBulk(
 	accessToken: string,
-	drives: Array<{ name: string; category: string }>,
+	drives: Array<{ name: string }>,
 ): Promise<Result<{ created: CreatedDrive[]; failures: DriveCreateFailure[] }>> {
 	const results = await Promise.allSettled(
 		drives.map(async (drive) => {

@@ -88,7 +88,7 @@ function ConfigPage() {
 	const isActive = deploymentQuery.data?.status === "active";
 
 	const folderCount = config.accounts.reduce(
-		(sum, a) => sum + a.folders.filter((f) => f.category !== "prywatne").length,
+		(sum, a) => sum + a.folders.filter((f) => f.shared_drive_name !== null).length,
 		0,
 	);
 
@@ -139,9 +139,7 @@ function ConfigPage() {
 							</span>
 						)}
 					</div>
-					<div className="text-sm text-muted-foreground">
-						Foldery (bez prywatnych): {folderCount}
-					</div>
+					<div className="text-sm text-muted-foreground">Foldery do backupu: {folderCount}</div>
 				</CardContent>
 			</Card>
 

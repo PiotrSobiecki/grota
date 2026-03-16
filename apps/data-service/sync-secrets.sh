@@ -29,9 +29,13 @@ fi
 
 echo "Syncing secrets from $VARS_FILE to Cloudflare Workers environment: $ENV"
 
-while IFS='=' read -r key value || [ -n "$key" ]; do
+while IFS= read -r line || [ -n "$line" ]; do
   # Skip empty lines and comments
-  [[ -z "$key" || "$key" =~ ^#.*$ ]] && continue
+  [[ -z "$line" || "$line" =~ ^#.*$ ]] && continue
+
+  # Split on first '=' only (preserves '=' in values like base64)
+  key="${line%%=*}"
+  value="${line#*=}"
 
   # Trim whitespace
   key=$(echo "$key" | xargs)
