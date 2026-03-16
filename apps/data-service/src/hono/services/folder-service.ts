@@ -7,7 +7,7 @@ import {
 } from "@repo/data-ops/employee";
 import { decrypt } from "@repo/data-ops/encryption";
 import type {
-	DriveFolder,
+	DriveItem,
 	FolderSelection,
 	FolderSelectionCreateInput,
 } from "@repo/data-ops/folder-selection";
@@ -20,21 +20,43 @@ import type { Result } from "../types/result";
 import { refreshAccessToken } from "./google-token-service";
 
 // ============================================
-// Service functions
+// Internals
 // ============================================
 
-export async function listDriveFolders(
-	employeeId: string,
-	env: Env,
-): Promise<Result<{ folders: DriveFolder[] }>> {
-	const employee = await getEmployeeById(employeeId);
-	if (!employee) {
-		return {
-			ok: false,
-			error: { code: "NOT_FOUND", message: "Pracownik nie znaleziony", status: 404 },
-		};
-	}
+interface GoogleDriveFile {
+	id: string;
+	name: string;
+	mimeType: string;
+	size?: string;
+}
 
+interface GoogleDriveListResponse {
+	files: GoogleDriveFile[];
+	nextPageToken?: string;
+}
+
+const FOLDER_MIME = "application/vnd.google-apps.folder";
+
+function deriveItemType(mimeType: string): "folder" | "file" {
+	return mimeType === FOLDER_MIME ? "folder" : "file";
+}
+
+function parseSize(file: GoogleDriveFile): number | null {
+	if (file.size) {
+		const n = Number(file.size);
+		return Number.isNaN(n) ? null : n;
+	}
+	return null;
+}
+
+function sortItems(items: DriveItem[]): DriveItem[] {
+	return items.sort((a, b) => {
+		if (a.type !== b.type) return a.type === "folder" ? -1 : 1;
+		return a.name.localeCompare(b.name);
+	});
+}
+
+async function resolveAccessToken(employeeId: string, env: Env): Promise<Result<string>> {
 	const encryptedToken = await getDriveOAuthToken(employeeId);
 	if (!encryptedToken) {
 		return {
@@ -62,13 +84,10 @@ export async function listDriveFolders(
 		};
 	}
 
-	// Refresh if expired
 	let accessToken = tokenPayload.access_token;
 	if (Date.now() > tokenPayload.expiry_date && tokenPayload.refresh_token) {
 		const refreshResult = await refreshAccessToken(tokenPayload.refresh_token, env);
-		if (!refreshResult.ok) {
-			return refreshResult;
-		}
+		if (!refreshResult.ok) return refreshResult;
 		accessToken = refreshResult.data.access_token;
 
 		const { encrypt } = await import("@repo/data-ops/encryption");
@@ -82,18 +101,43 @@ export async function listDriveFolders(
 		await setDriveOAuthToken(employeeId, encrypted);
 	}
 
-	// Fetch top-level folders from Google Drive API
-	const driveResponse = await fetch(
-		`https://www.googleapis.com/drive/v3/files?${new URLSearchParams({
-			q: "'root' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false",
-			fields: "files(id,name,mimeType)",
-			pageSize: "100",
-			orderBy: "name",
-		})}`,
-		{
-			headers: { Authorization: `Bearer ${accessToken}` },
-		},
-	);
+	return { ok: true, data: accessToken };
+}
+
+// ============================================
+// Service functions
+// ============================================
+
+export async function listDriveItems(
+	employeeId: string,
+	parentId: string,
+	pageToken: string | undefined,
+	env: Env,
+): Promise<Result<{ items: DriveItem[]; nextPageToken: string | null }>> {
+	const employee = await getEmployeeById(employeeId);
+	if (!employee) {
+		return {
+			ok: false,
+			error: { code: "NOT_FOUND", message: "Pracownik nie znaleziony", status: 404 },
+		};
+	}
+
+	const tokenResult = await resolveAccessToken(employeeId, env);
+	if (!tokenResult.ok) return tokenResult;
+
+	const params = new URLSearchParams({
+		q: `'${parentId}' in parents and trashed = false`,
+		fields: "files(id,name,mimeType,size),nextPageToken",
+		pageSize: "200",
+		orderBy: "name",
+	});
+	if (pageToken) {
+		params.set("pageToken", pageToken);
+	}
+
+	const driveResponse = await fetch(`https://www.googleapis.com/drive/v3/files?${params}`, {
+		headers: { Authorization: `Bearer ${tokenResult.data}` },
+	});
 
 	if (!driveResponse.ok) {
 		const errorText = await driveResponse.text();
@@ -113,30 +157,29 @@ export async function listDriveFolders(
 
 		return {
 			ok: false,
-			error: {
-				code: "DRIVE_API_ERROR",
-				message: "Blad API Google Drive",
-				status: 502,
-			},
+			error: { code: "DRIVE_API_ERROR", message: "Blad API Google Drive", status: 502 },
 		};
 	}
 
-	const driveData = (await driveResponse.json()) as {
-		files: Array<{ id: string; name: string; mimeType: string }>;
-	};
+	const driveData = (await driveResponse.json()) as GoogleDriveListResponse;
 
-	const folders: DriveFolder[] = driveData.files.map((file) => ({
+	const items: DriveItem[] = driveData.files.map((file) => ({
 		id: file.id,
 		name: file.name,
 		mimeType: file.mimeType,
+		type: deriveItemType(file.mimeType),
+		size: parseSize(file),
 	}));
 
-	// Update employee status to in_progress
+	// Update employee status to in_progress on first browse
 	if (employee.selectionStatus === "pending") {
 		await updateEmployeeSelectionStatus(employeeId, "in_progress");
 	}
 
-	return { ok: true, data: { folders } };
+	return {
+		ok: true,
+		data: { items: sortItems(items), nextPageToken: driveData.nextPageToken ?? null },
+	};
 }
 
 export async function getSelections(
@@ -160,12 +203,17 @@ export async function saveSelections(
 	}
 
 	await deleteFolderSelectionsByEmployee(employeeId);
-	const created = await createFolderSelections(employeeId, selections);
+
+	if (selections.length > 0) {
+		const created = await createFolderSelections(employeeId, selections);
+		await updateEmployeeSelectionStatus(employeeId, "completed");
+		await checkDeploymentCompletion(employee.deploymentId);
+		return { ok: true, data: created };
+	}
 
 	await updateEmployeeSelectionStatus(employeeId, "completed");
 	await checkDeploymentCompletion(employee.deploymentId);
-
-	return { ok: true, data: created };
+	return { ok: true, data: [] };
 }
 
 async function checkDeploymentCompletion(deploymentId: string): Promise<void> {

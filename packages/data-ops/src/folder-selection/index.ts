@@ -4,18 +4,20 @@ export {
 	getFolderSelectionsByEmployee,
 } from "./queries";
 export type {
-	DriveFolder,
+	DriveItem,
 	FolderSelection,
 	FolderSelectionBulkCreateInput,
 	FolderSelectionCreateInput,
 } from "./schema";
 export {
-	DriveFolderListResponseSchema,
-	DriveFolderSchema,
+	DriveItemListQuerySchema,
+	DriveItemListResponseSchema,
+	DriveItemSchema,
 	FolderSelectionBulkCreateRequestSchema,
 	FolderSelectionCreateRequestSchema,
 	FolderSelectionListResponseSchema,
 	FolderSelectionResponseSchema,
 	FolderSelectionSchema,
+	ItemTypeSchema,
 } from "./schema";
 export { folderSelections } from "./table";

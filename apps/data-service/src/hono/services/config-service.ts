@@ -51,9 +51,12 @@ export async function buildConfigJson(
 				name: account.name,
 				oauth_refresh_token: refreshToken,
 				folders: account.folders.map((f) => ({
-					id: f.folderId,
-					name: f.folderName,
+					id: f.itemId,
+					name: f.itemName,
 					shared_drive_name: f.shared_drive_name,
+					type: f.itemType,
+					parentId: f.parentFolderId,
+					mimeType: f.mimeType,
 				})),
 			};
 		}),

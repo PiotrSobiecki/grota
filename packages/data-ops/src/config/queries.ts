@@ -23,9 +23,12 @@ export interface ConfigAssemblyData {
 		name: string;
 		driveOauthToken: string | null;
 		folders: Array<{
-			folderId: string;
-			folderName: string;
+			itemId: string;
+			itemName: string;
 			shared_drive_name: string | null;
+			itemType: "folder" | "file";
+			parentFolderId: string | null;
+			mimeType: string | null;
 		}>;
 	}>;
 	sharedDrives: Array<{
@@ -75,9 +78,12 @@ export async function getConfigAssemblyData(
 				name: emp.name,
 				driveOauthToken: emp.driveOauthToken,
 				folders: selections.map((s) => ({
-					folderId: s.folderId,
-					folderName: s.folderName,
+					itemId: s.itemId,
+					itemName: s.itemName,
 					shared_drive_name: s.sharedDriveId ? (driveIdToName.get(s.sharedDriveId) ?? null) : null,
+					itemType: s.itemType,
+					parentFolderId: s.parentFolderId,
+					mimeType: s.mimeType,
 				})),
 			};
 		}),

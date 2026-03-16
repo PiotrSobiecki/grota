@@ -1,14 +1,23 @@
 import { z } from "zod";
 
 // ============================================
+// Shared Enums
+// ============================================
+
+export const ItemTypeSchema = z.enum(["folder", "file"]);
+
+// ============================================
 // Domain Model
 // ============================================
 
 export const FolderSelectionSchema = z.object({
 	id: z.string().uuid(),
 	employeeId: z.string().uuid(),
-	folderId: z.string(),
-	folderName: z.string(),
+	itemId: z.string(),
+	itemName: z.string(),
+	itemType: ItemTypeSchema,
+	parentFolderId: z.string().nullable(),
+	mimeType: z.string().nullable(),
 	sharedDriveId: z.string().uuid().nullable(),
 	createdAt: z.coerce.date(),
 });
@@ -18,16 +27,17 @@ export const FolderSelectionSchema = z.object({
 // ============================================
 
 export const FolderSelectionCreateRequestSchema = z.object({
-	folderId: z.string().min(1, "ID folderu jest wymagane"),
-	folderName: z.string().min(1, "Nazwa folderu jest wymagana"),
+	itemId: z.string().min(1, "ID elementu jest wymagane"),
+	itemName: z.string().min(1, "Nazwa elementu jest wymagana"),
+	itemType: ItemTypeSchema,
+	parentFolderId: z.string().nullable(),
+	mimeType: z.string().nullable(),
 	sharedDriveId: z.string().uuid().nullable(),
 });
 
 export const FolderSelectionBulkCreateRequestSchema = z.object({
 	employeeId: z.string().uuid(),
-	selections: z
-		.array(FolderSelectionCreateRequestSchema)
-		.min(1, "Wybierz przynajmniej jeden folder"),
+	selections: z.array(FolderSelectionCreateRequestSchema).min(0),
 });
 
 // ============================================
@@ -41,15 +51,23 @@ export const FolderSelectionListResponseSchema = z.object({
 	total: z.number(),
 });
 
-/** Google Drive folder item as returned from the API */
-export const DriveFolderSchema = z.object({
+/** Google Drive item (folder or file) as returned from the API */
+export const DriveItemSchema = z.object({
 	id: z.string(),
 	name: z.string(),
 	mimeType: z.string(),
+	type: z.enum(["folder", "file"]),
+	size: z.number().nullable(),
 });
 
-export const DriveFolderListResponseSchema = z.object({
-	folders: z.array(DriveFolderSchema),
+export const DriveItemListQuerySchema = z.object({
+	parentId: z.string().optional().default("root"),
+	pageToken: z.string().optional(),
+});
+
+export const DriveItemListResponseSchema = z.object({
+	items: z.array(DriveItemSchema),
+	nextPageToken: z.string().nullable(),
 });
 
 // ============================================
@@ -59,4 +77,4 @@ export const DriveFolderListResponseSchema = z.object({
 export type FolderSelection = z.infer<typeof FolderSelectionSchema>;
 export type FolderSelectionCreateInput = z.infer<typeof FolderSelectionCreateRequestSchema>;
 export type FolderSelectionBulkCreateInput = z.infer<typeof FolderSelectionBulkCreateRequestSchema>;
-export type DriveFolder = z.infer<typeof DriveFolderSchema>;
+export type DriveItem = z.infer<typeof DriveItemSchema>;

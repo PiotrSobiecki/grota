@@ -101,7 +101,11 @@ cmd_migrate() {
       folder_name=$(echo "$folders_json" | jq -r ".[$f].name")
       shared_drive_name=$(echo "$folders_json" | jq -r ".[$f].shared_drive_name")
 
-      # Skip folders not assigned to a shared drive
+      local item_type parent_id
+      item_type=$(echo "$folders_json" | jq -r ".[$f].type // \"folder\"")
+      parent_id=$(echo "$folders_json" | jq -r ".[$f].parentId // empty")
+
+      # Skip items not assigned to a shared drive
       if [[ "$shared_drive_name" == "null" || -z "$shared_drive_name" ]]; then
         skipped=$((skipped + 1))
         continue
@@ -114,22 +118,41 @@ cmd_migrate() {
         continue
       fi
 
-      target_path="${WORKSPACE_REMOTE},team_drive=${target_drive_id}:${name}/${folder_name}"
+      if [[ "$item_type" == "file" ]]; then
+        target_path="${WORKSPACE_REMOTE},team_drive=${target_drive_id}:${name}/_files/${folder_name}"
+      else
+        target_path="${WORKSPACE_REMOTE},team_drive=${target_drive_id}:${name}/${folder_name}"
+      fi
 
-      log_info "  Migrating: $folder_name ($shared_drive_name) -> $target_path"
+      log_info "  Migrating: $folder_name ($shared_drive_name, $item_type) -> $target_path"
 
       local rc=0
-      rclone copy "${remote_name},drive_root_folder_id=${folder_id}:" "$target_path" \
-        --drive-export-formats "docx,xlsx,pptx,pdf" \
-        --retries 3 \
-        --retries-sleep 30s \
-        --timeout 300s \
-        --stats-one-line \
-        --stats 30s \
-        --log-level INFO \
-        $dry_run \
-        2>&1 | while IFS= read -r line; do log_info "    rclone: $line"; done \
-        || rc=$?
+      if [[ "$item_type" == "file" ]]; then
+        rclone copy "${remote_name},drive_root_folder_id=${parent_id}:" "$target_path" \
+          --include "/${folder_name}" \
+          --drive-export-formats "docx,xlsx,pptx,pdf" \
+          --retries 3 \
+          --retries-sleep 30s \
+          --timeout 300s \
+          --stats-one-line \
+          --stats 30s \
+          --log-level INFO \
+          $dry_run \
+          2>&1 | while IFS= read -r line; do log_info "    rclone: $line"; done \
+          || rc=$?
+      else
+        rclone copy "${remote_name},drive_root_folder_id=${folder_id}:" "$target_path" \
+          --drive-export-formats "docx,xlsx,pptx,pdf" \
+          --retries 3 \
+          --retries-sleep 30s \
+          --timeout 300s \
+          --stats-one-line \
+          --stats 30s \
+          --log-level INFO \
+          $dry_run \
+          2>&1 | while IFS= read -r line; do log_info "    rclone: $line"; done \
+          || rc=$?
+      fi
 
       if (( rc == 0 )); then
         migrated=$((migrated + 1))
@@ -216,7 +239,10 @@ _verify_migration() {
       folder_name=$(echo "$folders_json" | jq -r ".[$f].name")
       shared_drive_name=$(echo "$folders_json" | jq -r ".[$f].shared_drive_name")
 
-      # Skip unassigned folders
+      local item_type
+      item_type=$(echo "$folders_json" | jq -r ".[$f].type // \"folder\"")
+
+      # Skip unassigned items
       if [[ "$shared_drive_name" == "null" || -z "$shared_drive_name" ]]; then
         continue
       fi
@@ -228,7 +254,11 @@ _verify_migration() {
 
       local source_path target_path source_count target_count status
       source_path="${remote_name},drive_root_folder_id=${folder_id}:"
-      target_path="${WORKSPACE_REMOTE},team_drive=${target_drive_id}:${name}/${folder_name}"
+      if [[ "$item_type" == "file" ]]; then
+        target_path="${WORKSPACE_REMOTE},team_drive=${target_drive_id}:${name}/_files/${folder_name}"
+      else
+        target_path="${WORKSPACE_REMOTE},team_drive=${target_drive_id}:${name}/${folder_name}"
+      fi
 
       source_count=$(_count_files "$source_path")
       target_count=$(_count_files "$target_path")

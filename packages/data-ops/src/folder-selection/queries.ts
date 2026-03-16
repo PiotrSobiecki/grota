@@ -17,8 +17,11 @@ export async function createFolderSelections(
 	const db = getDb();
 	const values = selections.map((s) => ({
 		employeeId,
-		folderId: s.folderId,
-		folderName: s.folderName,
+		itemId: s.itemId,
+		itemName: s.itemName,
+		itemType: s.itemType,
+		parentFolderId: s.parentFolderId,
+		mimeType: s.mimeType,
 		sharedDriveId: s.sharedDriveId,
 	}));
 	return db.insert(folderSelections).values(values).returning();

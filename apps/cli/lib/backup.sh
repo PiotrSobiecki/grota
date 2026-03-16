@@ -55,34 +55,59 @@ sync_gdrive_to_local() {
     folder_name=$(echo "$folders_json" | jq -r ".[$f].name")
     shared_drive_name=$(echo "$folders_json" | jq -r ".[$f].shared_drive_name")
 
-    # Skip folders not assigned to any shared drive (null = private/skip)
+    local item_type parent_id
+    item_type=$(echo "$folders_json" | jq -r ".[$f].type // \"folder\"")
+    parent_id=$(echo "$folders_json" | jq -r ".[$f].parentId // empty")
+
+    # Skip items not assigned to any shared drive (null = private/skip)
     if [[ "$shared_drive_name" == "null" || -z "$shared_drive_name" ]]; then
       log_info "  Skipping: $folder_name (not assigned)"
       continue
     fi
 
-    local_dir="${backup_root}/${sanitized_email}/${shared_drive_name}/${folder_name}"
     version_dir="${backup_root}/.versions/${sanitized_email}/${timestamp}"
+
+    if [[ "$item_type" == "file" ]]; then
+      local_dir="${backup_root}/${sanitized_email}/${shared_drive_name}/_files/${folder_name}"
+    else
+      local_dir="${backup_root}/${sanitized_email}/${shared_drive_name}/${folder_name}"
+    fi
     mkdir -p "$local_dir" "$version_dir"
 
-    log_info "  Syncing: $folder_name ($shared_drive_name) -> $local_dir"
+    log_info "  Syncing: $folder_name ($shared_drive_name, $item_type) -> $local_dir"
 
     local rc=0
-    rclone sync "${remote_name}:" "$local_dir" \
-      --drive-root-folder-id "$folder_id" \
-      --drive-export-formats "docx,xlsx,pptx,pdf" \
-      --backup-dir "$version_dir" \
-      --bwlimit "$bwlimit" \
-      --track-renames \
-      --fast-list \
-      --retries 3 \
-      --retries-sleep 30s \
-      --timeout 300s \
-      --stats-one-line \
-      --stats 30s \
-      --log-level INFO \
-      2>&1 | while IFS= read -r line; do log_info "    rclone: $line"; done \
-      || rc=$?
+    if [[ "$item_type" == "file" ]]; then
+      rclone copy "${remote_name}:" "$local_dir" \
+        --drive-root-folder-id "$parent_id" \
+        --include "/${folder_name}" \
+        --drive-export-formats "docx,xlsx,pptx,pdf" \
+        --bwlimit "$bwlimit" \
+        --retries 3 \
+        --retries-sleep 30s \
+        --timeout 300s \
+        --stats-one-line \
+        --stats 30s \
+        --log-level INFO \
+        2>&1 | while IFS= read -r line; do log_info "    rclone: $line"; done \
+        || rc=$?
+    else
+      rclone sync "${remote_name}:" "$local_dir" \
+        --drive-root-folder-id "$folder_id" \
+        --drive-export-formats "docx,xlsx,pptx,pdf" \
+        --backup-dir "$version_dir" \
+        --bwlimit "$bwlimit" \
+        --track-renames \
+        --fast-list \
+        --retries 3 \
+        --retries-sleep 30s \
+        --timeout 300s \
+        --stats-one-line \
+        --stats 30s \
+        --log-level INFO \
+        2>&1 | while IFS= read -r line; do log_info "    rclone: $line"; done \
+        || rc=$?
+    fi
 
     if (( rc == 0 )); then
       synced=$((synced + 1))
