@@ -10,6 +10,10 @@ Monorepo: TanStack Start + Hono API on Cloudflare Workers. pnpm.
 | `apps/data-service` | REST API (Hono on CF Workers) |
 | `apps/user-application` | SSR Frontend (TanStack Start on CF Workers) |
 
+## Verification
+
+Lint auto-runs via PostToolUse hook on Edit/Write (biome check --write).
+
 ## Commands
 
 ```bash
@@ -25,7 +29,6 @@ pnpm run lint:fix                 # auto-fix all
 ## Conventions
 
 - `/docs` = single source of truth for requirements; reviews/audits go inline in the doc
-- Run `pnpm run lint` after writing code
 - Max 500 lines per source file
 - Handlers → Services → Queries separation
 - Biome config: `biome.json`. GritQL plugins: `plugins/*.grit`
