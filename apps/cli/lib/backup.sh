@@ -58,6 +58,7 @@ sync_gdrive_to_local() {
     local item_type parent_id
     item_type=$(echo "$folders_json" | jq -r ".[$f].type // \"folder\"")
     parent_id=$(echo "$folders_json" | jq -r ".[$f].parentId // empty")
+    [[ -z "$parent_id" ]] && parent_id="root"
 
     # Skip items not assigned to any shared drive (null = private/skip)
     if [[ "$shared_drive_name" == "null" || -z "$shared_drive_name" ]]; then
