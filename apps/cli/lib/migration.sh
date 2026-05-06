@@ -8,6 +8,25 @@ set -euo pipefail
 
 WORKSPACE_REMOTE="workspace_drive"
 
+# Infer exported extension for Google native files when needed.
+_export_name_for_mime() {
+  local base_name="$1" mime_type="${2:-}"
+  case "$mime_type" in
+    application/vnd.google-apps.spreadsheet)
+      [[ "$base_name" == *.xlsx ]] && echo "$base_name" || echo "${base_name}.xlsx"
+      ;;
+    application/vnd.google-apps.document)
+      [[ "$base_name" == *.docx ]] && echo "$base_name" || echo "${base_name}.docx"
+      ;;
+    application/vnd.google-apps.presentation)
+      [[ "$base_name" == *.pptx ]] && echo "$base_name" || echo "${base_name}.pptx"
+      ;;
+    *)
+      echo "$base_name"
+      ;;
+  esac
+}
+
 # -- Get Shared Drive ID by name --
 _get_shared_drive_id() {
   local name="$1"
@@ -101,9 +120,10 @@ cmd_migrate() {
       folder_name=$(echo "$folders_json" | jq -r ".[$f].name")
       shared_drive_name=$(echo "$folders_json" | jq -r ".[$f].shared_drive_name")
 
-      local item_type parent_id
+      local item_type parent_id mime_type target_file_name
       item_type=$(echo "$folders_json" | jq -r ".[$f].type // \"folder\"")
       parent_id=$(echo "$folders_json" | jq -r ".[$f].parentId // empty")
+      mime_type=$(echo "$folders_json" | jq -r ".[$f].mimeType // empty")
       [[ -z "$parent_id" ]] && parent_id="root"
 
       # Skip items not assigned to a shared drive
@@ -120,7 +140,8 @@ cmd_migrate() {
       fi
 
       if [[ "$item_type" == "file" ]]; then
-        target_path="${WORKSPACE_REMOTE},team_drive=${target_drive_id}:${name}/_files/${folder_name}"
+        target_file_name=$(_export_name_for_mime "$folder_name" "$mime_type")
+        target_path="${WORKSPACE_REMOTE},team_drive=${target_drive_id}:${name}/_files/${target_file_name}"
       else
         target_path="${WORKSPACE_REMOTE},team_drive=${target_drive_id}:${name}/${folder_name}"
       fi
@@ -129,8 +150,8 @@ cmd_migrate() {
 
       local rc=0
       if [[ "$item_type" == "file" ]]; then
-        rclone copy "${remote_name},drive_root_folder_id=${parent_id}:" "$target_path" \
-          --include "/${folder_name}" \
+        # Copy by exact file ID to avoid name/encoding mismatches for file items.
+        rclone backend copyid "${remote_name}:" "$folder_id" "$target_path" \
           --drive-export-formats "docx,xlsx,pptx,pdf" \
           --retries 3 \
           --retries-sleep 30s \
@@ -212,6 +233,16 @@ _verify_migration() {
     rclone size "$remote_path" --json 2>/dev/null | jq '.count' || echo "0"
   }
 
+  _count_file_by_name() {
+    local remote_path="$1" file_name="$2"
+    rclone lsf "$remote_path" --files-only --include "/${file_name}" 2>/dev/null | wc -l | tr -d ' '
+  }
+
+  _count_file_by_prefix() {
+    local remote_path="$1" file_name="$2"
+    rclone lsf "$remote_path" --files-only --include "/${file_name}*" 2>/dev/null | wc -l | tr -d ' '
+  }
+
   local account_count mismatches=0 verified=0
   local report_lines=()
   account_count=$(cfg_account_count)
@@ -240,8 +271,10 @@ _verify_migration() {
       folder_name=$(echo "$folders_json" | jq -r ".[$f].name")
       shared_drive_name=$(echo "$folders_json" | jq -r ".[$f].shared_drive_name")
 
-      local item_type
+      local item_type parent_id
       item_type=$(echo "$folders_json" | jq -r ".[$f].type // \"folder\"")
+      parent_id=$(echo "$folders_json" | jq -r ".[$f].parentId // empty")
+      [[ -z "$parent_id" ]] && parent_id="root"
 
       # Skip unassigned items
       if [[ "$shared_drive_name" == "null" || -z "$shared_drive_name" ]]; then
@@ -254,15 +287,17 @@ _verify_migration() {
       fi
 
       local source_path target_path source_count target_count status
-      source_path="${remote_name},drive_root_folder_id=${folder_id}:"
       if [[ "$item_type" == "file" ]]; then
-        target_path="${WORKSPACE_REMOTE},team_drive=${target_drive_id}:${name}/_files/${folder_name}"
+        source_path="${remote_name},drive_root_folder_id=${parent_id}:"
+        target_path="${WORKSPACE_REMOTE},team_drive=${target_drive_id}:${name}/_files"
+        source_count=$(_count_file_by_name "$source_path" "$folder_name")
+        target_count=$(_count_file_by_prefix "$target_path" "$folder_name")
       else
+        source_path="${remote_name},drive_root_folder_id=${folder_id}:"
         target_path="${WORKSPACE_REMOTE},team_drive=${target_drive_id}:${name}/${folder_name}"
+        source_count=$(_count_files "$source_path")
+        target_count=$(_count_files "$target_path")
       fi
-
-      source_count=$(_count_files "$source_path")
-      target_count=$(_count_files "$target_path")
 
       if [[ "$source_count" == "$target_count" ]]; then
         status="OK"

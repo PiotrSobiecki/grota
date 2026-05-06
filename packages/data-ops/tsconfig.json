@@ -18,5 +18,11 @@
 		},
 		"types": ["@cloudflare/workers-types"]
 	},
-	"include": ["src"]
+	"include": ["src"],
+	"exclude": [
+		"src/**/*.test.ts",
+		"src/**/*.integration.test.ts",
+		"src/test/integration-setup.ts",
+		"src/test/smoke.integration.test.ts"
+	]
 }

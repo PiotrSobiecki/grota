@@ -4,10 +4,12 @@ import {
 	DeploymentIdParamSchema,
 	DeploymentListRequestSchema,
 	DeploymentUpdateRequestSchema,
+	ServerConfigUpdateRequestSchema,
 } from "@repo/data-ops/deployment";
 import { Hono } from "hono";
 import { authMiddleware } from "../middleware/auth";
 import * as deploymentService from "../services/deployment-service";
+import * as migrationService from "../services/migration-service";
 import { resultToResponse } from "../utils/result-to-response";
 
 const deploymentHandlers = new Hono<{ Bindings: Env }>();
@@ -59,6 +61,50 @@ deploymentHandlers.put(
 		const { id } = c.req.valid("param");
 		const data = c.req.valid("json");
 		return resultToResponse(c, await deploymentService.updateDeployment(id, data));
+	},
+);
+
+// Get server config (decrypted runner_token, then masked)
+deploymentHandlers.get(
+	"/:id/server-config",
+	(c, next) => authMiddleware(c.env.API_TOKEN)(c, next),
+	zValidator("param", DeploymentIdParamSchema),
+	async (c) => {
+		const { id } = c.req.valid("param");
+		return resultToResponse(
+			c,
+			await migrationService.getServerConfigForAdmin(id, c.env.ENCRYPTION_KEY),
+		);
+	},
+);
+
+// Test runner connection (calls runner POST /verify with B2 credentials)
+deploymentHandlers.post(
+	"/:id/server-config/test",
+	(c, next) => authMiddleware(c.env.API_TOKEN)(c, next),
+	zValidator("param", DeploymentIdParamSchema),
+	async (c) => {
+		const { id } = c.req.valid("param");
+		return resultToResponse(
+			c,
+			await migrationService.testRunnerConnection(id, c.env.ENCRYPTION_KEY),
+		);
+	},
+);
+
+// Update server config (partial — only provided fields are merged; runner_token encrypted before persist)
+deploymentHandlers.put(
+	"/:id/server-config",
+	(c, next) => authMiddleware(c.env.API_TOKEN)(c, next),
+	zValidator("param", DeploymentIdParamSchema),
+	zValidator("json", ServerConfigUpdateRequestSchema),
+	async (c) => {
+		const { id } = c.req.valid("param");
+		const partial = c.req.valid("json");
+		return resultToResponse(
+			c,
+			await migrationService.setServerConfigFromAdmin(id, partial, c.env.ENCRYPTION_KEY),
+		);
 	},
 );
 

@@ -1,0 +1,26 @@
+{
+	"name": "runner",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "tsx watch src/index.ts",
+		"start": "tsx src/index.ts",
+		"types": "tsc --noEmit",
+		"test": "vitest run",
+		"test:watch": "vitest"
+	},
+	"dependencies": {
+		"@hono/node-server": "^1.13.7",
+		"@hono/zod-validator": "^0.7.6",
+		"@repo/data-ops": "workspace:*",
+		"hono": "^4.12.2",
+		"zod": "^4.3.6"
+	},
+	"devDependencies": {
+		"@types/node": "^22.18.12",
+		"tsx": "^4.21.0",
+		"typescript": "^5.9.3",
+		"vitest": "^4.1.5"
+	}
+}

@@ -3,6 +3,8 @@ export {
 	deleteDeployment,
 	getDeployment,
 	getDeployments,
+	getDeploymentServerConfig,
+	setDeploymentServerConfig,
 	updateDeployment,
 	updateDeploymentStatus,
 	updateOnboardingStep,
@@ -29,6 +31,7 @@ export {
 	DeploymentStatusSchema,
 	DeploymentUpdateRequestSchema,
 	ServerConfigSchema,
+	ServerConfigUpdateRequestSchema,
 } from "./schema";
 export { deploymentStatusEnum, deployments } from "./table";
 export { getWorkspaceOAuthToken, setWorkspaceOAuthToken } from "./token-queries";

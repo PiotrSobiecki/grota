@@ -119,7 +119,7 @@ export async function sendEmailSummary(
 			"Content-Type": "application/json",
 		},
 		body: JSON.stringify({
-			from: "Grota <noreply@grota.app>",
+			from: "Grota <noreply@sobiecki.org>",
 			to: [to],
 			subject: `Grota: Onboarding ${clientName} zakonczony`,
 			html,

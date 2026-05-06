@@ -2,6 +2,7 @@ import { relations } from "drizzle-orm/relations";
 import { deployments } from "../deployment/table";
 import { employees } from "../employee/table";
 import { folderSelections } from "../folder-selection/table";
+import { migrationJobs } from "../migration/table";
 import { sharedDrives } from "../shared-drive/table";
 import { auth_user } from "./auth-schema";
 
@@ -12,6 +13,18 @@ export const deploymentRelations = relations(deployments, ({ one, many }) => ({
 	}),
 	employees: many(employees),
 	sharedDrives: many(sharedDrives),
+	migrationJobs: many(migrationJobs),
+}));
+
+export const migrationJobRelations = relations(migrationJobs, ({ one }) => ({
+	deployment: one(deployments, {
+		fields: [migrationJobs.deploymentId],
+		references: [deployments.id],
+	}),
+	triggeredBy: one(auth_user, {
+		fields: [migrationJobs.triggeredByUserId],
+		references: [auth_user.id],
+	}),
 }));
 
 export const employeeRelations = relations(employees, ({ one, many }) => ({

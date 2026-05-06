@@ -24,6 +24,11 @@ interface GoogleTokenResponse {
 	expires_in: number;
 }
 
+function getFrontendOrigin(env: Env): string {
+	const firstOrigin = env.ALLOWED_ORIGINS.split(",")[0]?.trim();
+	return firstOrigin || "http://localhost:3000";
+}
+
 export function buildAuthorizationUrl(
 	type: string,
 	id: string,
@@ -42,7 +47,8 @@ export function buildAuthorizationUrl(
 	url.searchParams.set("scope", scope);
 	url.searchParams.set("state", state);
 	url.searchParams.set("access_type", "offline");
-	url.searchParams.set("prompt", "consent");
+	url.searchParams.set("include_granted_scopes", "false");
+	url.searchParams.set("prompt", "consent select_account");
 	return url.toString();
 }
 
@@ -98,7 +104,7 @@ export async function handleCallback(
 
 	const encryptedToken = await encrypt(tokenPayload, env.ENCRYPTION_KEY);
 
-	const frontendOrigin = env.ALLOWED_ORIGINS.split(",")[0] ?? "";
+	const frontendOrigin = getFrontendOrigin(env);
 
 	if (state.type === "admin") {
 		await Promise.all([

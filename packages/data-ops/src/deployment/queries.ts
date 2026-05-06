@@ -7,8 +7,31 @@ import type {
 	DeploymentListResponse,
 	DeploymentStatus,
 	DeploymentUpdateInput,
+	ServerConfig,
 } from "./schema";
 import { deployments } from "./table";
+
+export async function getDeploymentServerConfig(
+	deploymentId: string,
+): Promise<ServerConfig | null> {
+	const db = getDb();
+	const result = await db
+		.select({ serverConfig: deployments.serverConfig })
+		.from(deployments)
+		.where(eq(deployments.id, deploymentId));
+	return result[0]?.serverConfig ?? null;
+}
+
+export async function setDeploymentServerConfig(
+	deploymentId: string,
+	config: ServerConfig,
+): Promise<void> {
+	const db = getDb();
+	await db
+		.update(deployments)
+		.set({ serverConfig: config })
+		.where(eq(deployments.id, deploymentId));
+}
 
 export async function getDeployment(deploymentId: string): Promise<Deployment | null> {
 	const db = getDb();

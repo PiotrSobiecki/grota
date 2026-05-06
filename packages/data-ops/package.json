@@ -2,14 +2,15 @@
 	"name": "@repo/data-ops",
 	"version": "1.0.0",
 	"description": "Manage auth, database, schemas, and queries",
+	"type": "module",
 	"exports": {
 		"./config": {
 			"types": "./dist/config/index.d.ts",
 			"default": "./dist/config/index.js"
 		},
 		"./encryption": {
-			"types": "./dist/encryption/index.d.ts",
-			"default": "./dist/encryption/index.js"
+			"types": "./dist/encryption/barrel.d.ts",
+			"default": "./dist/encryption/barrel.js"
 		},
 		"./folder-selection": {
 			"types": "./dist/folder-selection/index.d.ts",
@@ -26,6 +27,14 @@
 		"./magic-link": {
 			"types": "./dist/magic-link/index.d.ts",
 			"default": "./dist/magic-link/index.js"
+		},
+		"./migration": {
+			"types": "./dist/migration/index.d.ts",
+			"default": "./dist/migration/index.js"
+		},
+		"./test-fixtures": {
+			"types": "./dist/test/fixtures.d.ts",
+			"default": "./dist/test/fixtures.js"
 		},
 		"./health": {
 			"types": "./dist/health/index.d.ts",
@@ -73,7 +82,13 @@
 		"seed:production": "dotenvx run -f .env.production -- tsx src/database/seed/seed.ts",
 		"create-user:dev": "dotenvx run -f .env.dev -- tsx src/database/seed/create-user.ts",
 		"create-user:staging": "dotenvx run -f .env.staging -- tsx src/database/seed/create-user.ts",
-		"create-user:production": "dotenvx run -f .env.production -- tsx src/database/seed/create-user.ts"
+		"create-user:production": "dotenvx run -f .env.production -- tsx src/database/seed/create-user.ts",
+		"reset-password:dev": "dotenvx run -f .env.dev -- tsx src/database/seed/reset-password.ts",
+		"reset-password:staging": "dotenvx run -f .env.staging -- tsx src/database/seed/reset-password.ts",
+		"reset-password:production": "dotenvx run -f .env.production -- tsx src/database/seed/reset-password.ts",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"test:integration": "dotenvx run -f .env.dev -- vitest run --config vitest.integration.config.ts"
 	},
 	"keywords": [],
 	"author": "",
@@ -91,6 +106,7 @@
 		"postgres": "^3.4.8",
 		"tsc-alias": "^1.8.16",
 		"tsx": "^4.21.0",
-		"typescript": "^5.9.3"
+		"typescript": "^5.9.3",
+		"vitest": "^4.1.5"
 	}
 }

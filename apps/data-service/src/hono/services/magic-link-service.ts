@@ -162,21 +162,28 @@ export async function sendMagicLinkEmail(
 	type: "onboard" | "employee",
 	env: Env,
 ): Promise<Result<{ emailId: string }>> {
-	const baseUrl = env.ALLOWED_ORIGINS?.split(",")[0] ?? "http://localhost:3000";
+	const baseUrl = env.ALLOWED_ORIGINS?.split(",")[0]?.trim() || "http://localhost:3000";
 	const path = type === "onboard" ? `/onboard/${token}` : `/employee/${token}`;
 	const url = `${baseUrl}${path}`;
 
-	const subject =
-		type === "onboard" ? "Grota: Rozpocznij onboarding" : "Grota: Autoryzuj dostep do Google Drive";
+	const isAdminLink = type === "onboard";
+	const subject = isAdminLink
+		? "Grota: Link administracyjny do onboardingu"
+		: "Grota: Link pracownika do autoryzacji Google Drive";
+
+	const intro = isAdminLink
+		? "Zostales zaproszony do konfiguracji onboardingu jako administrator klienta."
+		: "Zostales zaproszony jako pracownik do autoryzacji dostepu do Google Drive.";
+
+	const cta = isAdminLink
+		? "Otworz panel administracyjny onboardingu"
+		: "Autoryzuj konto pracownika";
 
 	const html = `
     <p>Czesc ${name},</p>
-    <p>${
-			type === "onboard"
-				? "Zostales zaproszony do konfiguracji onboardingu w Grota."
-				: "Zostales zaproszony do autoryzacji dostepu do Google Drive w Grota."
-		}</p>
-    <p><a href="${url}">Kliknij tutaj aby rozpoczac</a></p>
+    <p>${intro}</p>
+    <p><strong>Typ linku:</strong> ${isAdminLink ? "Administrator (/onboard/...)" : "Pracownik (/employee/...)"}</p>
+    <p><a href="${url}">${cta}</a></p>
     <p>Link wazny przez 7 dni.</p>
     <p>-- Grota</p>
   `;
@@ -190,7 +197,7 @@ export async function sendMagicLinkEmail(
 				"Content-Type": "application/json",
 			},
 			body: JSON.stringify({
-				from: "Grota <noreply@auditmos.com>",
+				from: "Grota <noreply@sobiecki.org>",
 				to: [to],
 				subject,
 				html,

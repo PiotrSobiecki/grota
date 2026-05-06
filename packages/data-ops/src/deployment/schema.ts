@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { validateBandwidthLimit } from "./server-config-schema";
 
 // ============================================
 // Enums
@@ -24,9 +25,19 @@ export const B2ConfigSchema = z.object({
 
 export const ServerConfigSchema = z.object({
 	backup_path: z.string().min(1, "Backup path is required"),
-	bwlimit: z.string().min(1, "Bandwidth limit is required"),
+	bwlimit: z
+		.string()
+		.min(1, "Bandwidth limit is required")
+		.superRefine((value, ctx) => {
+			const result = validateBandwidthLimit(value);
+			if (!result.ok) {
+				ctx.addIssue({ code: "custom", message: result.error });
+			}
+		}),
 	ssh_host: z.string().optional(),
 	ssh_user: z.string().optional(),
+	runner_url: z.string().url("Runner URL must be a valid URL").optional(),
+	runner_token: z.string().min(1).optional(),
 });
 
 // ============================================
@@ -94,6 +105,8 @@ export const DeploymentUpdateRequestSchema = z
 export const DeploymentIdParamSchema = z.object({
 	id: z.string().uuid("Nieprawidlowy format ID"),
 });
+
+export const ServerConfigUpdateRequestSchema = ServerConfigSchema.partial();
 
 export const DeploymentListRequestSchema = z.object({
 	limit: z.coerce.number().min(1).max(100).default(20),
