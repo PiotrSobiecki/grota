@@ -4,10 +4,14 @@ import {
 	updateOnboardingStep,
 } from "@repo/data-ops/deployment";
 import {
+	createEmployee as createEmployeeQuery,
 	createEmployees,
 	type Employee,
 	type EmployeeCreateInput,
+	type EmployeeUpdateInput,
+	getEmployeeById,
 	getEmployeesByDeployment as getEmployeesQuery,
+	updateEmployee as updateEmployeeQuery,
 } from "@repo/data-ops/employee";
 import type { Result } from "../types/result";
 
@@ -72,4 +76,40 @@ export async function bulkCreateEmployees(
 	}
 
 	return { ok: true, data: created };
+}
+
+export async function createSingleEmployee(
+	deploymentId: string,
+	input: EmployeeCreateInput,
+): Promise<Result<Employee>> {
+	const deployment = await getDeployment(deploymentId);
+	if (!deployment) {
+		return {
+			ok: false,
+			error: { code: "NOT_FOUND", message: "Wdrozenie nie znalezione", status: 404 },
+		};
+	}
+	const created = await createEmployeeQuery(deploymentId, input);
+	return { ok: true, data: created };
+}
+
+export async function updateEmployee(
+	employeeId: string,
+	updates: EmployeeUpdateInput,
+): Promise<Result<Employee>> {
+	const existing = await getEmployeeById(employeeId);
+	if (!existing) {
+		return {
+			ok: false,
+			error: { code: "NOT_FOUND", message: "Pracownik nie znaleziony", status: 404 },
+		};
+	}
+	const updated = await updateEmployeeQuery(employeeId, updates);
+	if (!updated) {
+		return {
+			ok: false,
+			error: { code: "UPDATE_FAILED", message: "Nie udalo sie zaktualizowac", status: 500 },
+		};
+	}
+	return { ok: true, data: updated };
 }

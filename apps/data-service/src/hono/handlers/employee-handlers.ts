@@ -2,6 +2,9 @@ import { zValidator } from "@hono/zod-validator";
 import {
 	EmployeeBulkCreateRequestSchema,
 	EmployeeDeploymentParamSchema,
+	EmployeeIdParamSchema,
+	EmployeeSingleCreateRequestSchema,
+	EmployeeUpdateRequestSchema,
 } from "@repo/data-ops/employee";
 import { Hono } from "hono";
 import * as employeeService from "../services/employee-service";
@@ -28,5 +31,27 @@ employeeHandlers.post("/bulk", zValidator("json", EmployeeBulkCreateRequestSchem
 		201,
 	);
 });
+
+// Create single employee (post-onboarding additions from admin UI)
+employeeHandlers.post("/", zValidator("json", EmployeeSingleCreateRequestSchema), async (c) => {
+	const { deploymentId, email, name } = c.req.valid("json");
+	return resultToResponse(
+		c,
+		await employeeService.createSingleEmployee(deploymentId, { email, name }),
+		201,
+	);
+});
+
+// Update employee (email/name) -- always allowed
+employeeHandlers.patch(
+	"/:employeeId",
+	zValidator("param", EmployeeIdParamSchema),
+	zValidator("json", EmployeeUpdateRequestSchema),
+	async (c) => {
+		const { employeeId } = c.req.valid("param");
+		const updates = c.req.valid("json");
+		return resultToResponse(c, await employeeService.updateEmployee(employeeId, updates));
+	},
+);
 
 export default employeeHandlers;

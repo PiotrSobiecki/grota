@@ -74,6 +74,71 @@ export const bulkCreateEmployees = createServerFn({ method: "POST" })
 		return (await response.json()) as EmployeeCreateInput[];
 	});
 
+/** Create single employee (post-onboarding addition from admin panel). */
+export const createEmployee = createServerFn({ method: "POST" })
+	.middleware([protectedFunctionMiddleware])
+	.inputValidator(
+		z.object({
+			deploymentId: z.string().uuid(),
+			email: z.string().email("Nieprawidlowy format email"),
+			name: z.string().max(100).optional().default(""),
+		}),
+	)
+	.handler(async ({ data }) => {
+		const response = await fetchDataService("/employees", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${env.VITE_API_TOKEN}`,
+			},
+			body: JSON.stringify(data),
+		});
+		if (!response.ok) {
+			const body = (await response.json()) as { error?: string; code?: string };
+			throw new AppError(
+				body.error ?? "Nie udalo sie dodac pracownika",
+				body.code ?? "EMPLOYEE_CREATE_ERROR",
+				response.status,
+			);
+		}
+		return (await response.json()) as EmployeeListItem;
+	});
+
+/** Update employee email/name (admin action -- always allowed). */
+export const updateEmployee = createServerFn({ method: "POST" })
+	.middleware([protectedFunctionMiddleware])
+	.inputValidator(
+		z
+			.object({
+				employeeId: z.string().uuid(),
+				email: z.string().email("Nieprawidlowy format email").optional(),
+				name: z.string().max(100).optional(),
+			})
+			.refine((d) => d.email !== undefined || d.name !== undefined, {
+				message: "Co najmniej jedno pole musi byc podane",
+			}),
+	)
+	.handler(async ({ data }) => {
+		const { employeeId, ...updates } = data;
+		const response = await fetchDataService(`/employees/${employeeId}`, {
+			method: "PATCH",
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${env.VITE_API_TOKEN}`,
+			},
+			body: JSON.stringify(updates),
+		});
+		if (!response.ok) {
+			const body = (await response.json()) as { error?: string; code?: string };
+			throw new AppError(
+				body.error ?? "Nie udalo sie zaktualizowac pracownika",
+				body.code ?? "EMPLOYEE_UPDATE_ERROR",
+				response.status,
+			);
+		}
+		return (await response.json()) as EmployeeListItem;
+	});
+
 /** Send magic links to all employees in a deployment (operator action). */
 export const sendEmployeeMagicLinks = createServerFn({ method: "POST" })
 	.middleware([protectedFunctionMiddleware])

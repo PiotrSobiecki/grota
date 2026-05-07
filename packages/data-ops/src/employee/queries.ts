@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "@/database/setup";
-import type { Employee, EmployeeCreateInput } from "./schema";
+import type { Employee, EmployeeCreateInput, EmployeeUpdateInput } from "./schema";
 import { employees } from "./table";
 
 export async function getEmployeesByDeployment(deploymentId: string): Promise<Employee[]> {
@@ -32,6 +32,32 @@ export async function createEmployees(
 	}));
 	const created = await db.insert(employees).values(values).returning();
 	return created;
+}
+
+export async function createEmployee(
+	deploymentId: string,
+	data: EmployeeCreateInput,
+): Promise<Employee> {
+	const db = getDb();
+	const [created] = await db
+		.insert(employees)
+		.values({ deploymentId, email: data.email, name: data.name })
+		.returning();
+	if (!created) throw new Error("Insert failed");
+	return created;
+}
+
+export async function updateEmployee(
+	employeeId: string,
+	updates: EmployeeUpdateInput,
+): Promise<Employee | null> {
+	const db = getDb();
+	const result = await db
+		.update(employees)
+		.set(updates)
+		.where(eq(employees.id, employeeId))
+		.returning();
+	return result[0] ?? null;
 }
 
 export async function updateEmployeeMagicLink(

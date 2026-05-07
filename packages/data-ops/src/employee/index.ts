@@ -1,10 +1,12 @@
 export {
+	createEmployee,
 	createEmployees,
 	getDriveOAuthToken,
 	getEmployeeById,
 	getEmployeeByToken,
 	getEmployeesByDeployment,
 	setDriveOAuthToken,
+	updateEmployee,
 	updateEmployeeMagicLink,
 	updateEmployeeOAuthStatus,
 	updateEmployeeSelectionStatus,
@@ -15,6 +17,7 @@ export type {
 	EmployeeCreateInput,
 	EmployeeListResponse,
 	EmployeeResponse,
+	EmployeeUpdateInput,
 	OAuthStatus,
 	SelectionStatus,
 } from "./schema";
@@ -26,7 +29,9 @@ export {
 	EmployeeListResponseSchema,
 	EmployeeResponseSchema,
 	EmployeeSchema,
+	EmployeeSingleCreateRequestSchema,
 	EmployeeTokenParamSchema,
+	EmployeeUpdateRequestSchema,
 	OAuthStatusSchema,
 	SelectionStatusSchema,
 } from "./schema";

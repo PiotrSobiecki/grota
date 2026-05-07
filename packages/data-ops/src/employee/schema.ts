@@ -51,11 +51,26 @@ export const EmployeeCreateRequestSchema = z.object({
 	name: z.string().max(100, "Maksymalnie 100 znakow").optional().default(""),
 });
 
+export const EmployeeUpdateRequestSchema = z
+	.object({
+		email: z.string().email("Nieprawidlowy format email").optional(),
+		name: z.string().max(100, "Maksymalnie 100 znakow").optional(),
+	})
+	.refine((data) => data.email !== undefined || data.name !== undefined, {
+		message: "Co najmniej jedno pole musi byc podane",
+	});
+
 export const EmployeeBulkCreateRequestSchema = z.object({
 	deploymentId: z.string().uuid(),
 	employees: z
 		.array(EmployeeCreateRequestSchema)
 		.min(1, "Przynajmniej jeden pracownik jest wymagany"),
+});
+
+export const EmployeeSingleCreateRequestSchema = z.object({
+	deploymentId: z.string().uuid(),
+	email: z.string().email("Nieprawidlowy format email"),
+	name: z.string().max(100, "Maksymalnie 100 znakow").optional().default(""),
 });
 
 // ============================================
@@ -81,6 +96,7 @@ export type OAuthStatus = z.infer<typeof OAuthStatusSchema>;
 export type SelectionStatus = z.infer<typeof SelectionStatusSchema>;
 export type Employee = z.infer<typeof EmployeeSchema>;
 export type EmployeeCreateInput = z.infer<typeof EmployeeCreateRequestSchema>;
+export type EmployeeUpdateInput = z.infer<typeof EmployeeUpdateRequestSchema>;
 export type EmployeeBulkCreateInput = z.infer<typeof EmployeeBulkCreateRequestSchema>;
 export type EmployeeResponse = z.infer<typeof EmployeeResponseSchema>;
 export type EmployeeListResponse = z.infer<typeof EmployeeListResponseSchema>;

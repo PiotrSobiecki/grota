@@ -6,13 +6,16 @@ import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import {
 	ArrowLeft,
 	Bell,
+	Check,
 	ChevronDown,
 	Copy,
 	Info,
 	Loader2,
 	Mail,
 	Pencil,
+	Plus,
 	Send,
+	UserPlus,
 	Users,
 	X,
 } from "lucide-react";
@@ -41,8 +44,10 @@ import {
 	updateExistingDeployment,
 } from "@/core/functions/deployments/direct";
 import {
+	createEmployee,
 	getEmployeesByDeployment,
 	sendEmployeeMagicLinks,
+	updateEmployee,
 } from "@/core/functions/employees/binding";
 import { generateAdminMagicLink } from "@/core/functions/magic-links/binding";
 import { sendNotifications } from "@/core/functions/notifications/binding";
@@ -1021,6 +1026,7 @@ function EmployeeSection({
 	onStatusChanged: () => void;
 }) {
 	const [readyDialogOpen, setReadyDialogOpen] = useState(false);
+	const [isAdding, setIsAdding] = useState(false);
 
 	const employeesQuery = useQuery({
 		queryKey: ["employees", deploymentId],
@@ -1063,6 +1069,23 @@ function EmployeeSection({
 						)}
 					</CardTitle>
 					<div className="flex gap-2">
+						<Button
+							variant="outline"
+							onClick={() => setIsAdding((v) => !v)}
+							disabled={deploymentStatus === "active"}
+						>
+							{isAdding ? (
+								<>
+									<X className="mr-2 h-4 w-4" />
+									Anuluj
+								</>
+							) : (
+								<>
+									<UserPlus className="mr-2 h-4 w-4" />
+									Dodaj pracownika
+								</>
+							)}
+						</Button>
 						{canMarkReady && (
 							<AlertDialog open={readyDialogOpen} onOpenChange={setReadyDialogOpen}>
 								<AlertDialogTrigger asChild>
@@ -1120,9 +1143,120 @@ function EmployeeSection({
 					<p className="mb-3 text-sm text-destructive">{readyMutation.error.message}</p>
 				)}
 
-				<EmployeeList employees={employees} isPending={employeesQuery.isPending} />
+				{isAdding && (
+					<AddEmployeeForm
+						deploymentId={deploymentId}
+						onSuccess={() => {
+							setIsAdding(false);
+							employeesQuery.refetch();
+						}}
+						onCancel={() => setIsAdding(false)}
+					/>
+				)}
+
+				<EmployeeList
+					employees={employees}
+					isPending={employeesQuery.isPending}
+					onChanged={() => employeesQuery.refetch()}
+				/>
 			</CardContent>
 		</Card>
+	);
+}
+
+function AddEmployeeForm({
+	deploymentId,
+	onSuccess,
+	onCancel,
+}: {
+	deploymentId: string;
+	onSuccess: () => void;
+	onCancel: () => void;
+}) {
+	const mutation = useMutation({
+		mutationFn: (input: { email: string; name: string }) =>
+			createEmployee({ data: { deploymentId, ...input } }),
+		onSuccess: () => {
+			toast.success("Pracownik dodany");
+			onSuccess();
+		},
+		onError: (error) => toast.error(error.message),
+	});
+
+	const form = useForm({
+		defaultValues: { email: "", name: "" },
+		onSubmit: async ({ value }) => {
+			mutation.reset();
+			mutation.mutate(value);
+		},
+	});
+
+	return (
+		<form
+			onSubmit={(e) => {
+				e.preventDefault();
+				form.handleSubmit();
+			}}
+			className="mb-4 space-y-3 rounded-md border border-border bg-muted/30 p-3"
+		>
+			{mutation.isError && (
+				<p className="text-sm text-destructive">{mutation.error.message}</p>
+			)}
+			<div className="grid gap-3 md:grid-cols-2">
+				<form.Field name="email">
+					{(field) => (
+						<label className="text-sm text-muted-foreground">
+							Email
+							<Input
+								type="email"
+								value={field.state.value}
+								onChange={(e) => field.handleChange(e.target.value)}
+								onBlur={field.handleBlur}
+								placeholder="jan.kowalski@firma.pl"
+								className="h-8"
+								autoFocus
+							/>
+						</label>
+					)}
+				</form.Field>
+				<form.Field name="name">
+					{(field) => (
+						<label className="text-sm text-muted-foreground">
+							Imie i nazwisko (opcjonalne)
+							<Input
+								value={field.state.value}
+								onChange={(e) => field.handleChange(e.target.value)}
+								onBlur={field.handleBlur}
+								placeholder="Jan Kowalski"
+								className="h-8"
+							/>
+						</label>
+					)}
+				</form.Field>
+			</div>
+			<div className="flex gap-2">
+				<form.Subscribe selector={(s) => s.canSubmit}>
+					{(canSubmit) => (
+						<Button type="submit" size="sm" disabled={!canSubmit || mutation.isPending}>
+							{mutation.isPending ? (
+								<>
+									<Loader2 className="mr-2 h-3 w-3 animate-spin" />
+									Dodawanie...
+								</>
+							) : (
+								<>
+									<Plus className="mr-2 h-3 w-3" />
+									Dodaj
+								</>
+							)}
+						</Button>
+					)}
+				</form.Subscribe>
+				<Button type="button" variant="ghost" size="sm" onClick={onCancel}>
+					Anuluj
+				</Button>
+			</div>
+		</form>
 	);
 }
 
@@ -1138,9 +1272,11 @@ interface EmployeeListItem {
 function EmployeeList({
 	employees,
 	isPending,
+	onChanged,
 }: {
 	employees: EmployeeListItem[];
 	isPending: boolean;
+	onChanged: () => void;
 }) {
 	if (isPending) {
 		return (
@@ -1171,40 +1307,160 @@ function EmployeeList({
 				</div>
 			)}
 			<div className="space-y-2">
-				{employees.map((employee) => {
-					const oauthInfo = OAUTH_STATUS_LABELS[employee.oauthStatus] ?? {
-						label: employee.oauthStatus,
-						variant: "outline" as const,
-					};
-					const selectionInfo = SELECTION_STATUS_LABELS[employee.selectionStatus] ?? {
-						label: employee.selectionStatus,
-						variant: "outline" as const,
-					};
-					const linkSent = !!employee.magicLinkSentAt;
-					return (
-						<div
-							key={employee.id}
-							className="flex items-center justify-between rounded-md border border-border p-3"
-						>
-							<div>
-								<p className="text-sm font-medium text-foreground">
-									{employee.name || employee.email}
-								</p>
-								{employee.name && <p className="text-xs text-muted-foreground">{employee.email}</p>}
-							</div>
-							<div className="flex gap-2">
-								{linkSent ? (
-									<Badge variant={oauthInfo.variant}>{oauthInfo.label}</Badge>
+				{employees.map((employee) => (
+					<EmployeeRow key={employee.id} employee={employee} onChanged={onChanged} />
+				))}
+			</div>
+		</div>
+	);
+}
+
+function EmployeeRow({
+	employee,
+	onChanged,
+}: {
+	employee: EmployeeListItem;
+	onChanged: () => void;
+}) {
+	const [isEditing, setIsEditing] = useState(false);
+	const oauthInfo = OAUTH_STATUS_LABELS[employee.oauthStatus] ?? {
+		label: employee.oauthStatus,
+		variant: "outline" as const,
+	};
+	const selectionInfo = SELECTION_STATUS_LABELS[employee.selectionStatus] ?? {
+		label: employee.selectionStatus,
+		variant: "outline" as const,
+	};
+	const linkSent = !!employee.magicLinkSentAt;
+
+	const mutation = useMutation({
+		mutationFn: (updates: { email?: string; name?: string }) =>
+			updateEmployee({ data: { employeeId: employee.id, ...updates } }),
+		onSuccess: () => {
+			toast.success("Pracownik zaktualizowany");
+			setIsEditing(false);
+			onChanged();
+		},
+		onError: (error) => toast.error(error.message),
+	});
+
+	const form = useForm({
+		defaultValues: { email: employee.email, name: employee.name },
+		onSubmit: async ({ value }) => {
+			const updates: { email?: string; name?: string } = {};
+			if (value.email !== employee.email) updates.email = value.email;
+			if (value.name !== employee.name) updates.name = value.name;
+			if (Object.keys(updates).length === 0) {
+				setIsEditing(false);
+				return;
+			}
+			mutation.reset();
+			mutation.mutate(updates);
+		},
+	});
+
+	if (isEditing) {
+		return (
+			<form
+				onSubmit={(e) => {
+					e.preventDefault();
+					form.handleSubmit();
+				}}
+				className="space-y-2 rounded-md border border-border bg-muted/30 p-3"
+			>
+				{mutation.isError && (
+					<p className="text-sm text-destructive">{mutation.error.message}</p>
+				)}
+				<div className="grid gap-2 md:grid-cols-2">
+					<form.Field name="email">
+						{(field) => (
+							<label className="text-sm text-muted-foreground">
+								Email
+								<Input
+									type="email"
+									value={field.state.value}
+									onChange={(e) => field.handleChange(e.target.value)}
+									onBlur={field.handleBlur}
+									className="h-8"
+									autoFocus
+								/>
+							</label>
+						)}
+					</form.Field>
+					<form.Field name="name">
+						{(field) => (
+							<label className="text-sm text-muted-foreground">
+								Imie i nazwisko
+								<Input
+									value={field.state.value}
+									onChange={(e) => field.handleChange(e.target.value)}
+									onBlur={field.handleBlur}
+									className="h-8"
+								/>
+							</label>
+						)}
+					</form.Field>
+				</div>
+				<div className="flex gap-2">
+					<form.Subscribe selector={(s) => s.canSubmit}>
+						{(canSubmit) => (
+							<Button type="submit" size="sm" disabled={!canSubmit || mutation.isPending}>
+								{mutation.isPending ? (
+									<>
+										<Loader2 className="mr-2 h-3 w-3 animate-spin" />
+										Zapisywanie...
+									</>
 								) : (
-									<Badge variant="outline">Nie wyslano linku</Badge>
+									<>
+										<Check className="mr-2 h-3 w-3" />
+										Zapisz
+									</>
 								)}
-								{employee.oauthStatus === "authorized" && (
-									<Badge variant={selectionInfo.variant}>{selectionInfo.label}</Badge>
-								)}
-							</div>
-						</div>
-					);
-				})}
+							</Button>
+						)}
+					</form.Subscribe>
+					<Button
+						type="button"
+						variant="ghost"
+						size="sm"
+						onClick={() => {
+							setIsEditing(false);
+							form.reset();
+						}}
+					>
+						Anuluj
+					</Button>
+				</div>
+			</form>
+		);
+	}
+
+	return (
+		<div className="flex items-center justify-between rounded-md border border-border p-3">
+			<div>
+				<p className="text-sm font-medium text-foreground">
+					{employee.name || employee.email}
+				</p>
+				{employee.name && <p className="text-xs text-muted-foreground">{employee.email}</p>}
+			</div>
+			<div className="flex items-center gap-2">
+				{linkSent ? (
+					<Badge variant={oauthInfo.variant}>{oauthInfo.label}</Badge>
+				) : (
+					<Badge variant="outline">Nie wyslano linku</Badge>
+				)}
+				{employee.oauthStatus === "authorized" && (
+					<Badge variant={selectionInfo.variant}>{selectionInfo.label}</Badge>
+				)}
+				<Button
+					variant="ghost"
+					size="icon"
+					className="h-7 w-7"
+					onClick={() => setIsEditing(true)}
+					title="Edytuj"
+				>
+					<Pencil className="h-3.5 w-3.5" />
+				</Button>
 			</div>
 		</div>
 	);
