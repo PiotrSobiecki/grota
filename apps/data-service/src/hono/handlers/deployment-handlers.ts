@@ -101,9 +101,15 @@ deploymentHandlers.put(
 	async (c) => {
 		const { id } = c.req.valid("param");
 		const partial = c.req.valid("json");
+		const operatorId = c.req.header("X-Operator-Id") ?? "";
 		return resultToResponse(
 			c,
-			await migrationService.setServerConfigFromAdmin(id, partial, c.env.ENCRYPTION_KEY),
+			await migrationService.setServerConfigFromAdmin(
+				id,
+				partial,
+				c.env.ENCRYPTION_KEY,
+				operatorId || undefined,
+			),
 		);
 	},
 );

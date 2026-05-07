@@ -4,15 +4,14 @@ import { getDb } from "@/database/setup";
 import { deployments } from "@/deployment/table";
 import { auth_user } from "@/drizzle/auth-schema";
 
+// Removes ONLY rows created by test fixtures (identified by `test-user-*` prefix
+// in auth_user.id). Real dev data — your deployments, employees, auth sessions —
+// stays intact. Cascade chain: deployments(created_by) → employees, migration_jobs,
+// shared_drives → folder_selections. See test/integration-setup.ts for matching guard.
 export async function resetTestDatabase(): Promise<void> {
 	const db = getDb();
-	const rows = await db.execute(
-		sql`SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename != '__drizzle_migrations'`,
-	);
-	const list = (rows as unknown as { rows: { tablename: string }[] }).rows ?? rows;
-	const names = (list as { tablename: string }[]).map((r) => `"${r.tablename}"`);
-	if (names.length === 0) return;
-	await db.execute(sql.raw(`TRUNCATE ${names.join(",")} RESTART IDENTITY CASCADE`));
+	await db.execute(sql`DELETE FROM deployments WHERE created_by LIKE 'test-user-%'`);
+	await db.execute(sql`DELETE FROM auth_user WHERE id LIKE 'test-user-%'`);
 }
 
 export async function createTestUser(): Promise<{ id: string }> {

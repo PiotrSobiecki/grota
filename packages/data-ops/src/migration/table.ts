@@ -14,6 +14,7 @@ import { auth_user } from "../drizzle/auth-schema";
 export const migrationJobTypeEnum = pgEnum("migration_job_type", [
 	"backup",
 	"migrate",
+	"gdrive-restore",
 ]);
 
 export const migrationJobStatusEnum = pgEnum("migration_job_status", [

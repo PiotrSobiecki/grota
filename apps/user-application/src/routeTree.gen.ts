@@ -24,7 +24,9 @@ import { Route as AuthAppIndexRouteImport } from './routes/_auth/app/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
 import { Route as AuthDashboardNewRouteImport } from './routes/_auth/dashboard/new'
 import { Route as AuthDashboardIdIndexRouteImport } from './routes/_auth/dashboard/$id/index'
+import { Route as AuthDashboardIdMigrationRouteImport } from './routes/_auth/dashboard/$id/migration'
 import { Route as AuthDashboardIdConfigRouteImport } from './routes/_auth/dashboard/$id/config'
+import { Route as ApiMigrationJobsJobIdLogsStreamRouteImport } from './routes/api/migration/jobs/$jobId/logs/stream'
 
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
@@ -100,11 +102,23 @@ const AuthDashboardIdIndexRoute = AuthDashboardIdIndexRouteImport.update({
   path: '/$id/',
   getParentRoute: () => AuthDashboardRouteRoute,
 } as any)
+const AuthDashboardIdMigrationRoute =
+  AuthDashboardIdMigrationRouteImport.update({
+    id: '/$id/migration',
+    path: '/$id/migration',
+    getParentRoute: () => AuthDashboardRouteRoute,
+  } as any)
 const AuthDashboardIdConfigRoute = AuthDashboardIdConfigRouteImport.update({
   id: '/$id/config',
   path: '/$id/config',
   getParentRoute: () => AuthDashboardRouteRoute,
 } as any)
+const ApiMigrationJobsJobIdLogsStreamRoute =
+  ApiMigrationJobsJobIdLogsStreamRouteImport.update({
+    id: '/api/migration/jobs/$jobId/logs/stream',
+    path: '/api/migration/jobs/$jobId/logs/stream',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -121,7 +135,9 @@ export interface FileRoutesByFullPath {
   '/app/': typeof AuthAppIndexRoute
   '/dashboard/': typeof AuthDashboardIndexRoute
   '/dashboard/$id/config': typeof AuthDashboardIdConfigRoute
+  '/dashboard/$id/migration': typeof AuthDashboardIdMigrationRoute
   '/dashboard/$id/': typeof AuthDashboardIdIndexRoute
+  '/api/migration/jobs/$jobId/logs/stream': typeof ApiMigrationJobsJobIdLogsStreamRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -137,7 +153,9 @@ export interface FileRoutesByTo {
   '/app': typeof AuthAppIndexRoute
   '/dashboard': typeof AuthDashboardIndexRoute
   '/dashboard/$id/config': typeof AuthDashboardIdConfigRoute
+  '/dashboard/$id/migration': typeof AuthDashboardIdMigrationRoute
   '/dashboard/$id': typeof AuthDashboardIdIndexRoute
+  '/api/migration/jobs/$jobId/logs/stream': typeof ApiMigrationJobsJobIdLogsStreamRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -156,7 +174,9 @@ export interface FileRoutesById {
   '/_auth/app/': typeof AuthAppIndexRoute
   '/_auth/dashboard/': typeof AuthDashboardIndexRoute
   '/_auth/dashboard/$id/config': typeof AuthDashboardIdConfigRoute
+  '/_auth/dashboard/$id/migration': typeof AuthDashboardIdMigrationRoute
   '/_auth/dashboard/$id/': typeof AuthDashboardIdIndexRoute
+  '/api/migration/jobs/$jobId/logs/stream': typeof ApiMigrationJobsJobIdLogsStreamRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -175,7 +195,9 @@ export interface FileRouteTypes {
     | '/app/'
     | '/dashboard/'
     | '/dashboard/$id/config'
+    | '/dashboard/$id/migration'
     | '/dashboard/$id/'
+    | '/api/migration/jobs/$jobId/logs/stream'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -191,7 +213,9 @@ export interface FileRouteTypes {
     | '/app'
     | '/dashboard'
     | '/dashboard/$id/config'
+    | '/dashboard/$id/migration'
     | '/dashboard/$id'
+    | '/api/migration/jobs/$jobId/logs/stream'
   id:
     | '__root__'
     | '/'
@@ -209,7 +233,9 @@ export interface FileRouteTypes {
     | '/_auth/app/'
     | '/_auth/dashboard/'
     | '/_auth/dashboard/$id/config'
+    | '/_auth/dashboard/$id/migration'
     | '/_auth/dashboard/$id/'
+    | '/api/migration/jobs/$jobId/logs/stream'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -223,6 +249,7 @@ export interface RootRouteChildren {
   OnboardTokenRoute: typeof OnboardTokenRoute
   StatusTokenRoute: typeof StatusTokenRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiMigrationJobsJobIdLogsStreamRoute: typeof ApiMigrationJobsJobIdLogsStreamRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -332,12 +359,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthDashboardIdIndexRouteImport
       parentRoute: typeof AuthDashboardRouteRoute
     }
+    '/_auth/dashboard/$id/migration': {
+      id: '/_auth/dashboard/$id/migration'
+      path: '/$id/migration'
+      fullPath: '/dashboard/$id/migration'
+      preLoaderRoute: typeof AuthDashboardIdMigrationRouteImport
+      parentRoute: typeof AuthDashboardRouteRoute
+    }
     '/_auth/dashboard/$id/config': {
       id: '/_auth/dashboard/$id/config'
       path: '/$id/config'
       fullPath: '/dashboard/$id/config'
       preLoaderRoute: typeof AuthDashboardIdConfigRouteImport
       parentRoute: typeof AuthDashboardRouteRoute
+    }
+    '/api/migration/jobs/$jobId/logs/stream': {
+      id: '/api/migration/jobs/$jobId/logs/stream'
+      path: '/api/migration/jobs/$jobId/logs/stream'
+      fullPath: '/api/migration/jobs/$jobId/logs/stream'
+      preLoaderRoute: typeof ApiMigrationJobsJobIdLogsStreamRouteImport
+      parentRoute: typeof rootRouteImport
     }
   }
 }
@@ -346,6 +387,7 @@ interface AuthDashboardRouteRouteChildren {
   AuthDashboardNewRoute: typeof AuthDashboardNewRoute
   AuthDashboardIndexRoute: typeof AuthDashboardIndexRoute
   AuthDashboardIdConfigRoute: typeof AuthDashboardIdConfigRoute
+  AuthDashboardIdMigrationRoute: typeof AuthDashboardIdMigrationRoute
   AuthDashboardIdIndexRoute: typeof AuthDashboardIdIndexRoute
 }
 
@@ -353,6 +395,7 @@ const AuthDashboardRouteRouteChildren: AuthDashboardRouteRouteChildren = {
   AuthDashboardNewRoute: AuthDashboardNewRoute,
   AuthDashboardIndexRoute: AuthDashboardIndexRoute,
   AuthDashboardIdConfigRoute: AuthDashboardIdConfigRoute,
+  AuthDashboardIdMigrationRoute: AuthDashboardIdMigrationRoute,
   AuthDashboardIdIndexRoute: AuthDashboardIdIndexRoute,
 }
 
@@ -384,6 +427,7 @@ const rootRouteChildren: RootRouteChildren = {
   OnboardTokenRoute: OnboardTokenRoute,
   StatusTokenRoute: StatusTokenRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiMigrationJobsJobIdLogsStreamRoute: ApiMigrationJobsJobIdLogsStreamRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -5,7 +5,7 @@ import { RunnerJobStatusSchema } from "./runner-protocol";
 // Enums
 // ============================================
 
-export const MigrationJobTypeSchema = z.enum(["backup", "migrate"]);
+export const MigrationJobTypeSchema = z.enum(["backup", "migrate", "gdrive-restore"]);
 export const MigrationJobStatusSchema = RunnerJobStatusSchema;
 
 // ============================================
@@ -41,6 +41,11 @@ export const TriggerMigrateRequestSchema = z.object({
 	dryRun: z.boolean().default(false),
 });
 
+export const TriggerGDriveRestoreRequestSchema = z.object({
+	deploymentId: z.string().uuid(),
+	account: z.string().email(),
+});
+
 export const MigrationJobIdParamSchema = z.object({
 	id: z.string().uuid(),
 });
@@ -60,4 +65,5 @@ export type MigrationJobStatus = z.infer<typeof MigrationJobStatusSchema>;
 export type MigrationJob = z.infer<typeof MigrationJobSchema>;
 export type TriggerBackupRequest = z.infer<typeof TriggerBackupRequestSchema>;
 export type TriggerMigrateRequest = z.infer<typeof TriggerMigrateRequestSchema>;
+export type TriggerGDriveRestoreRequest = z.infer<typeof TriggerGDriveRestoreRequestSchema>;
 export type MigrationJobListRequest = z.infer<typeof MigrationJobListRequestSchema>;

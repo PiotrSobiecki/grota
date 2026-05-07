@@ -1,12 +1,21 @@
 import { describe, expect, it } from "vitest";
 import {
 	BackupRequestSchema,
+	GDriveRestoreRequestSchema,
 	JobCreatedResponseSchema,
 	LogLineSchema,
 	MigrateRequestSchema,
+	RunnerJobConfigSchema,
 	RunnerJobSchema,
 	RunnerJobStatusSchema,
 } from "./runner-protocol";
+
+const validRunnerConfig = {
+	b2KeyId: "K001abc",
+	b2AppKey: "supersecret",
+	bucketPrefix: "client-x",
+	backupPath: "/var/backups/grota",
+};
 
 describe("RunnerJobStatusSchema", () => {
 	it.each(["queued", "running", "done", "failed"])("accepts status %s", (status) => {
@@ -45,6 +54,28 @@ describe("BackupRequestSchema", () => {
 	it("rejects a body with non-email account", () => {
 		expect(BackupRequestSchema.safeParse({ account: "not-an-email" }).success).toBe(false);
 	});
+
+	it("accepts a body with full runnerConfig", () => {
+		expect(
+			BackupRequestSchema.safeParse({ runnerConfig: validRunnerConfig }).success,
+		).toBe(true);
+	});
+
+	it("rejects body where runnerConfig.b2KeyId is empty", () => {
+		expect(
+			BackupRequestSchema.safeParse({
+				runnerConfig: { ...validRunnerConfig, b2KeyId: "" },
+			}).success,
+		).toBe(false);
+	});
+
+	it("accepts a body with optional bwlimit on runnerConfig", () => {
+		expect(
+			BackupRequestSchema.safeParse({
+				runnerConfig: { ...validRunnerConfig, bwlimit: "10M" },
+			}).success,
+		).toBe(true);
+	});
 });
 
 describe("MigrateRequestSchema", () => {
@@ -63,6 +94,32 @@ describe("MigrateRequestSchema", () => {
 				dryRun: true,
 			}).success,
 		).toBe(true);
+	});
+
+	it("accepts a body with runnerConfig and dryRun", () => {
+		expect(
+			MigrateRequestSchema.safeParse({
+				runnerConfig: validRunnerConfig,
+				dryRun: true,
+			}).success,
+		).toBe(true);
+	});
+});
+
+describe("RunnerJobConfigSchema", () => {
+	it("requires b2KeyId, b2AppKey, bucketPrefix, backupPath", () => {
+		expect(RunnerJobConfigSchema.safeParse(validRunnerConfig).success).toBe(true);
+	});
+
+	it("rejects missing backupPath", () => {
+		const { backupPath: _omit, ...rest } = validRunnerConfig;
+		expect(RunnerJobConfigSchema.safeParse(rest).success).toBe(false);
+	});
+
+	it("rejects empty bucketPrefix", () => {
+		expect(
+			RunnerJobConfigSchema.safeParse({ ...validRunnerConfig, bucketPrefix: "" }).success,
+		).toBe(false);
 	});
 });
 
@@ -97,5 +154,45 @@ describe("LogLineSchema", () => {
 			line: "x",
 		});
 		expect(result.success).toBe(false);
+	});
+});
+
+describe("GDriveRestoreRequestSchema", () => {
+	const validRequest = {
+		account: "user@example.com",
+		runnerConfig: validRunnerConfig,
+		gdrive: {
+			clientId: "google-client-id",
+			clientSecret: "google-client-secret",
+			accessToken: "ya29.a0Af...",
+			refreshToken: "1//0g...",
+			expiry: "2026-05-07T12:00:00.000Z",
+			sharedDriveId: "0ABC123XYZ",
+		},
+	};
+
+	it("accepts a complete valid request", () => {
+		expect(GDriveRestoreRequestSchema.safeParse(validRequest).success).toBe(true);
+	});
+
+	it("requires account email", () => {
+		const { account: _account, ...withoutAccount } = validRequest;
+		expect(GDriveRestoreRequestSchema.safeParse(withoutAccount).success).toBe(false);
+	});
+
+	it("requires gdrive credentials", () => {
+		const { gdrive: _gdrive, ...withoutGDrive } = validRequest;
+		expect(GDriveRestoreRequestSchema.safeParse(withoutGDrive).success).toBe(false);
+	});
+
+	it("requires runnerConfig (B2 source for fallback re-fetch)", () => {
+		const { runnerConfig: _rc, ...withoutConfig } = validRequest;
+		expect(GDriveRestoreRequestSchema.safeParse(withoutConfig).success).toBe(false);
+	});
+
+	it("rejects invalid email", () => {
+		expect(
+			GDriveRestoreRequestSchema.safeParse({ ...validRequest, account: "not-email" }).success,
+		).toBe(false);
 	});
 });

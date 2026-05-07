@@ -6,6 +6,8 @@ import {
 	type B2VerifyResponse,
 	type BackupRequest,
 	BackupRequestSchema,
+	type GDriveRestoreRequest,
+	GDriveRestoreRequestSchema,
 	type LogLine,
 	type MigrateRequest,
 	MigrateRequestSchema,
@@ -16,6 +18,7 @@ import { bearerAuth } from "hono/bearer-auth";
 import { streamSSE } from "hono/streaming";
 import type { ZodType } from "zod";
 import { RingBuffer } from "./ring-buffer.js";
+import { sanitizeLogLine } from "./sanitize-log.js";
 
 export type LogEmitter = (line: LogLine) => void;
 
@@ -30,8 +33,13 @@ export type RunMigrateFn = (
 	req: MigrateRequest,
 	emitLog: LogEmitter,
 ) => Promise<number>;
+export type RunGDriveRestoreFn = (
+	jobId: string,
+	req: GDriveRestoreRequest,
+	emitLog: LogEmitter,
+) => Promise<number>;
 
-type JobType = "backup" | "migrate";
+type JobType = "backup" | "migrate" | "gdrive-restore";
 
 interface InternalJob extends RunnerJob {
 	type: JobType;
@@ -48,6 +56,7 @@ export interface AppConfig {
 	verifyB2?: VerifyB2Fn;
 	runBackup?: RunBackupFn;
 	runMigrate?: RunMigrateFn;
+	runGDriveRestore?: RunGDriveRestoreFn;
 }
 
 const verifyB2NotImplemented: VerifyB2Fn = async () => ({
@@ -57,12 +66,14 @@ const verifyB2NotImplemented: VerifyB2Fn = async () => ({
 
 const runBackupNotImplemented: RunBackupFn = async () => 1;
 const runMigrateNotImplemented: RunMigrateFn = async () => 1;
+const runGDriveRestoreNotImplemented: RunGDriveRestoreFn = async () => 1;
 
 export function createApp(config: AppConfig): Hono {
 	const app = new Hono();
 	const verifyB2 = config.verifyB2 ?? verifyB2NotImplemented;
 	const runBackup = config.runBackup ?? runBackupNotImplemented;
 	const runMigrate = config.runMigrate ?? runMigrateNotImplemented;
+	const runGDriveRestore = config.runGDriveRestore ?? runGDriveRestoreNotImplemented;
 	const jobs = new Map<string, InternalJob>();
 
 	function isTypeActive(type: JobType): boolean {
@@ -96,8 +107,9 @@ export function createApp(config: AppConfig): Hono {
 		const emit: LogEmitter = (line) => {
 			const current = jobs.get(jobId);
 			if (!current) return;
-			current.logs.push(line);
-			for (const sub of current.subscribers) sub(line);
+			const safe: LogLine = { ...line, line: sanitizeLogLine(line.line) };
+			current.logs.push(safe);
+			for (const sub of current.subscribers) sub(safe);
 		};
 
 		function finalize(status: "done" | "failed", exitCode: number) {
@@ -152,6 +164,12 @@ export function createApp(config: AppConfig): Hono {
 
 	jobRoute("/jobs/backup", "backup", BackupRequestSchema, runBackup);
 	jobRoute("/jobs/migrate", "migrate", MigrateRequestSchema, runMigrate);
+	jobRoute(
+		"/jobs/gdrive-restore",
+		"gdrive-restore",
+		GDriveRestoreRequestSchema,
+		runGDriveRestore,
+	);
 
 	app.get("/jobs/:id", (c) => {
 		const id = c.req.param("id");

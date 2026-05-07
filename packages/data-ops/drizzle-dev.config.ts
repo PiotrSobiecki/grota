@@ -11,6 +11,7 @@ const config: Config = {
 		"./src/folder-selection/table.ts",
 		"./src/shared-drive/table.ts",
 		"./src/migration/table.ts",
+		"./src/audit-log/table.ts",
 	],
 	dialect: "postgresql",
 	dbCredentials: {

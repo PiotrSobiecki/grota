@@ -32,6 +32,10 @@
 			"types": "./dist/migration/index.d.ts",
 			"default": "./dist/migration/index.js"
 		},
+		"./audit-log": {
+			"types": "./dist/audit-log/index.d.ts",
+			"default": "./dist/audit-log/index.js"
+		},
 		"./test-fixtures": {
 			"types": "./dist/test/fixtures.d.ts",
 			"default": "./dist/test/fixtures.js"

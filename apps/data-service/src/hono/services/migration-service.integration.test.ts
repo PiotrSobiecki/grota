@@ -4,7 +4,8 @@ import {
 	type ServerConfig,
 } from "@repo/data-ops/deployment";
 import { decryptServerConfig, encryptServerConfig } from "@repo/data-ops/encryption";
-import { createTestDeployment } from "@repo/data-ops/test-fixtures";
+import { getServerConfigAuditLog } from "@repo/data-ops/audit-log";
+import { createTestDeployment, createTestUser } from "@repo/data-ops/test-fixtures";
 import { describe, expect, it } from "vitest";
 import {
 	getServerConfigForAdmin,
@@ -121,6 +122,34 @@ describe("setServerConfigFromAdmin (integration)", () => {
 		expect(decrypted?.backup_path).toBe("client");
 		expect(decrypted?.runner_url).toBe("https://runner.example.com");
 		expect(decrypted?.runner_token).toBe("original-token");
+	});
+
+	it("records an audit entry naming the fields that actually changed", async () => {
+		const deployment = await createTestDeployment();
+		const user = await createTestUser();
+		const initial: ServerConfig = {
+			backup_path: "client",
+			bwlimit: "08:00,5M",
+			runner_url: "https://runner.example.com",
+			runner_token: "original-token",
+		};
+		await setDeploymentServerConfig(
+			deployment.id,
+			await encryptServerConfig(initial, encryptionKey()),
+		);
+
+		const result = await setServerConfigFromAdmin(
+			deployment.id,
+			{ bwlimit: "23:00,50M", runner_token: "rotated-token" },
+			encryptionKey(),
+			user.id,
+		);
+		expect(result.ok).toBe(true);
+
+		const log = await getServerConfigAuditLog(deployment.id);
+		expect(log).toHaveLength(1);
+		expect(log[0]?.userId).toBe(user.id);
+		expect(log[0]?.changedFields.sort()).toEqual(["bwlimit", "runner_token"]);
 	});
 });
 

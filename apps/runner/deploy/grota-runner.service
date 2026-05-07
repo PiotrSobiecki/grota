@@ -1,0 +1,39 @@
+[Unit]
+Description=Grota Runner (HTTP control plane for grota backup/migrate)
+Documentation=https://github.com/auditmos/grota
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=grota
+Group=grota
+WorkingDirectory=/opt/grota/apps/runner
+EnvironmentFile=/etc/grota/runner.env
+Environment=HOME=/tmp
+Environment=XDG_CACHE_HOME=/tmp/.cache
+ExecStart=/opt/grota/apps/runner/node_modules/.bin/tsx src/index.ts
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=grota-runner
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/backups/grota
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictRealtime=true
+LockPersonality=true
+MemoryDenyWriteExecute=false
+
+# Resource limits
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

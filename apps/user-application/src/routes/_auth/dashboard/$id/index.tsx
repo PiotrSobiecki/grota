@@ -46,6 +46,11 @@ import {
 } from "@/core/functions/employees/binding";
 import { generateAdminMagicLink } from "@/core/functions/magic-links/binding";
 import { sendNotifications } from "@/core/functions/notifications/binding";
+import {
+	getServerConfig,
+	testRunnerConnection,
+	updateServerConfig,
+} from "@/core/functions/server-config/binding";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_auth/dashboard/$id/")({
@@ -116,11 +121,18 @@ function DeploymentDetailPage() {
 				<div className="flex items-center gap-3">
 					{isActive && <DetailNotificationButton deploymentId={deployment.id} />}
 					{(deployment.status === "ready" || isActive) && (
-						<Button asChild variant="outline">
-							<Link to="/dashboard/$id/config" params={{ id: deployment.id }}>
-								{isActive ? "Zobacz konfiguracje" : "Eksportuj konfiguracje"}
-							</Link>
-						</Button>
+						<>
+							<Button asChild variant="outline">
+								<Link to="/dashboard/$id/config" params={{ id: deployment.id }}>
+									{isActive ? "Zobacz konfiguracje" : "Eksportuj konfiguracje"}
+								</Link>
+							</Button>
+							<Button asChild>
+								<Link to="/dashboard/$id/migration" params={{ id: deployment.id }}>
+									Panel migracji
+								</Link>
+							</Button>
+						</>
 					)}
 					<Badge>{STATUS_LABELS[deployment.status] ?? deployment.status}</Badge>
 				</div>
@@ -389,7 +401,7 @@ interface ServerConfigCardProps {
 	onUpdated: () => void;
 }
 
-function buildServerConfigUpdates(value: {
+interface FormValue {
 	b2KeyId: string;
 	b2AppKey: string;
 	b2BucketPrefix: string;
@@ -397,38 +409,48 @@ function buildServerConfigUpdates(value: {
 	bwlimit: string;
 	sshHost: string;
 	sshUser: string;
-}) {
-	const updates: { b2Config?: B2Config; serverConfig?: ServerConfig } = {};
+	runnerUrl: string;
+	runnerToken: string;
+}
 
-	if (value.b2KeyId && value.b2AppKey) {
-		updates.b2Config = {
-			key_id: value.b2KeyId,
-			app_key: value.b2AppKey,
-			bucket_prefix: value.b2BucketPrefix,
-		};
+function buildB2Update(value: FormValue): B2Config | null {
+	if (!value.b2KeyId || !value.b2AppKey) return null;
+	return {
+		key_id: value.b2KeyId,
+		app_key: value.b2AppKey,
+		bucket_prefix: value.b2BucketPrefix,
+	};
+}
+
+function buildServerConfigPartial(
+	value: FormValue,
+	existingMaskedRunnerToken: string | null,
+): Partial<ServerConfig> {
+	const suffix = value.backupPath.replace(/^\/+/, "");
+	const partial: Partial<ServerConfig> = {
+		backup_path: suffix ? `/srv/backup/gdrive/${suffix}` : "/srv/backup/gdrive",
+		bwlimit: value.bwlimit || "08:00,5M 23:00,50M",
+	};
+	if (value.sshHost) partial.ssh_host = value.sshHost;
+	if (value.sshUser) partial.ssh_user = value.sshUser;
+	if (value.runnerUrl) partial.runner_url = value.runnerUrl;
+	// Send runner_token only when user typed a NEW value (not the masked placeholder)
+	if (value.runnerToken && value.runnerToken !== existingMaskedRunnerToken) {
+		partial.runner_token = value.runnerToken;
 	}
-
-	if (value.backupPath !== undefined) {
-		const suffix = value.backupPath.replace(/^\/+/, "");
-		updates.serverConfig = {
-			backup_path: suffix ? `/srv/backup/gdrive/${suffix}` : "/srv/backup/gdrive",
-			bwlimit: value.bwlimit || "08:00,5M 23:00,50M",
-			...(value.sshHost ? { ssh_host: value.sshHost } : {}),
-			...(value.sshUser ? { ssh_user: value.sshUser } : {}),
-		};
-	}
-
-	return updates;
+	return partial;
 }
 
 function ServerConfigDisplay({
 	deployment,
 	showAdvanced,
 	setShowAdvanced,
+	maskedServerConfig,
 }: {
 	deployment: ServerConfigCardProps["deployment"];
 	showAdvanced: boolean;
 	setShowAdvanced: (v: boolean) => void;
+	maskedServerConfig: ServerConfig | null;
 }) {
 	return (
 		<div className="space-y-4">
@@ -485,6 +507,20 @@ function ServerConfigDisplay({
 									<span className="text-foreground">{deployment.serverConfig.ssh_user}</span>
 								</div>
 							)}
+							{maskedServerConfig?.runner_url && (
+								<div className="text-sm">
+									<span className="text-muted-foreground">Runner URL: </span>
+									<span className="text-foreground">{maskedServerConfig.runner_url}</span>
+								</div>
+							)}
+							{maskedServerConfig?.runner_token && (
+								<div className="text-sm">
+									<span className="text-muted-foreground">Runner Token: </span>
+									<span className="text-foreground font-mono">
+										{maskedServerConfig.runner_token}
+									</span>
+								</div>
+							)}
 						</>
 					) : (
 						<p className="text-sm text-muted-foreground">Nie skonfigurowano</p>
@@ -499,13 +535,42 @@ function ServerConfigCard({ deployment, onUpdated }: ServerConfigCardProps) {
 	const [isEditing, setIsEditing] = useState(false);
 	const [showAdvanced, setShowAdvanced] = useState(!!deployment.serverConfig);
 
+	const maskedQuery = useQuery({
+		queryKey: ["server-config", deployment.id],
+		queryFn: () => getServerConfig({ data: { deploymentId: deployment.id } }),
+	});
+	const maskedConfig = maskedQuery.data ?? null;
+
 	const updateMutation = useMutation({
-		mutationFn: (updates: { b2Config?: B2Config; serverConfig?: ServerConfig }) =>
-			updateExistingDeployment({ data: { id: deployment.id, updates } }),
+		mutationFn: async (input: {
+			b2Config: B2Config | null;
+			serverConfigPartial: Partial<ServerConfig>;
+		}) => {
+			if (input.b2Config) {
+				await updateExistingDeployment({
+					data: { id: deployment.id, updates: { b2Config: input.b2Config } },
+				});
+			}
+			if (Object.keys(input.serverConfigPartial).length > 0) {
+				await updateServerConfig({
+					data: { deploymentId: deployment.id, updates: input.serverConfigPartial },
+				});
+			}
+		},
 		onSuccess: () => {
 			onUpdated();
+			maskedQuery.refetch();
 			setIsEditing(false);
 			toast.success("Konfiguracja zapisana");
+		},
+		onError: (error) => toast.error(error.message),
+	});
+
+	const testMutation = useMutation({
+		mutationFn: () => testRunnerConnection({ data: { deploymentId: deployment.id } }),
+		onSuccess: (data) => {
+			if (data.ok) toast.success("Polaczenie z runnerem OK");
+			else toast.error(`Test failed: ${data.error ?? "unknown"}`);
 		},
 		onError: (error) => toast.error(error.message),
 	});
@@ -520,39 +585,72 @@ function ServerConfigCard({ deployment, onUpdated }: ServerConfigCardProps) {
 			bwlimit: deployment.serverConfig?.bwlimit ?? "",
 			sshHost: deployment.serverConfig?.ssh_host ?? "",
 			sshUser: deployment.serverConfig?.ssh_user ?? "",
+			runnerUrl: maskedConfig?.runner_url ?? "",
+			runnerToken: maskedConfig?.runner_token ?? "",
 		},
 		onSubmit: async ({ value }) => {
-			const updates = buildServerConfigUpdates(value);
-			if (!updates.b2Config && !updates.serverConfig) {
+			const b2Config = buildB2Update(value);
+			const serverConfigPartial = buildServerConfigPartial(
+				value,
+				maskedConfig?.runner_token ?? null,
+			);
+			if (!b2Config && Object.keys(serverConfigPartial).length === 0) {
 				setIsEditing(false);
 				return;
 			}
 			updateMutation.reset();
-			updateMutation.mutate(updates);
+			updateMutation.mutate({ b2Config, serverConfigPartial });
 		},
 	});
+
+	const runnerStatus: "configured" | "missing" =
+		maskedConfig?.runner_url && maskedConfig?.runner_token ? "configured" : "missing";
 
 	return (
 		<Card>
 			<CardHeader>
 				<div className="flex items-center justify-between">
-					<CardTitle>Konfiguracja serwera</CardTitle>
-					{isEditing ? (
-						<Button
-							variant="ghost"
-							size="icon"
-							onClick={() => {
-								setIsEditing(false);
-								form.reset();
-							}}
-						>
-							<X className="h-4 w-4" />
-						</Button>
-					) : (
-						<Button variant="ghost" size="icon" onClick={() => setIsEditing(true)}>
-							<Pencil className="h-4 w-4" />
-						</Button>
-					)}
+					<div className="flex items-center gap-2">
+						<CardTitle>Konfiguracja serwera</CardTitle>
+						<Badge variant={runnerStatus === "configured" ? "default" : "secondary"}>
+							Runner: {runnerStatus === "configured" ? "Skonfigurowany" : "Nieskonfigurowany"}
+						</Badge>
+					</div>
+					<div className="flex items-center gap-1">
+						{runnerStatus === "configured" && !isEditing && (
+							<Button
+								variant="outline"
+								size="sm"
+								disabled={testMutation.isPending}
+								onClick={() => testMutation.mutate()}
+							>
+								{testMutation.isPending ? (
+									<>
+										<Loader2 className="mr-2 h-3 w-3 animate-spin" />
+										Test...
+									</>
+								) : (
+									"Testuj polaczenie"
+								)}
+							</Button>
+						)}
+						{isEditing ? (
+							<Button
+								variant="ghost"
+								size="icon"
+								onClick={() => {
+									setIsEditing(false);
+									form.reset();
+								}}
+							>
+								<X className="h-4 w-4" />
+							</Button>
+						) : (
+							<Button variant="ghost" size="icon" onClick={() => setIsEditing(true)}>
+								<Pencil className="h-4 w-4" />
+							</Button>
+						)}
+					</div>
 				</div>
 			</CardHeader>
 			<CardContent className="space-y-4">
@@ -759,6 +857,57 @@ function ServerConfigCard({ deployment, onUpdated }: ServerConfigCardProps) {
 										</label>
 									)}
 								</form.Field>
+								<form.Field name="runnerUrl">
+									{(field) => (
+										<label className="text-sm text-muted-foreground">
+											<span className="flex items-center gap-1">
+												Runner URL
+												<Tooltip>
+													<TooltipTrigger asChild>
+														<Info className="h-3 w-3 cursor-help" />
+													</TooltipTrigger>
+													<TooltipContent>
+														Publiczny URL HTTP runnera (Cloudflare Tunnel), np.
+														https://runner.klient.sobiecki.org
+													</TooltipContent>
+												</Tooltip>
+											</span>
+											<Input
+												value={field.state.value}
+												onChange={(e) => field.handleChange(e.target.value)}
+												onBlur={field.handleBlur}
+												placeholder="https://runner.klient.sobiecki.org"
+												className="h-8"
+											/>
+										</label>
+									)}
+								</form.Field>
+								<form.Field name="runnerToken">
+									{(field) => (
+										<label className="text-sm text-muted-foreground">
+											<span className="flex items-center gap-1">
+												Runner Token
+												<Tooltip>
+													<TooltipTrigger asChild>
+														<Info className="h-3 w-3 cursor-help" />
+													</TooltipTrigger>
+													<TooltipContent>
+														Bearer token z /etc/grota/runner.env. Szyfrowany at-rest. Pole pokazuje
+														maskowana wartosc — wpisz nowy token zeby nadpisac.
+													</TooltipContent>
+												</Tooltip>
+											</span>
+											<Input
+												value={field.state.value}
+												onChange={(e) => field.handleChange(e.target.value)}
+												onBlur={field.handleBlur}
+												placeholder="(brak)"
+												className="h-8 font-mono"
+												type="text"
+											/>
+										</label>
+									)}
+								</form.Field>
 							</CollapsibleContent>
 						</Collapsible>
 
@@ -775,6 +924,7 @@ function ServerConfigCard({ deployment, onUpdated }: ServerConfigCardProps) {
 						deployment={deployment}
 						showAdvanced={showAdvanced}
 						setShowAdvanced={setShowAdvanced}
+						maskedServerConfig={maskedConfig}
 					/>
 				)}
 			</CardContent>

@@ -1,0 +1,27 @@
+# Cloudflare Tunnel config for grota-runner
+#
+# After `cloudflared tunnel create grota-runner-<klient>`, edit:
+#   tunnel: <UUID-z-create>
+#   credentials-file: /etc/cloudflared/<UUID>.json
+#   hostname: runner.<klient>.example.com
+#
+# Place at /etc/cloudflared/config.yml, then:
+#   cloudflared tunnel route dns grota-runner-<klient> runner.<klient>.example.com
+#   systemctl enable --now cloudflared
+
+tunnel: REPLACE_WITH_TUNNEL_UUID
+credentials-file: /etc/cloudflared/REPLACE_WITH_TUNNEL_UUID.json
+
+ingress:
+  - hostname: runner.REPLACE_WITH_HOSTNAME.example.com
+    service: http://localhost:7878
+    originRequest:
+      # SSE: long-lived connections, runner streams logi przez /jobs/:id/logs/stream
+      noTLSVerify: false
+      connectTimeout: 30s
+      tcpKeepAlive: 30s
+      # backup/migrate joby moga lecec dlugo — pozwol na 2h bezruchu na odpowiedz
+      tlsTimeout: 30s
+      keepAliveTimeout: 7200s
+      disableChunkedEncoding: false
+  - service: http_status:404

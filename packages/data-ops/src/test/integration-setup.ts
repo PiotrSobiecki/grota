@@ -14,15 +14,16 @@ beforeAll(() => {
 	initDatabase({ host, username, password });
 });
 
+// CRITICAL: dev DB doubles as test DB (sesja 6). Never wipe real user data.
+// Strategy: delete only rows created by test fixtures, identified by `test-user-*`
+// prefix in auth_user.id. Deployments are deleted by created_by, which cascades to
+// employees, migration_jobs, shared_drives, folder_selections. Then test users
+// themselves are removed. Real users (any non-prefixed id) and their deployments
+// stay untouched.
 beforeEach(async () => {
 	const db = getDb();
-	const rows = await db.execute<{ tablename: string }>(
-		sql`SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename != '__drizzle_migrations'`,
-	);
-	const tableList = (rows as unknown as { rows: { tablename: string }[] }).rows ?? rows;
-	const names = (tableList as { tablename: string }[]).map((r) => `"${r.tablename}"`);
-	if (names.length === 0) return;
-	await db.execute(sql.raw(`TRUNCATE ${names.join(",")} RESTART IDENTITY CASCADE`));
+	await db.execute(sql`DELETE FROM deployments WHERE created_by LIKE 'test-user-%'`);
+	await db.execute(sql`DELETE FROM auth_user WHERE id LIKE 'test-user-%'`);
 });
 
 afterAll(() => {

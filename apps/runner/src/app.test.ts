@@ -356,6 +356,38 @@ describe("runner app", () => {
 			);
 			expect(res.status).toBe(404);
 		});
+
+		it("sanitizes secret-shaped strings before storing in the buffer", async () => {
+			let emit!: LogEmitter;
+			const runBackup: RunBackupFn = async (_jobId, _body, emitLog) => {
+				emit = emitLog;
+				return new Promise<number>(() => {});
+			};
+			const jobApp = createApp({ token: TOKEN, version: "0.1.0", runBackup });
+			const createRes = await jobApp.request("/jobs/backup", {
+				method: "POST",
+				headers: {
+					Authorization: `Bearer ${TOKEN}`,
+					"content-type": "application/json",
+				},
+				body: "{}",
+			});
+			const { jobId } = (await createRes.json()) as { jobId: string };
+
+			emit({
+				ts: "2026-05-06T07:00:00.000Z",
+				stream: "stderr",
+				line: "DEBUG account = K001abc, key = supersecret-app-key",
+			});
+
+			const logsRes = await jobApp.request(`/jobs/${jobId}/logs`, {
+				headers: { Authorization: `Bearer ${TOKEN}` },
+			});
+			const body = (await logsRes.json()) as { lines: LogLine[] };
+			const stored = body.lines[0]?.line ?? "";
+			expect(stored).not.toContain("K001abc");
+			expect(stored).not.toContain("supersecret-app-key");
+		});
 	});
 
 	describe("GET /jobs/:id/logs/stream (SSE)", () => {

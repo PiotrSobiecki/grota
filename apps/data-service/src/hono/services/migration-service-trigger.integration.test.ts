@@ -5,7 +5,11 @@ import {
 	updateDeployment,
 } from "@repo/data-ops/deployment";
 import { encryptServerConfig } from "@repo/data-ops/encryption";
-import { getMigrationJob } from "@repo/data-ops/migration";
+import {
+	createMigrationJob,
+	getMigrationJob,
+	updateMigrationJobStatus,
+} from "@repo/data-ops/migration";
 import {
 	createTestDeployment,
 	createTestUser,
@@ -139,7 +143,30 @@ describe("triggerBackup (integration)", () => {
 		expect(headers.get("authorization")).toBe("Bearer secret-token");
 		expect(headers.get("content-type")).toBe("application/json");
 		const body = JSON.parse(init?.body as string);
-		expect(body).toEqual({ account: "user@example.com" });
+		expect(body.account).toBe("user@example.com");
+		expect(body.runnerConfig).toEqual({
+			b2KeyId: "K001abcdefgh",
+			b2AppKey: "K001secretappkey",
+			bucketPrefix: "test",
+			backupPath: "client",
+			bwlimit: "08:00,5M",
+		});
+	});
+
+	it("returns CONFIG_INCOMPLETE when B2 config is missing", async () => {
+		const deployment = await createTestDeployment();
+		await setDeploymentServerConfig(
+			deployment.id,
+			await encryptServerConfig(fullConfig, encryptionKey()),
+		);
+		const user = await createTestUser();
+		const result = await triggerBackup({
+			deploymentId: deployment.id,
+			triggeredByUserId: user.id,
+			encryptionKey: encryptionKey(),
+		});
+		expect(result.ok).toBe(false);
+		if (!result.ok) expect(result.error.code).toBe("CONFIG_INCOMPLETE");
 	});
 
 	it("returns RUNNER_UNREACHABLE on fetch network error", async () => {
@@ -187,5 +214,62 @@ describe("triggerBackup (integration)", () => {
 		});
 		expect(result.ok).toBe(false);
 		if (!result.ok) expect(result.error.code).toBe("RUNNER_REJECTED");
+	});
+
+	it("returns JOB_ALREADY_RUNNING when an active job exists, does not call the runner", async () => {
+		const deploymentId = await setupReadyDeployment();
+		const user = await createTestUser();
+		await createMigrationJob({
+			deploymentId,
+			type: "backup",
+			account: null,
+			dryRun: false,
+			runnerJobId: randomUUID(),
+			triggeredByUserId: user.id,
+		});
+		const runnerCalls: string[] = [];
+		fetchSpy.mockImplementation(
+			async (input: RequestInfo | URL, init?: RequestInit) => {
+				const url = typeof input === "string" ? input : input.toString();
+				if (url.startsWith("https://runner.example.com")) {
+					runnerCalls.push(url);
+					throw new Error("runner must not be called");
+				}
+				return originalFetch(input, init);
+			},
+		);
+
+		const result = await triggerBackup({
+			deploymentId,
+			triggeredByUserId: user.id,
+			encryptionKey: encryptionKey(),
+		});
+
+		expect(result.ok).toBe(false);
+		if (!result.ok) expect(result.error.code).toBe("JOB_ALREADY_RUNNING");
+		expect(runnerCalls).toEqual([]);
+	});
+
+	it("proceeds when the only prior job is in a terminal state", async () => {
+		const deploymentId = await setupReadyDeployment();
+		const user = await createTestUser();
+		const prior = await createMigrationJob({
+			deploymentId,
+			type: "backup",
+			account: null,
+			dryRun: false,
+			runnerJobId: randomUUID(),
+			triggeredByUserId: user.id,
+		});
+		await updateMigrationJobStatus(prior.id, { status: "failed", exitCode: 1 });
+		mockRunnerJobAccept(randomUUID());
+
+		const result = await triggerBackup({
+			deploymentId,
+			triggeredByUserId: user.id,
+			encryptionKey: encryptionKey(),
+		});
+
+		expect(result.ok).toBe(true);
 	});
 });
