@@ -54,13 +54,20 @@ export function buildRcloneIngestArgs(
 	const sanitized = sanitizeEmail(account);
 	const remote = `gdrive_${sanitized}:`;
 	const sdName = folder.sharedDriveName ?? "";
-	// Ingest source = pracownik My Drive (jego osobiste konto). sharedDriveId
-	// w folder_selections to TAG/destination (gdzie pliki maja byc potem
-	// zarchiwizowane), NIE source dla rclone. Pracownik (zwlaszcza konto Gmail)
-	// czesto nie jest membership shared drive firmy, wiec nie da sie listowac
-	// SD jego tokenem. CLI backup.sh ma identyczny pattern: parent_id="root"
-	// dla parentId=null + brak --drive-team-drive.
-	const driveRoot = folder.parentFolderId ?? "root";
+	// Source dla rclone:
+	// - parentFolderId set       → folder ID (My Drive lub global folder ID)
+	// - parentFolderId null + sharedDriveId → plik "Shared with me" (admin
+	//                              workspace go udostepnil pracownikowi),
+	//                              uzywamy --drive-shared-with-me
+	// - oba null                 → My Drive root pracownika
+	// sharedDriveId w folder_selections to TAG/destination (gdzie pliki maja
+	// byc archiwizowane), nie source context.
+	const sourceFlags: string[] =
+		folder.parentFolderId !== null
+			? ["--drive-root-folder-id", folder.parentFolderId]
+			: folder.sharedDriveId !== null
+				? ["--drive-shared-with-me"]
+				: ["--drive-root-folder-id", "root"];
 	if (folder.itemType === "file") {
 		const targetDir = `${cfg.backupPath}/${sanitized}/${sdName}/_files/${folder.itemName}`;
 		const ext = exportExtFor(folder.mimeType);
@@ -70,8 +77,7 @@ export function buildRcloneIngestArgs(
 			targetDir,
 			"--config",
 			CONFIG_PLACEHOLDER,
-			"--drive-root-folder-id",
-			driveRoot,
+			...sourceFlags,
 			"--include",
 			`/${folder.itemName}${ext}`,
 			"--drive-export-formats",

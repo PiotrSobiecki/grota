@@ -93,7 +93,7 @@ describe("buildRcloneIngestArgs", () => {
 		expect(args).toContain("--drive-export-formats");
 	});
 
-	it("uses 'root' (My Drive root) when parentFolderId=null — sharedDriveId is destination tag, NOT source context", () => {
+	it("uses --drive-shared-with-me when file has parentFolderId=null + sharedDriveId (Shared with me, owned by admin)", () => {
 		const file: IngestFolder = {
 			itemId: "1FileId",
 			itemName: "x.pdf",
@@ -104,8 +104,8 @@ describe("buildRcloneIngestArgs", () => {
 			mimeType: null,
 		};
 		const args = buildRcloneIngestArgs(file, ACCOUNT, RUNNER_CONFIG, TIMESTAMP);
-		const rootIdx = args.indexOf("--drive-root-folder-id");
-		expect(args[rootIdx + 1]).toBe("root");
+		expect(args).toContain("--drive-shared-with-me");
+		expect(args).not.toContain("--drive-root-folder-id");
 		expect(args).not.toContain("--drive-team-drive");
 	});
 
