@@ -137,6 +137,55 @@ function MigrationPage() {
 		onError: (e) => toast.error(e.message),
 	});
 
+	const waitForJobDone = async (jobId: string): Promise<void> => {
+		for (let attempt = 0; attempt < 120; attempt++) {
+			const job = await getMigrationJobStatus({ data: { jobId } });
+			if (job.status === "done") return;
+			if (job.status === "failed") {
+				throw new Error(`Job ${TYPE_LABEL[job.type]} zakonczyl sie bledem (exit: ${job.exitCode ?? "?"})`);
+			}
+			await new Promise((resolve) => setTimeout(resolve, 2000));
+		}
+		throw new Error("Przekroczono czas oczekiwania na zakonczenie joba");
+	};
+
+	const ingestAndRestoreMutation = useMutation({
+		mutationFn: async (input: { employeeId: string; account: string }) => {
+			const ingestJob = await triggerIngestJob({
+				data: { deploymentId, employeeId: input.employeeId },
+			});
+			await waitForJobDone(ingestJob.id);
+			await triggerGDriveRestoreJob({
+				data: { deploymentId, account: input.account },
+			});
+		},
+		onSuccess: () => {
+			toast.success("Pobieranie i wysylka do Workspace uruchomione");
+			refetchJobs();
+		},
+		onError: (e) => toast.error(e.message),
+	});
+
+	const ingestAndRestoreAllMutation = useMutation({
+		mutationFn: async (input: { employees: Array<{ id: string; email: string }> }) => {
+			for (const employee of input.employees) {
+				const ingestJob = await triggerIngestJob({
+					data: { deploymentId, employeeId: employee.id },
+				});
+				await waitForJobDone(ingestJob.id);
+				await triggerGDriveRestoreJob({
+					data: { deploymentId, account: employee.email },
+				});
+			}
+			return input.employees.length;
+		},
+		onSuccess: (count) => {
+			toast.success(`Pobieranie + wysylka uruchomione dla ${count} pracownikow`);
+			refetchJobs();
+		},
+		onError: (e) => toast.error(e.message),
+	});
+
 	const employees = employeesQuery.data?.data ?? [];
 	const readyEmployees = employees.filter(
 		(e) => e.oauthStatus === "authorized" && e.selectionStatus === "completed",
@@ -198,18 +247,28 @@ function MigrationPage() {
 						disabled={ingestAllMutation.isPending || !!activeJob || readyEmployees.length === 0}
 						count={readyEmployees.length}
 					/>
+					<IngestAndRestoreAllButton
+						onConfirm={() =>
+							ingestAndRestoreAllMutation.mutate({
+								employees: readyEmployees.map((employee) => ({
+									id: employee.id,
+									email: employee.email,
+								})),
+							})
+						}
+						disabled={
+							ingestAndRestoreAllMutation.isPending ||
+							!!activeJob ||
+							readyEmployees.length === 0
+						}
+						count={readyEmployees.length}
+					/>
 					<Button
+						variant="destructive"
 						onClick={() => backupMutation.mutate({})}
 						disabled={backupMutation.isPending || !!activeJob}
 					>
 						Backup wszystkich do B2
-					</Button>
-					<Button
-						variant="outline"
-						onClick={() => migrateMutation.mutate({ dryRun: true })}
-						disabled={migrateMutation.isPending || !!activeJob}
-					>
-						Podgląd przywracania (wszyscy)
 					</Button>
 					<MigrateAllButton
 						onConfirm={() => migrateMutation.mutate({ dryRun: false })}
@@ -246,6 +305,12 @@ function MigrationPage() {
 									}
 									onGDriveRestore={() =>
 										gdriveRestoreMutation.mutate({ account: emp.email })
+									}
+									onIngestAndRestore={() =>
+										ingestAndRestoreMutation.mutate({
+											employeeId: emp.id,
+											account: emp.email,
+										})
 									}
 								/>
 							))}
@@ -286,6 +351,7 @@ interface EmployeeRowProps {
 	onDryRun: () => void;
 	onMigrate: () => void;
 	onGDriveRestore: () => void;
+	onIngestAndRestore: () => void;
 }
 
 function EmployeeRow(props: EmployeeRowProps) {
@@ -331,6 +397,11 @@ function EmployeeRow(props: EmployeeRowProps) {
 				/>
 				<GDriveRestoreRowButton
 					onConfirm={props.onGDriveRestore}
+					disabled={props.disabled || !ready}
+					email={props.email}
+				/>
+				<IngestAndRestoreRowButton
+					onConfirm={props.onIngestAndRestore}
 					disabled={props.disabled || !ready}
 					email={props.email}
 				/>
@@ -510,7 +581,7 @@ function MigrateAllButton({ onConfirm, disabled }: ConfirmActionProps) {
 	return (
 		<AlertDialog open={open} onOpenChange={setOpen}>
 			<AlertDialogTrigger asChild>
-				<Button variant="outline" disabled={disabled}>
+				<Button variant="destructive" disabled={disabled}>
 					Przywróć wszystkich z B2
 				</Button>
 			</AlertDialogTrigger>
@@ -610,6 +681,82 @@ function IngestAllButton({
 						}}
 					>
 						Tak, pobierz dla wszystkich
+					</AlertDialogAction>
+				</AlertDialogFooter>
+			</AlertDialogContent>
+		</AlertDialog>
+	);
+}
+
+function IngestAndRestoreAllButton({
+	onConfirm,
+	disabled,
+	count,
+}: ConfirmActionProps & { count: number }) {
+	const [open, setOpen] = useState(false);
+	return (
+		<AlertDialog open={open} onOpenChange={setOpen}>
+			<AlertDialogTrigger asChild>
+				<Button variant="default" disabled={disabled}>
+					Pobierz i wyslij (wszyscy)
+				</Button>
+			</AlertDialogTrigger>
+			<AlertDialogContent>
+				<AlertDialogHeader>
+					<AlertDialogTitle>Pobierz i wyslij do Workspace (wszyscy)</AlertDialogTitle>
+					<AlertDialogDescription>
+						Dla kazdego gotowego pracownika ({count}) uruchomi sekwencje:
+						Pobierz z Drive, a po sukcesie Wyslij do Workspace. W razie bledu
+						pobierania dalsze kroki zostana zatrzymane. Kontynuowac?
+					</AlertDialogDescription>
+				</AlertDialogHeader>
+				<AlertDialogFooter>
+					<AlertDialogCancel>Anuluj</AlertDialogCancel>
+					<AlertDialogAction
+						onClick={() => {
+							setOpen(false);
+							onConfirm();
+						}}
+					>
+						Tak, uruchom sekwencje
+					</AlertDialogAction>
+				</AlertDialogFooter>
+			</AlertDialogContent>
+		</AlertDialog>
+	);
+}
+
+function IngestAndRestoreRowButton({
+	onConfirm,
+	disabled,
+	email,
+}: ConfirmActionProps & { email: string }) {
+	const [open, setOpen] = useState(false);
+	return (
+		<AlertDialog open={open} onOpenChange={setOpen}>
+			<AlertDialogTrigger asChild>
+				<Button size="sm" variant="default" disabled={disabled}>
+					Pobierz i wyslij
+				</Button>
+			</AlertDialogTrigger>
+			<AlertDialogContent>
+				<AlertDialogHeader>
+					<AlertDialogTitle>Pobierz i wyslij {email}</AlertDialogTitle>
+					<AlertDialogDescription>
+						Uruchomi sekwencje dla konta {email}: najpierw Pobierz z Drive,
+						a po sukcesie automatycznie Wyslij do Workspace. Jezeli pobieranie
+						sie nie powiedzie, wysylka nie zostanie uruchomiona. Kontynuowac?
+					</AlertDialogDescription>
+				</AlertDialogHeader>
+				<AlertDialogFooter>
+					<AlertDialogCancel>Anuluj</AlertDialogCancel>
+					<AlertDialogAction
+						onClick={() => {
+							setOpen(false);
+							onConfirm();
+						}}
+					>
+						Tak, pobierz i wyslij
 					</AlertDialogAction>
 				</AlertDialogFooter>
 			</AlertDialogContent>
