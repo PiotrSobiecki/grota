@@ -144,3 +144,7 @@ vite.config.ts.timestamp-*
 configs/
 
 .wrangler/
+
+# Operator export and Claude local permissions (secrets; not for CI)
+/config.json
+.claude/settings.local.json

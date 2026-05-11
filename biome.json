@@ -80,7 +80,9 @@
 			"!packages/data-ops/src/drizzle/migrations",
 			"!packages/data-ops/src/drizzle/auth-schema.ts",
 			"!**/.wrangler",
-			"!configs"
+			"!configs",
+			"!.claude/settings.local.json",
+			"!config.json"
 		]
 	},
 	"overrides": [
