@@ -75,14 +75,15 @@ export async function sendTelegramNotification(
 	env: Env,
 ): Promise<void> {
 	const message = [
-		"Grota: Eksport konfiguracji zakonczony",
-		`Klient: ${clientName}`,
-		`Deployment: ${deploymentId}`,
-		`Plik: configs/${deploymentId}/config.json`,
-		"Status: active",
+		"✅ <b>Grota: Eksport konfiguracji zakonczony</b>",
+		"",
+		`<b>Klient:</b> ${clientName}`,
+		`<b>Status:</b> active`,
+		`<b>Deployment:</b> <code>${deploymentId}</code>`,
+		`<b>Plik:</b> <code>configs/${deploymentId}/config.json</code>`,
 	].join("\n");
 
-	await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+	const response = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify({
@@ -91,6 +92,10 @@ export async function sendTelegramNotification(
 			parse_mode: "HTML",
 		}),
 	});
+	if (!response.ok) {
+		const body = await response.text();
+		throw new Error(`Telegram API error: ${response.status} ${body}`);
+	}
 }
 
 export async function sendEmailSummary(
@@ -171,7 +176,7 @@ export async function sendEmailSummary(
 		"To automatyczna wiadomosc systemu Grota.",
 	].join("\n");
 
-	await fetch("https://api.resend.com/emails", {
+	const response = await fetch("https://api.resend.com/emails", {
 		method: "POST",
 		headers: {
 			Authorization: `Bearer ${env.RESEND_API_KEY}`,
@@ -185,4 +190,8 @@ export async function sendEmailSummary(
 			text,
 		}),
 	});
+	if (!response.ok) {
+		const body = await response.text();
+		throw new Error(`Resend API error: ${response.status} ${body}`);
+	}
 }

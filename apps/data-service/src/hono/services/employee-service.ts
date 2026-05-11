@@ -55,11 +55,12 @@ export async function bulkCreateEmployees(
 
 	const clientName = deployment.clientName;
 	const msg = [
-		"Grota: Admin zakonczyl onboarding",
-		`Klient: ${clientName}`,
-		`Pracownikow: ${created.length}`,
-		`Deployment: ${deploymentId}`,
-		"Akcja: wyslij linki do pracownikow z panelu",
+		"🚀 <b>Grota: Admin zakonczyl onboarding</b>",
+		"",
+		`<b>Klient:</b> ${clientName}`,
+		`<b>Pracownikow:</b> ${created.length}`,
+		`<b>Deployment:</b> <code>${deploymentId}</code>`,
+		`<b>Akcja:</b> Wyslij linki do pracownikow z panelu`,
 	].join("\n");
 
 	try {
@@ -69,6 +70,7 @@ export async function bulkCreateEmployees(
 			body: JSON.stringify({
 				chat_id: env.TELEGRAM_CHAT_ID,
 				text: msg,
+				parse_mode: "HTML",
 			}),
 		});
 	} catch {
