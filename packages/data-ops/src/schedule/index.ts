@@ -1,12 +1,15 @@
 export {
 	getDueSchedules,
 	getSchedule,
-	setScheduleEnabled,
+	setSchedule,
 	updateScheduleAfterRun,
 } from "./queries";
-export type { DeploymentSchedule, SetScheduleEnabledInput } from "./schema";
+export type { DeploymentSchedule, SetScheduleInput } from "./schema";
 export {
+	AnchorTimeSchema,
 	DeploymentScheduleSchema,
-	SetScheduleEnabledRequestSchema,
+	INTERVAL_PRESETS,
+	IntervalHoursSchema,
+	SetScheduleRequestSchema,
 } from "./schema";
 export { deploymentSchedules } from "./table";

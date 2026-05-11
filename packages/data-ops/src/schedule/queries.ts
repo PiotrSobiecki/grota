@@ -1,6 +1,6 @@
 import { and, eq, lte } from "drizzle-orm";
 import { getDb } from "@/database/setup";
-import type { DeploymentSchedule } from "./schema";
+import type { DeploymentSchedule, SetScheduleInput } from "./schema";
 import { deploymentSchedules } from "./table";
 
 export async function getSchedule(deploymentId: string): Promise<DeploymentSchedule | null> {
@@ -12,26 +12,34 @@ export async function getSchedule(deploymentId: string): Promise<DeploymentSched
 	return result[0] ?? null;
 }
 
-export async function setScheduleEnabled(deploymentId: string, enabled: boolean): Promise<void> {
+export async function setSchedule(
+	deploymentId: string,
+	input: SetScheduleInput,
+): Promise<DeploymentSchedule> {
 	const db = getDb();
 	const now = new Date();
-	if (enabled) {
-		await db
-			.insert(deploymentSchedules)
-			.values({ deploymentId, enabled: true, nextRunAt: now })
-			.onConflictDoUpdate({
-				target: deploymentSchedules.deploymentId,
-				set: { enabled: true, nextRunAt: now, updatedAt: now },
-			});
-		return;
-	}
+	const insertValues = {
+		deploymentId,
+		enabled: input.enabled,
+		intervalHours: input.intervalHours,
+		anchorTime: input.anchorTime,
+		...(input.enabled ? { nextRunAt: now } : {}),
+	};
+	const updateSet: Record<string, unknown> = {
+		enabled: input.enabled,
+		intervalHours: input.intervalHours,
+		anchorTime: input.anchorTime,
+		updatedAt: now,
+	};
+	if (input.enabled) updateSet.nextRunAt = now;
+
 	await db
 		.insert(deploymentSchedules)
-		.values({ deploymentId, enabled: false })
-		.onConflictDoUpdate({
-			target: deploymentSchedules.deploymentId,
-			set: { enabled: false, updatedAt: now },
-		});
+		.values(insertValues)
+		.onConflictDoUpdate({ target: deploymentSchedules.deploymentId, set: updateSet });
+	const stored = await getSchedule(deploymentId);
+	if (!stored) throw new Error("Failed to persist schedule");
+	return stored;
 }
 
 export async function getDueSchedules(now: Date): Promise<DeploymentSchedule[]> {
@@ -44,11 +52,22 @@ export async function getDueSchedules(now: Date): Promise<DeploymentSchedule[]> 
 
 export async function updateScheduleAfterRun(
 	deploymentId: string,
-	values: { lastRunAt: Date; nextRunAt: Date },
+	values: {
+		lastRunAt: Date;
+		nextRunAt: Date;
+		lastJobId?: string | null;
+		lastStatus?: string | null;
+	},
 ): Promise<void> {
 	const db = getDb();
+	const setValues: Record<string, unknown> = {
+		lastRunAt: values.lastRunAt,
+		nextRunAt: values.nextRunAt,
+	};
+	if (values.lastJobId !== undefined) setValues.lastJobId = values.lastJobId;
+	if (values.lastStatus !== undefined) setValues.lastStatus = values.lastStatus;
 	await db
 		.update(deploymentSchedules)
-		.set({ lastRunAt: values.lastRunAt, nextRunAt: values.nextRunAt })
+		.set(setValues)
 		.where(eq(deploymentSchedules.deploymentId, deploymentId));
 }

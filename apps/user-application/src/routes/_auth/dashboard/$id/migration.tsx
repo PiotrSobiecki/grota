@@ -28,7 +28,7 @@ import {
 	triggerIngestJob,
 	triggerMigrateJob,
 } from "@/core/functions/migration/binding";
-import { getDeploymentSchedule, setScheduleEnabled } from "@/core/functions/schedule/binding";
+import { getDeploymentSchedule, setSchedule } from "@/core/functions/schedule/binding";
 import { type MigrationLogState, useMigrationJobLogs } from "@/core/hooks/use-migration-job-logs";
 
 export const Route = createFileRoute("/_auth/dashboard/$id/migration")({
@@ -105,6 +105,113 @@ function ActiveJobPanelGroup({
 				<LiveLogsPanel jobId={logsJobId} subtitle={logSubtitle} streamLogs={streamLogs} />
 			) : null}
 		</>
+	);
+}
+
+type IntervalPreset = 1 | 6 | 12 | 24 | 168;
+
+const INTERVAL_LABELS: Record<IntervalPreset, string> = {
+	1: "Co 1h",
+	6: "Co 6h",
+	12: "Co 12h",
+	24: "Co 24h",
+	168: "Co 7 dni",
+};
+
+function formatScheduleDate(iso: string | null): string | null {
+	if (!iso) return null;
+	const d = new Date(iso);
+	if (Number.isNaN(d.getTime())) return null;
+	return new Intl.DateTimeFormat("pl-PL", {
+		dateStyle: "short",
+		timeStyle: "short",
+		timeZone: "Europe/Warsaw",
+	}).format(d);
+}
+
+function ScheduleWidget({
+	schedule,
+	loading,
+	saving,
+	onSave,
+}: {
+	schedule: {
+		enabled: boolean;
+		intervalHours: number;
+		anchorTime: string;
+		nextRunAt: string | null;
+		lastRunAt: string | null;
+		lastStatus: string | null;
+	} | null;
+	loading: boolean;
+	saving: boolean;
+	onSave: (input: { enabled: boolean; intervalHours: IntervalPreset; anchorTime: string }) => void;
+}) {
+	const enabled = schedule?.enabled ?? false;
+	const intervalHours = (schedule?.intervalHours ?? 24) as IntervalPreset;
+	const anchorTime = (schedule?.anchorTime ?? "02:00").slice(0, 5);
+	const nextRun = formatScheduleDate(schedule?.nextRunAt ?? null);
+	const lastRun = formatScheduleDate(schedule?.lastRunAt ?? null);
+
+	const handleToggle = (checked: boolean) =>
+		onSave({ enabled: checked, intervalHours, anchorTime });
+	const handleInterval = (value: string) => {
+		const next = Number(value) as IntervalPreset;
+		onSave({ enabled, intervalHours: next, anchorTime });
+	};
+	const handleAnchor = (value: string) => onSave({ enabled, intervalHours, anchorTime: value });
+
+	return (
+		<div className="flex flex-col gap-3 rounded-md border border-border bg-card p-3">
+			<div className="flex flex-wrap items-center gap-4">
+				<label className="flex items-center gap-2 text-sm text-foreground">
+					<input
+						type="checkbox"
+						className="h-4 w-4 accent-primary"
+						checked={enabled}
+						disabled={loading || saving}
+						onChange={(e) => handleToggle(e.target.checked)}
+					/>
+					Harmonogram
+				</label>
+				<label className="flex items-center gap-2 text-sm text-muted-foreground">
+					Interwał:
+					<select
+						className="rounded-sm border border-input bg-background px-2 py-1 text-sm text-foreground"
+						value={String(intervalHours)}
+						disabled={loading || saving}
+						onChange={(e) => handleInterval(e.target.value)}
+					>
+						{([1, 6, 12, 24, 168] as IntervalPreset[]).map((k) => (
+							<option key={k} value={k}>
+								{INTERVAL_LABELS[k]}
+							</option>
+						))}
+					</select>
+				</label>
+				<label className="flex items-center gap-2 text-sm text-muted-foreground">
+					Godzina kotwicy:
+					<input
+						type="time"
+						className="rounded-sm border border-input bg-background px-2 py-1 text-sm text-foreground"
+						value={anchorTime}
+						disabled={loading || saving}
+						onChange={(e) => handleAnchor(e.target.value)}
+					/>
+				</label>
+			</div>
+			{(nextRun || lastRun) && (
+				<div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+					{nextRun && <span>Następne uruchomienie: {nextRun}</span>}
+					{lastRun && (
+						<span>
+							Ostatnie: {lastRun}
+							{schedule?.lastStatus ? ` — ${schedule.lastStatus}` : ""}
+						</span>
+					)}
+				</div>
+			)}
+		</div>
 	);
 }
 
@@ -256,9 +363,13 @@ function MigrationPage() {
 	});
 
 	const scheduleMutation = useMutation({
-		mutationFn: (enabled: boolean) => setScheduleEnabled({ data: { deploymentId, enabled } }),
+		mutationFn: (input: {
+			enabled: boolean;
+			intervalHours: 1 | 6 | 12 | 24 | 168;
+			anchorTime: string;
+		}) => setSchedule({ data: { deploymentId, ...input } }),
 		onSuccess: (data) => {
-			toast.success(data.enabled ? "Auto-backup włączony" : "Auto-backup wyłączony");
+			toast.success(data.enabled ? "Harmonogram zapisany" : "Harmonogram wyłączony");
 			scheduleQuery.refetch();
 		},
 		onError: (e) => toast.error(e.message),
@@ -318,16 +429,12 @@ function MigrationPage() {
 					<CardTitle>Akcje globalne</CardTitle>
 				</CardHeader>
 				<CardContent className="flex flex-col gap-4">
-					<label className="flex items-center gap-2 text-sm text-foreground">
-						<input
-							type="checkbox"
-							className="h-4 w-4 accent-primary"
-							checked={scheduleQuery.data?.enabled ?? false}
-							disabled={scheduleQuery.isLoading || scheduleMutation.isPending}
-							onChange={(e) => scheduleMutation.mutate(e.target.checked)}
-						/>
-						Włącz auto-backup (24h)
-					</label>
+					<ScheduleWidget
+						schedule={scheduleQuery.data ?? null}
+						loading={scheduleQuery.isLoading}
+						saving={scheduleMutation.isPending}
+						onSave={(input) => scheduleMutation.mutate(input)}
+					/>
 					<div className="flex flex-wrap gap-3">
 						<IngestAllButton
 							onConfirm={() =>

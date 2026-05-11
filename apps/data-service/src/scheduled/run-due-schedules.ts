@@ -39,9 +39,16 @@ export async function runDueSchedules(
 			await updateScheduleAfterRun(schedule.deploymentId, {
 				lastRunAt: now,
 				nextRunAt: decision.nextRunAt,
+				lastJobId: result.data.id,
+				lastStatus: "ok",
 			});
 			succeeded++;
 		} else {
+			await updateScheduleAfterRun(schedule.deploymentId, {
+				lastRunAt: now,
+				nextRunAt: schedule.nextRunAt ?? now,
+				lastStatus: `failed:${result.error.code}`,
+			});
 			failed++;
 		}
 	}

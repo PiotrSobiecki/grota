@@ -127,6 +127,13 @@
       "when": 1778534886918,
       "tag": "0017_gray_electro",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1778535914109,
+      "tag": "0018_stale_bloodscream",
+      "breakpoints": true
     }
   ]
 }

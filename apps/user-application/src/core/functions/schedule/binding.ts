@@ -9,16 +9,31 @@ export interface DeploymentScheduleDto {
 	deploymentId: string;
 	enabled: boolean;
 	intervalHours: number;
+	anchorTime: string;
+	anchorTimezone: string;
 	lastRunAt: string | null;
 	nextRunAt: string | null;
+	lastJobId: string | null;
+	lastStatus: string | null;
 	createdAt: string;
 	updatedAt: string;
 }
 
 const DeploymentIdInput = z.object({ deploymentId: z.string().uuid() });
-const SetScheduleEnabledInput = z.object({
+
+const IntervalHoursClient = z.union([
+	z.literal(1),
+	z.literal(6),
+	z.literal(12),
+	z.literal(24),
+	z.literal(168),
+]);
+
+const SetScheduleInput = z.object({
 	deploymentId: z.string().uuid(),
 	enabled: z.boolean(),
+	intervalHours: IntervalHoursClient,
+	anchorTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
 });
 
 export const getDeploymentSchedule = createServerFn({ method: "GET" })
@@ -39,18 +54,22 @@ export const getDeploymentSchedule = createServerFn({ method: "GET" })
 		return (await response.json()) as DeploymentScheduleDto | null;
 	});
 
-export const setScheduleEnabled = createServerFn({ method: "POST" })
+export const setSchedule = createServerFn({ method: "POST" })
 	.middleware([protectedFunctionMiddleware])
-	.inputValidator(SetScheduleEnabledInput)
+	.inputValidator(SetScheduleInput)
 	.handler(async ({ data, context }) => {
 		const response = await fetchDataService(`/admin/deployments/${data.deploymentId}/schedule`, {
-			method: "POST",
+			method: "PUT",
 			headers: {
 				Authorization: `Bearer ${env.VITE_API_TOKEN}`,
 				"content-type": "application/json",
 				"X-Operator-Id": context.userId,
 			},
-			body: JSON.stringify({ enabled: data.enabled }),
+			body: JSON.stringify({
+				enabled: data.enabled,
+				intervalHours: data.intervalHours,
+				anchorTime: data.anchorTime,
+			}),
 		});
 		if (!response.ok) {
 			const errBody = (await response.json()) as { error?: string; code?: string };

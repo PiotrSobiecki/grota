@@ -1,7 +1,7 @@
 import { setDeploymentServerConfig, updateDeployment } from "@repo/data-ops/deployment";
 import { encryptServerConfig } from "@repo/data-ops/encryption";
 import { listMigrationJobs } from "@repo/data-ops/migration";
-import { getSchedule, setScheduleEnabled } from "@repo/data-ops/schedule";
+import { getSchedule, setSchedule } from "@repo/data-ops/schedule";
 import { createTestDeployment } from "@repo/data-ops/test-fixtures";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { runDueSchedules } from "./run-due-schedules";
@@ -50,7 +50,7 @@ describe("runDueSchedules (integration)", () => {
 
 	it("fails with NO_EMPLOYEES when deployment has runner config but no employees, leaves next_run_at untouched", async () => {
 		const deploymentId = await setupReadyDeployment();
-		await setScheduleEnabled(deploymentId, true);
+		await setSchedule(deploymentId, { enabled: true, intervalHours: 24, anchorTime: "02:00" });
 		const before = await getSchedule(deploymentId);
 
 		const result = await runDueSchedules(envForTest(), new Date());
@@ -68,8 +68,8 @@ describe("runDueSchedules (integration)", () => {
 
 	it("skips disabled schedules", async () => {
 		const deploymentId = await setupReadyDeployment();
-		await setScheduleEnabled(deploymentId, true);
-		await setScheduleEnabled(deploymentId, false);
+		await setSchedule(deploymentId, { enabled: true, intervalHours: 24, anchorTime: "02:00" });
+		await setSchedule(deploymentId, { enabled: false, intervalHours: 24, anchorTime: "02:00" });
 
 		const result = await runDueSchedules(envForTest(), new Date());
 
@@ -80,7 +80,7 @@ describe("runDueSchedules (integration)", () => {
 
 	it("counts schedule as failed when runner config is missing, leaves next_run_at untouched", async () => {
 		const deployment = await createTestDeployment();
-		await setScheduleEnabled(deployment.id, true);
+		await setSchedule(deployment.id, { enabled: true, intervalHours: 24, anchorTime: "02:00" });
 		const before = await getSchedule(deployment.id);
 
 		const result = await runDueSchedules(envForTest(), new Date());

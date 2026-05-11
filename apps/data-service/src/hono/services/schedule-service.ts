@@ -1,10 +1,15 @@
 import { getDeployment } from "@repo/data-ops/deployment";
-import { type DeploymentSchedule, getSchedule, setScheduleEnabled } from "@repo/data-ops/schedule";
+import {
+	type DeploymentSchedule,
+	getSchedule,
+	type SetScheduleInput,
+	setSchedule,
+} from "@repo/data-ops/schedule";
 import type { Result } from "../types/result";
 
-export async function setScheduleEnabledForDeployment(
+export async function setScheduleForDeployment(
 	deploymentId: string,
-	enabled: boolean,
+	input: SetScheduleInput,
 ): Promise<Result<DeploymentSchedule>> {
 	const deployment = await getDeployment(deploymentId);
 	if (!deployment) {
@@ -13,19 +18,8 @@ export async function setScheduleEnabledForDeployment(
 			error: { code: "NOT_FOUND", message: "Wdrozenie nie zostalo znalezione", status: 404 },
 		};
 	}
-	await setScheduleEnabled(deploymentId, enabled);
-	const schedule = await getSchedule(deploymentId);
-	if (!schedule) {
-		return {
-			ok: false,
-			error: {
-				code: "SCHEDULE_PERSIST_FAILED",
-				message: "Nie udalo sie zapisac harmonogramu",
-				status: 500,
-			},
-		};
-	}
-	return { ok: true, data: schedule };
+	const stored = await setSchedule(deploymentId, input);
+	return { ok: true, data: stored };
 }
 
 export async function getScheduleForDeployment(
