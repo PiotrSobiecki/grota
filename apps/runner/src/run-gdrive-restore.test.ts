@@ -54,10 +54,10 @@ describe("buildRcloneGDriveConfig", () => {
 });
 
 describe("buildRcloneGDriveRestoreArgs", () => {
-	it("syncs from local backupPath/account to gdrive:account/ with -v", () => {
+	it("syncs from local backupPath/sanitized-account to gdrive:account/ with -v", () => {
 		const args = buildRcloneGDriveRestoreArgs(validRequest);
 		expect(args[0]).toBe("sync");
-		expect(args).toContain("/srv/backup/gdrive/user@example.com");
+		expect(args).toContain("/srv/backup/gdrive/user_example_com");
 		expect(args).toContain("gdrive:user@example.com");
 		expect(args).toContain("--config");
 		expect(args).toContain("-v");

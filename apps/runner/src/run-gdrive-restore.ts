@@ -10,6 +10,10 @@ export type PathExistsFn = (path: string) => Promise<boolean>;
 
 const CONFIG_PLACEHOLDER = "<tmp>";
 
+function sanitizeEmail(email: string): string {
+	return email.replace(/[@.]/g, "_");
+}
+
 export function buildRcloneGDriveConfig(creds: GDriveCredentials): string {
 	const tokenPayload = {
 		access_token: creds.accessToken,
@@ -33,7 +37,7 @@ export function buildRcloneGDriveConfig(creds: GDriveCredentials): string {
 
 export function buildRcloneGDriveRestoreArgs(req: GDriveRestoreRequest): string[] {
 	const targetFolder = req.gdrive.targetFolder ?? req.account;
-	const sourcePath = `${req.runnerConfig.backupPath}/${req.account}`;
+	const sourcePath = `${req.runnerConfig.backupPath}/${sanitizeEmail(req.account)}`;
 	return [
 		"sync",
 		sourcePath,
@@ -49,7 +53,7 @@ export function createRunGDriveRestore(
 	pathExists: PathExistsFn = realPathExists,
 ): RunGDriveRestoreFn {
 	return async (_jobId: string, req: GDriveRestoreRequest, emitLog: LogEmitter) => {
-		const sourcePath = `${req.runnerConfig.backupPath}/${req.account}`;
+		const sourcePath = `${req.runnerConfig.backupPath}/${sanitizeEmail(req.account)}`;
 		const exists = await pathExists(sourcePath);
 		if (!exists) {
 			emitLog({
