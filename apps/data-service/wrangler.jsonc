@@ -55,7 +55,7 @@
     "staging": {
       "routes": [
         {
-          "pattern": "staging-api-grota.auditmos.com",
+          "pattern": "staging-api-grota.sobiecki.org",
           "custom_domain": true,
         },
       ],
@@ -97,7 +97,7 @@
     "production": {
       "routes": [
         {
-          "pattern": "api-grota.auditmos.com",
+          "pattern": "api-grota.sobiecki.org",
           "custom_domain": true,
         },
       ],

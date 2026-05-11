@@ -34,7 +34,7 @@
 			"routes": [
 				{
 					"custom_domain": true,
-					"pattern": "staging-grota.auditmos.com"
+					"pattern": "staging-grota.sobiecki.org"
 				}
 			],
 			"services": [
@@ -52,7 +52,7 @@
 			"routes": [
 				{
 					"custom_domain": true,
-					"pattern": "grota.auditmos.com"
+					"pattern": "grota.sobiecki.org"
 				}
 			],
 			"services": [
