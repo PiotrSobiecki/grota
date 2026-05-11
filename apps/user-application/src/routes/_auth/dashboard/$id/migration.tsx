@@ -539,14 +539,18 @@ function JobRow({ job }: { job: MigrationJobDto }) {
 	);
 }
 
-/** Rclone (w tym -vv) pisze INFO/DEBUG na stderr — kolorujemy po poziomie w tresci linii. */
+/** Rclone (w tym -vv) pisze wiele poziomow na stderr — kolorujemy po znaczniku poziomu w linii. */
 const RCLONE_STYLE_SEVERE = /\s(ERROR|FATAL|CRITICAL)\s*:/;
-const RCLONE_STYLE_WARN = /\sWARN\s*:/;
+const RCLONE_STYLE_WARN = /\s(WARN|NOTICE)\s*:/;
+const RCLONE_STYLE_INFO = /\sINFO\s*:/;
+const RCLONE_STYLE_DEBUG = /\sDEBUG\s*:/;
 
 function migrationLogLineClassName(line: string): string {
 	if (RCLONE_STYLE_SEVERE.test(line)) return "text-destructive";
 	if (RCLONE_STYLE_WARN.test(line)) return "text-amber-700 dark:text-amber-300";
-	return "";
+	if (RCLONE_STYLE_INFO.test(line)) return "text-emerald-700 dark:text-emerald-400";
+	if (RCLONE_STYLE_DEBUG.test(line)) return "text-muted-foreground";
+	return "text-foreground";
 }
 
 function liveLogsBadgeLabel(

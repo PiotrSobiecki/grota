@@ -38,7 +38,15 @@ export function buildRcloneGDriveConfig(creds: GDriveCredentials): string {
 export function buildRcloneGDriveRestoreArgs(req: GDriveRestoreRequest): string[] {
 	const targetFolder = req.gdrive.targetFolder ?? req.account;
 	const sourcePath = `${req.runnerConfig.backupPath}/${sanitizeEmail(req.account)}`;
-	return ["sync", sourcePath, `gdrive:${targetFolder}`, "--config", CONFIG_PLACEHOLDER, "-v"];
+	return [
+		"sync",
+		sourcePath,
+		`gdrive:${targetFolder}`,
+		"--config",
+		CONFIG_PLACEHOLDER,
+		"--copy-links",
+		"-v",
+	];
 }
 
 export function createRunGDriveRestore(

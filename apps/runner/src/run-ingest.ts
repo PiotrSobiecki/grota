@@ -77,6 +77,7 @@ export function buildRcloneIngestArgs(
 			`/${folder.itemName}${ext}`,
 			"--drive-export-formats",
 			EXPORT_FORMATS,
+			"--copy-links",
 			"-vv",
 		];
 	}
@@ -94,6 +95,7 @@ export function buildRcloneIngestArgs(
 		versionDir,
 		"--drive-export-formats",
 		EXPORT_FORMATS,
+		"--copy-links",
 		"-vv",
 	];
 }

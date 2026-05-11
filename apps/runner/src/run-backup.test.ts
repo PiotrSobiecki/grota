@@ -16,6 +16,7 @@ describe("buildRcloneSyncArgs", () => {
 		expect(args).toContain("/var/backups/grota");
 		expect(args).toContain("b2:client-x");
 		expect(args).toContain("--config");
+		expect(args).toContain("--copy-links");
 	});
 
 	it("appends --bwlimit when bwlimit is set", () => {

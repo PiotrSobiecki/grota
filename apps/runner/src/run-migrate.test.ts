@@ -17,6 +17,7 @@ describe("buildRcloneMigrateArgs", () => {
 		expect(args).toContain("b2:client-x");
 		expect(args).toContain("/var/backups/grota");
 		expect(args).not.toContain("--dry-run");
+		expect(args).toContain("--copy-links");
 	});
 
 	it("appends --dry-run when dryRun=true", () => {

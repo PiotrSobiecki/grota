@@ -30,6 +30,7 @@ export function buildRcloneSyncArgs(cfg: RunnerJobConfig): string[] {
 		`b2:${cfg.bucketPrefix}`,
 		"--config",
 		CONFIG_PLACEHOLDER,
+		"--copy-links",
 		"-v",
 	];
 	if (cfg.bwlimit) {

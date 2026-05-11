@@ -11,6 +11,7 @@ export function buildRcloneMigrateArgs(cfg: RunnerJobConfig, dryRun: boolean): s
 		cfg.backupPath,
 		"--config",
 		CONFIG_PLACEHOLDER,
+		"--copy-links",
 		"-v",
 	];
 	if (cfg.bwlimit) args.push("--bwlimit", cfg.bwlimit);

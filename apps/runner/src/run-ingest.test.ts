@@ -72,6 +72,7 @@ describe("buildRcloneIngestArgs", () => {
 		expect(args).toContain("--drive-export-formats");
 		const fmtIdx = args.indexOf("--drive-export-formats");
 		expect(args[fmtIdx + 1]).toBe("docx,xlsx,pptx,pdf");
+		expect(args).toContain("--copy-links");
 	});
 
 	it("returns `rclone copy` args for itemType=file with --include /<name> and _files/ path", () => {
@@ -94,6 +95,7 @@ describe("buildRcloneIngestArgs", () => {
 		expect(args[incIdx + 1]).toBe("/raport.docx");
 		expect(args).not.toContain("--backup-dir");
 		expect(args).toContain("--drive-export-formats");
+		expect(args).toContain("--copy-links");
 	});
 
 	it("uses --drive-root-folder-id root when file has parentFolderId=null (sharedDriveId is destination tag only)", () => {

@@ -60,6 +60,7 @@ describe("buildRcloneGDriveRestoreArgs", () => {
 		expect(args).toContain("/srv/backup/gdrive/user_example_com");
 		expect(args).toContain("gdrive:user@example.com");
 		expect(args).toContain("--config");
+		expect(args).toContain("--copy-links");
 		expect(args).toContain("-v");
 	});
 
