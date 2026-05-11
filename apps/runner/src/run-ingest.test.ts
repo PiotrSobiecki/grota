@@ -162,6 +162,35 @@ describe("buildRcloneIngestArgs", () => {
 		expect(args[incIdx + 1]).toBe("/report.pdf");
 	});
 
+	it("adds --drive-team-drive <sharedDriveId> so rclone enters shared-drive context", () => {
+		const folder: IngestFolder = {
+			itemId: "f1",
+			itemName: "X.pdf",
+			itemType: "file",
+			parentFolderId: null,
+			sharedDriveName: "SD",
+			sharedDriveId: "0SDxyz",
+			mimeType: "application/pdf",
+		};
+		const args = buildRcloneIngestArgs(folder, ACCOUNT, RUNNER_CONFIG, TIMESTAMP);
+		expect(args).toContain("--drive-team-drive");
+		expect(args[args.indexOf("--drive-team-drive") + 1]).toBe("0SDxyz");
+	});
+
+	it("does NOT add --drive-team-drive when sharedDriveId is null", () => {
+		const folder: IngestFolder = {
+			itemId: "f1",
+			itemName: "X.pdf",
+			itemType: "file",
+			parentFolderId: "p1",
+			sharedDriveName: null,
+			sharedDriveId: null,
+			mimeType: null,
+		};
+		const args = buildRcloneIngestArgs(folder, ACCOUNT, RUNNER_CONFIG, TIMESTAMP);
+		expect(args).not.toContain("--drive-team-drive");
+	});
+
 	it("falls back parentFolderId='root' when both parentFolderId and sharedDriveId are null", () => {
 		const file: IngestFolder = {
 			itemId: "1FileId",

@@ -55,6 +55,9 @@ export function buildRcloneIngestArgs(
 	const remote = `gdrive_${sanitized}:`;
 	const sdName = folder.sharedDriveName ?? "";
 	const driveRoot = folder.parentFolderId ?? folder.sharedDriveId ?? "root";
+	const teamDriveFlags = folder.sharedDriveId
+		? ["--drive-team-drive", folder.sharedDriveId]
+		: [];
 	if (folder.itemType === "file") {
 		const targetDir = `${cfg.backupPath}/${sanitized}/${sdName}/_files/${folder.itemName}`;
 		const ext = exportExtFor(folder.mimeType);
@@ -64,13 +67,14 @@ export function buildRcloneIngestArgs(
 			targetDir,
 			"--config",
 			CONFIG_PLACEHOLDER,
+			...teamDriveFlags,
 			"--drive-root-folder-id",
 			driveRoot,
 			"--include",
 			`/${folder.itemName}${ext}`,
 			"--drive-export-formats",
 			EXPORT_FORMATS,
-			"-v",
+			"-vv",
 		];
 	}
 	const versionDir = `${cfg.backupPath}/.versions/${sanitized}/${timestamp}`;
@@ -81,13 +85,14 @@ export function buildRcloneIngestArgs(
 		targetDir,
 		"--config",
 		CONFIG_PLACEHOLDER,
+		...teamDriveFlags,
 		"--drive-root-folder-id",
 		folder.itemId,
 		"--backup-dir",
 		versionDir,
 		"--drive-export-formats",
 		EXPORT_FORMATS,
-		"-v",
+		"-vv",
 	];
 }
 
