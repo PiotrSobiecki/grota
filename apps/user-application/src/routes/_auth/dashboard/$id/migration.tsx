@@ -247,28 +247,12 @@ function MigrationPage() {
 						disabled={ingestAllMutation.isPending || !!activeJob || readyEmployees.length === 0}
 						count={readyEmployees.length}
 					/>
-					<IngestAndRestoreAllButton
-						onConfirm={() =>
-							ingestAndRestoreAllMutation.mutate({
-								employees: readyEmployees.map((employee) => ({
-									id: employee.id,
-									email: employee.email,
-								})),
-							})
-						}
-						disabled={
-							ingestAndRestoreAllMutation.isPending ||
-							!!activeJob ||
-							readyEmployees.length === 0
-						}
-						count={readyEmployees.length}
-					/>
 					<Button
 						variant="destructive"
 						onClick={() => backupMutation.mutate({})}
 						disabled={backupMutation.isPending || !!activeJob}
 					>
-						Backup wszystkich do B2
+						Zapisz kopie (wszyscy)
 					</Button>
 					<MigrateAllButton
 						onConfirm={() => migrateMutation.mutate({ dryRun: false })}
@@ -376,11 +360,11 @@ function EmployeeRow(props: EmployeeRowProps) {
 				/>
 				<Button
 					size="sm"
-					variant="outline"
+					variant="destructive"
 					onClick={props.onBackup}
 					disabled={props.disabled}
 				>
-					Backup do B2
+					Zapisz kopię
 				</Button>
 				<MigrateRowButton
 					onConfirm={props.onMigrate}
@@ -389,11 +373,6 @@ function EmployeeRow(props: EmployeeRowProps) {
 				/>
 				<GDriveRestoreRowButton
 					onConfirm={props.onGDriveRestore}
-					disabled={props.disabled || !ready}
-					email={props.email}
-				/>
-				<IngestAndRestoreRowButton
-					onConfirm={props.onIngestAndRestore}
 					disabled={props.disabled || !ready}
 					email={props.email}
 				/>
@@ -412,7 +391,7 @@ function IngestRowButton({
 		<AlertDialog open={open} onOpenChange={setOpen}>
 			<AlertDialogTrigger asChild>
 				<Button size="sm" variant="default" disabled={disabled}>
-					Pobierz z Drive
+					Pobierz dane
 				</Button>
 			</AlertDialogTrigger>
 			<AlertDialogContent>
@@ -452,7 +431,7 @@ function GDriveRestoreRowButton({
 		<AlertDialog open={open} onOpenChange={setOpen}>
 			<AlertDialogTrigger asChild>
 				<Button size="sm" variant="default" disabled={disabled}>
-					Wyślij do Workspace
+					Wyślij na dysk firmowy
 				</Button>
 			</AlertDialogTrigger>
 			<AlertDialogContent>
@@ -574,7 +553,7 @@ function MigrateAllButton({ onConfirm, disabled }: ConfirmActionProps) {
 		<AlertDialog open={open} onOpenChange={setOpen}>
 			<AlertDialogTrigger asChild>
 				<Button variant="destructive" disabled={disabled}>
-					Przywróć wszystkich z B2
+					Przywróć kopie (wszyscy)
 				</Button>
 			</AlertDialogTrigger>
 			<AlertDialogContent>
@@ -612,8 +591,8 @@ function MigrateRowButton({
 	return (
 		<AlertDialog open={open} onOpenChange={setOpen}>
 			<AlertDialogTrigger asChild>
-				<Button size="sm" variant="outline" disabled={disabled}>
-					Przywróć z B2
+				<Button size="sm" variant="destructive" disabled={disabled}>
+					Przywróć kopię
 				</Button>
 			</AlertDialogTrigger>
 			<AlertDialogContent>
@@ -652,7 +631,7 @@ function IngestAllButton({
 	return (
 		<AlertDialog open={open} onOpenChange={setOpen}>
 			<AlertDialogTrigger asChild>
-				<Button disabled={disabled}>Pobierz z Drive (wszyscy)</Button>
+				<Button disabled={disabled}>Pobierz dane (wszyscy)</Button>
 			</AlertDialogTrigger>
 			<AlertDialogContent>
 				<AlertDialogHeader>
