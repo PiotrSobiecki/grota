@@ -539,6 +539,16 @@ function JobRow({ job }: { job: MigrationJobDto }) {
 	);
 }
 
+/** Rclone (w tym -vv) pisze INFO/DEBUG na stderr — kolorujemy po poziomie w tresci linii. */
+const RCLONE_STYLE_SEVERE = /\s(ERROR|FATAL|CRITICAL)\s*:/;
+const RCLONE_STYLE_WARN = /\sWARN\s*:/;
+
+function migrationLogLineClassName(line: string): string {
+	if (RCLONE_STYLE_SEVERE.test(line)) return "text-destructive";
+	if (RCLONE_STYLE_WARN.test(line)) return "text-amber-700 dark:text-amber-300";
+	return "";
+}
+
 function liveLogsBadgeLabel(
 	connected: boolean,
 	streamLogs: boolean,
@@ -577,7 +587,7 @@ function LiveLogsScrollContent({
 		return <p className="text-muted-foreground">Czekam na linie logow z runnera…</p>;
 	}
 	return lines.map((l, i) => (
-		<div key={`${l.ts}-${i}`} className={l.stream === "stderr" ? "text-destructive" : ""}>
+		<div key={`${l.ts}-${i}`} className={migrationLogLineClassName(l.line)}>
 			<span className="text-muted-foreground">{l.ts.slice(11, 19)} </span>
 			{l.line}
 		</div>
