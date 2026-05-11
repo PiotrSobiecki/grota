@@ -14,6 +14,10 @@ export function setAuth(
 		};
 	},
 ) {
+	/** Jedna instancja na izolat (Cloudflare Worker) — ponowne createBetterAuth na kazde fetch zjadalo CPU i RAM. */
+	if (betterAuth) {
+		return betterAuth;
+	}
 	betterAuth = createBetterAuth({
 		database: drizzleAdapter(config.adapter.drizzleDb, {
 			provider: config.adapter.provider,

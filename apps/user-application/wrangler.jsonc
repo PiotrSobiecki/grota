@@ -31,6 +31,9 @@
 		 */
 		"staging": {
 			"name": "grota-ua-staging",
+			"limits": {
+				"cpu_ms": 30000
+			},
 			"routes": [
 				{
 					"custom_domain": true,
@@ -49,6 +52,10 @@
 		 */
 		"production": {
 			"name": "grota-ua-production",
+			// Domyslnie 30 s na Workers Paid (SSR). Workers Free: max 10 ms CPU — przy 1102 wlacz Workers Paid na koncie.
+			"limits": {
+				"cpu_ms": 30000
+			},
 			"routes": [
 				{
 					"custom_domain": true,
