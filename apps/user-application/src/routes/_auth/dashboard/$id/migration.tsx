@@ -46,10 +46,10 @@ const STATUS_BADGE: Record<
 };
 
 const TYPE_LABEL: Record<MigrationJobDto["type"], string> = {
-	backup: "Backup do B2",
-	migrate: "Przywracanie z B2",
-	"gdrive-restore": "Wysyłanie do Workspace",
-	ingest: "Pobieranie z Drive",
+	backup: "Zapisz kopię",
+	migrate: "Przywróć kopię",
+	"gdrive-restore": "Wyślij na dysk firmowy",
+	ingest: "Pobierz dane",
 };
 
 function MigrationPage() {
@@ -77,7 +77,7 @@ function MigrationPage() {
 		mutationFn: (input: { account?: string }) =>
 			triggerBackupJob({ data: { deploymentId, account: input.account } }),
 		onSuccess: () => {
-			toast.success("Backup do B2 uruchomiony");
+			toast.success("Zapis kopii uruchomiony");
 			refetchJobs();
 		},
 		onError: (e) => toast.error(e.message),
@@ -90,7 +90,7 @@ function MigrationPage() {
 			}),
 		onSuccess: (job) => {
 			toast.success(
-				job.dryRun ? "Podgląd przywracania uruchomiony" : "Przywracanie z B2 uruchomione",
+				job.dryRun ? "Podgląd przywracania uruchomiony" : "Przywracanie kopii uruchomione",
 			);
 			refetchJobs();
 		},
@@ -103,7 +103,7 @@ function MigrationPage() {
 				data: { deploymentId, account: input.account },
 			}),
 		onSuccess: () => {
-			toast.success("Wysyłanie do Workspace uruchomione");
+			toast.success("Wysyłka na dysk firmowy uruchomiona");
 			refetchJobs();
 		},
 		onError: (e) => toast.error(e.message),
@@ -115,7 +115,7 @@ function MigrationPage() {
 				data: { deploymentId, employeeId: input.employeeId },
 			}),
 		onSuccess: () => {
-			toast.success("Pobieranie z Drive uruchomione");
+			toast.success("Pobieranie danych uruchomione");
 			refetchJobs();
 		},
 		onError: (e) => toast.error(e.message),
@@ -131,7 +131,7 @@ function MigrationPage() {
 			return input.employeeIds.length;
 		},
 		onSuccess: (count) => {
-			toast.success(`Pobieranie z Drive uruchomione dla ${count} pracownikow`);
+			toast.success(`Pobieranie danych uruchomione dla ${count} pracownikow`);
 			refetchJobs();
 		},
 		onError: (e) => toast.error(e.message),
@@ -160,7 +160,7 @@ function MigrationPage() {
 			});
 		},
 		onSuccess: () => {
-			toast.success("Pobieranie i wysylka do Workspace uruchomione");
+			toast.success("Pobieranie danych i wysylka na dysk firmowy uruchomione");
 			refetchJobs();
 		},
 		onError: (e) => toast.error(e.message),
@@ -180,7 +180,7 @@ function MigrationPage() {
 			return input.employees.length;
 		},
 		onSuccess: (count) => {
-			toast.success(`Pobieranie + wysylka uruchomione dla ${count} pracownikow`);
+			toast.success(`Pobieranie danych + wysylka uruchomione dla ${count} pracownikow`);
 			refetchJobs();
 		},
 		onError: (e) => toast.error(e.message),
@@ -396,13 +396,13 @@ function IngestRowButton({
 			</AlertDialogTrigger>
 			<AlertDialogContent>
 				<AlertDialogHeader>
-					<AlertDialogTitle>Pobierz {email} z Drive</AlertDialogTitle>
+					<AlertDialogTitle>Pobierz dane pracownika {email}</AlertDialogTitle>
 					<AlertDialogDescription>
 						Pliki z prywatnego Google Drive pracownika zostana sciagniete na
 						lokalny katalog VPSa. Synchronizowane sa foldery wybrane przez
 						pracownika podczas onboardingu. Po skonczeniu masz dane lokalnie
-						i mozesz: zrobic Backup do B2 (off-site) albo Wyslac do Workspace
-						(shared drive firmy). Kontynuowac?
+						i mozesz: Zapisz kopię albo Wyślij na dysk firmowy.
+						Kontynuowac?
 					</AlertDialogDescription>
 				</AlertDialogHeader>
 				<AlertDialogFooter>
@@ -436,13 +436,13 @@ function GDriveRestoreRowButton({
 			</AlertDialogTrigger>
 			<AlertDialogContent>
 				<AlertDialogHeader>
-					<AlertDialogTitle>Wyślij {email} do Workspace</AlertDialogTitle>
+					<AlertDialogTitle>Wyślij {email} na dysk firmowy</AlertDialogTitle>
 					<AlertDialogDescription>
 						Pliki z lokalnego katalogu na VPSie (`{`{backup_path}`}/{email}`)
-						zostana wyslane na Workspace shared drive firmy (folder `{email}/`).
-						Wymaga ze lokalny katalog ma juz dane — po wczesniejszym Pobierz z
-						Drive lub Przywróć z B2. Akcja moze nadpisac istniejace pliki na
-						shared drive. Kontynuowac?
+						zostana wyslane na firmowy shared drive (folder `{email}/`).
+						Wymaga ze lokalny katalog ma juz dane — po wczesniejszym Pobierz
+						dane lub Przywróć kopię. Akcja moze nadpisac istniejace pliki.
+						Kontynuowac?
 					</AlertDialogDescription>
 				</AlertDialogHeader>
 				<AlertDialogFooter>
@@ -558,12 +558,12 @@ function MigrateAllButton({ onConfirm, disabled }: ConfirmActionProps) {
 			</AlertDialogTrigger>
 			<AlertDialogContent>
 				<AlertDialogHeader>
-					<AlertDialogTitle>Potwierdź przywracanie wszystkich z B2</AlertDialogTitle>
+					<AlertDialogTitle>Potwierdź: Przywróć kopie (wszyscy)</AlertDialogTitle>
 					<AlertDialogDescription>
 						Akcja sciagnie pliki z B2 (backup) do lokalnego katalogu na VPSie
 						(`backup_path`). Operacja nadpisuje dane lokalne — jesli B2 jest
 						pusty, lokalny katalog zostanie wyczyszczony. Po przywroceniu mozesz
-						uzyc Wyslij do Workspace. Kontynuowac?
+						uzyc Wyślij na dysk firmowy. Kontynuowac?
 					</AlertDialogDescription>
 				</AlertDialogHeader>
 				<AlertDialogFooter>
@@ -574,7 +574,7 @@ function MigrateAllButton({ onConfirm, disabled }: ConfirmActionProps) {
 							onConfirm();
 						}}
 					>
-						Tak, przywróć z B2
+						Tak, przywróć kopie
 					</AlertDialogAction>
 				</AlertDialogFooter>
 			</AlertDialogContent>
@@ -602,7 +602,7 @@ function MigrateRowButton({
 						Pliki z B2 (backup) dla konta {email} zostana sciagniete na
 						lokalny katalog VPSa (`backup_path`). Operacja nadpisuje dane
 						lokalne — jesli B2 jest pusty, lokalny katalog zostanie
-						wyczyszczony. Po przywroceniu mozesz uzyc Wyslij do Workspace.
+						wyczyszczony. Po przywroceniu mozesz uzyc Wyślij na dysk firmowy.
 						Kontynuowac?
 					</AlertDialogDescription>
 				</AlertDialogHeader>
@@ -614,7 +614,7 @@ function MigrateRowButton({
 							onConfirm();
 						}}
 					>
-						Tak, przywróć z B2
+						Tak, przywróć kopię
 					</AlertDialogAction>
 				</AlertDialogFooter>
 			</AlertDialogContent>
@@ -635,11 +635,11 @@ function IngestAllButton({
 			</AlertDialogTrigger>
 			<AlertDialogContent>
 				<AlertDialogHeader>
-					<AlertDialogTitle>Pobierz z Drive dla wszystkich gotowych</AlertDialogTitle>
+					<AlertDialogTitle>Pobierz dane (wszyscy gotowi)</AlertDialogTitle>
 					<AlertDialogDescription>
 						Uruchomi pobieranie z prywatnych Drive'ow dla wszystkich gotowych
 						pracownikow ({count}). Dane trafią najpierw na VPS (backup_path).
-						Pozniej mozesz uruchomic backup do B2 lub wysylke do Workspace.
+						Pozniej mozesz uruchomic Zapisz kopie lub Wyślij na dysk firmowy.
 						Kontynuowac?
 					</AlertDialogDescription>
 				</AlertDialogHeader>
@@ -674,10 +674,10 @@ function IngestAndRestoreAllButton({
 			</AlertDialogTrigger>
 			<AlertDialogContent>
 				<AlertDialogHeader>
-					<AlertDialogTitle>Pobierz i wyslij do Workspace (wszyscy)</AlertDialogTitle>
+					<AlertDialogTitle>Pobierz i wyslij na dysk firmowy (wszyscy)</AlertDialogTitle>
 					<AlertDialogDescription>
 						Dla kazdego gotowego pracownika ({count}) uruchomi sekwencje:
-						Pobierz z Drive, a po sukcesie Wyslij do Workspace. W razie bledu
+						Pobierz dane, a po sukcesie Wyślij na dysk firmowy. W razie bledu
 						pobierania dalsze kroki zostana zatrzymane. Kontynuowac?
 					</AlertDialogDescription>
 				</AlertDialogHeader>
@@ -714,9 +714,10 @@ function IngestAndRestoreRowButton({
 				<AlertDialogHeader>
 					<AlertDialogTitle>Pobierz i wyslij {email}</AlertDialogTitle>
 					<AlertDialogDescription>
-						Uruchomi sekwencje dla konta {email}: najpierw Pobierz z Drive,
-						a po sukcesie automatycznie Wyslij do Workspace. Jezeli pobieranie
-						sie nie powiedzie, wysylka nie zostanie uruchomiona. Kontynuowac?
+						Uruchomi sekwencje dla konta {email}: najpierw Pobierz dane,
+						a po sukcesie automatycznie Wyślij na dysk firmowy. Jezeli
+						pobieranie sie nie powiedzie, wysylka nie zostanie uruchomiona.
+						Kontynuowac?
 					</AlertDialogDescription>
 				</AlertDialogHeader>
 				<AlertDialogFooter>
