@@ -61,6 +61,7 @@ export const IngestFolderSchema = z.object({
 	itemType: z.enum(["file", "folder"]),
 	parentFolderId: z.string().min(1).nullable(),
 	sharedDriveName: z.string().min(1).nullable(),
+	sharedDriveId: z.string().min(1).nullable(),
 	mimeType: z.string().min(1).nullable(),
 });
 

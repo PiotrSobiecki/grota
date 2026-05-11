@@ -49,6 +49,7 @@ describe("buildRcloneIngestArgs", () => {
 			itemType: "folder",
 			parentFolderId: null,
 			sharedDriveName: "Klient-X",
+			sharedDriveId: "0KX",
 			mimeType: "application/vnd.google-apps.folder",
 		};
 		const args = buildRcloneIngestArgs(folder, ACCOUNT, RUNNER_CONFIG, TIMESTAMP);
@@ -75,6 +76,7 @@ describe("buildRcloneIngestArgs", () => {
 			itemType: "file",
 			parentFolderId: "1ParentFolderId",
 			sharedDriveName: "Klient-X",
+			sharedDriveId: "0KX",
 			mimeType: "application/vnd.google-apps.document",
 		};
 		const args = buildRcloneIngestArgs(file, ACCOUNT, RUNNER_CONFIG, TIMESTAMP);
@@ -91,13 +93,29 @@ describe("buildRcloneIngestArgs", () => {
 		expect(args).toContain("--drive-export-formats");
 	});
 
-	it("falls back parentFolderId='root' when file has parentFolderId=null (CLI parity)", () => {
+	it("uses sharedDriveId as drive-root when file has parentFolderId=null + sharedDriveId (root of shared drive)", () => {
 		const file: IngestFolder = {
 			itemId: "1FileId",
 			itemName: "x.pdf",
 			itemType: "file",
 			parentFolderId: null,
 			sharedDriveName: "Klient-X",
+			sharedDriveId: "0ABC123",
+			mimeType: null,
+		};
+		const args = buildRcloneIngestArgs(file, ACCOUNT, RUNNER_CONFIG, TIMESTAMP);
+		const rootIdx = args.indexOf("--drive-root-folder-id");
+		expect(args[rootIdx + 1]).toBe("0ABC123");
+	});
+
+	it("falls back parentFolderId='root' when both parentFolderId and sharedDriveId are null", () => {
+		const file: IngestFolder = {
+			itemId: "1FileId",
+			itemName: "x.pdf",
+			itemType: "file",
+			parentFolderId: null,
+			sharedDriveName: null,
+			sharedDriveId: null,
 			mimeType: null,
 		};
 		const args = buildRcloneIngestArgs(file, ACCOUNT, RUNNER_CONFIG, TIMESTAMP);
@@ -112,6 +130,7 @@ describe("buildRcloneIngestArgs", () => {
 			itemType: "folder",
 			parentFolderId: null,
 			sharedDriveName: "SD",
+			sharedDriveId: "0SD",
 			mimeType: null,
 		};
 		const argsFolder = buildRcloneIngestArgs(folder, ACCOUNT, RUNNER_CONFIG, TIMESTAMP);
@@ -137,6 +156,7 @@ describe("createRunIngest", () => {
 				itemType: "folder",
 				parentFolderId: null,
 				sharedDriveName: null,
+				sharedDriveId: null,
 				mimeType: null,
 			},
 		]);
@@ -161,6 +181,7 @@ describe("createRunIngest", () => {
 				itemType: "folder",
 				parentFolderId: null,
 				sharedDriveName: "Klient-X",
+				sharedDriveId: "0KX",
 				mimeType: null,
 			},
 			{
@@ -169,6 +190,7 @@ describe("createRunIngest", () => {
 				itemType: "file",
 				parentFolderId: "p2",
 				sharedDriveName: "Klient-X",
+				sharedDriveId: "0KX",
 				mimeType: null,
 			},
 		]);
@@ -193,6 +215,7 @@ describe("createRunIngest", () => {
 				itemType: "folder",
 				parentFolderId: null,
 				sharedDriveName: "Klient-X",
+				sharedDriveId: "0KX",
 				mimeType: null,
 			},
 			{
@@ -201,6 +224,7 @@ describe("createRunIngest", () => {
 				itemType: "folder",
 				parentFolderId: null,
 				sharedDriveName: "Klient-X",
+				sharedDriveId: "0KX",
 				mimeType: null,
 			},
 		]);
@@ -220,6 +244,7 @@ describe("createRunIngest", () => {
 				itemType: "folder",
 				parentFolderId: null,
 				sharedDriveName: "Klient-X",
+				sharedDriveId: "0KX",
 				mimeType: null,
 			},
 			{
@@ -228,6 +253,7 @@ describe("createRunIngest", () => {
 				itemType: "folder",
 				parentFolderId: null,
 				sharedDriveName: "Klient-X",
+				sharedDriveId: "0KX",
 				mimeType: null,
 			},
 			{
@@ -236,6 +262,7 @@ describe("createRunIngest", () => {
 				itemType: "folder",
 				parentFolderId: null,
 				sharedDriveName: "Klient-X",
+				sharedDriveId: "0KX",
 				mimeType: null,
 			},
 		]);

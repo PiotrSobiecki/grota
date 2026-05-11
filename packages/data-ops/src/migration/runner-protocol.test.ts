@@ -212,6 +212,7 @@ describe("IngestRequestSchema", () => {
 				itemType: "folder" as const,
 				parentFolderId: "0ROOT",
 				sharedDriveName: "ClientX",
+				sharedDriveId: "0ABC123",
 				mimeType: "application/vnd.google-apps.folder",
 			},
 		],
@@ -273,6 +274,25 @@ describe("IngestRequestSchema", () => {
 				folders: [{ ...validIngestRequest.folders[0], mimeType: null }],
 			}).success,
 		).toBe(true);
+	});
+
+	it("accepts folder with sharedDriveId: null (file not on a shared drive)", () => {
+		expect(
+			IngestRequestSchema.safeParse({
+				...validIngestRequest,
+				folders: [{ ...validIngestRequest.folders[0], sharedDriveId: null }],
+			}).success,
+		).toBe(true);
+	});
+
+	it("rejects folder missing sharedDriveId (data-service must always provide it, even null)", () => {
+		const { sharedDriveId: _sd, ...folderWithoutSdId } = validIngestRequest.folders[0];
+		expect(
+			IngestRequestSchema.safeParse({
+				...validIngestRequest,
+				folders: [folderWithoutSdId],
+			}).success,
+		).toBe(false);
 	});
 
 	it("accepts folder with parentFolderId: null (Drive root)", () => {

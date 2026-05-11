@@ -41,6 +41,7 @@ export function buildRcloneIngestArgs(
 	const sanitized = sanitizeEmail(account);
 	const remote = `gdrive_${sanitized}:`;
 	const sdName = folder.sharedDriveName ?? "";
+	const driveRoot = folder.parentFolderId ?? folder.sharedDriveId ?? "root";
 	if (folder.itemType === "file") {
 		const targetDir = `${cfg.backupPath}/${sanitized}/${sdName}/_files/${folder.itemName}`;
 		return [
@@ -50,11 +51,12 @@ export function buildRcloneIngestArgs(
 			"--config",
 			CONFIG_PLACEHOLDER,
 			"--drive-root-folder-id",
-			folder.parentFolderId ?? "root",
+			driveRoot,
 			"--include",
 			`/${folder.itemName}`,
 			"--drive-export-formats",
 			EXPORT_FORMATS,
+			"-v",
 		];
 	}
 	const versionDir = `${cfg.backupPath}/.versions/${sanitized}/${timestamp}`;
@@ -71,6 +73,7 @@ export function buildRcloneIngestArgs(
 		versionDir,
 		"--drive-export-formats",
 		EXPORT_FORMATS,
+		"-v",
 	];
 }
 

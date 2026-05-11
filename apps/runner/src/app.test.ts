@@ -566,6 +566,7 @@ describe("runner app", () => {
 					itemType: "folder",
 					parentFolderId: null,
 					sharedDriveName: "Klient-X",
+					sharedDriveId: "0KX",
 					mimeType: null,
 				},
 			],

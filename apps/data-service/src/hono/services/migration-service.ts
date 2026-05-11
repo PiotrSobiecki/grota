@@ -798,6 +798,7 @@ export async function triggerIngest(input: TriggerIngestInput): Promise<Result<M
 		parentFolderId: s.parentFolderId,
 		mimeType: s.mimeType,
 		sharedDriveName: s.sharedDriveId ? (sdNameById.get(s.sharedDriveId) ?? null) : null,
+		sharedDriveId: s.sharedDriveId,
 	}));
 
 	const gdriveResult = await buildEmployeeGDriveCredentialsForRunner(employeeId, env);
