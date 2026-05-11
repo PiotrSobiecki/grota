@@ -1213,7 +1213,6 @@ function EmployeeSection({
 						<Button
 							variant="outline"
 							onClick={() => setIsAdding((v) => !v)}
-							disabled={deploymentStatus === "active"}
 						>
 							{isAdding ? (
 								<>
