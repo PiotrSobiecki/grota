@@ -1,16 +1,21 @@
 #!/usr/bin/env bash
-# Sync data-service secrets from apps/data-service/.{env}.vars to Cloudflare Workers.
-# user-application uses Vite — env baked at build time, just redeploy.
+# Sync data-service secrets from apps/data-service/.production.vars to Cloudflare Workers,
+# then user-application from apps/user-application/.env.production (jeśli istnieje).
+# user-application: Vite piecze .env.production przy deploy — po zmianach publicznych zrób deploy frontu.
 #
-# Usage: bash scripts/sync-secrets.sh <staging|production>
+# Usage: bash scripts/sync-secrets.sh -production
+#
+# Wymaga Node + pnpm w PATH (np. Git Bash / PowerShell z Windows). W czystym WSL bez Node
+# `pnpm` z /mnt/c/... kończy się „node: not found” — wtedy Git Bash albo `nvm` w WSL.
 
 set -euo pipefail
 
-ENV="${1:-}"
-if [[ -z "$ENV" || ! "$ENV" =~ ^(staging|production)$ ]]; then
-	echo "Usage: $0 <staging|production>" >&2
+if [[ "${1:-}" != "-production" ]]; then
+	echo "Usage: $0 -production" >&2
 	exit 1
 fi
+
+ENV="production"
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DS_VARS="$REPO_ROOT/apps/data-service/.${ENV}.vars"
@@ -71,6 +76,12 @@ echo ">>> data-service: pushed $pushed, skipped $skipped"
 UA_ENV="$REPO_ROOT/apps/user-application/.env.${ENV}"
 if [[ -f "$UA_ENV" ]]; then
 	echo ""
-	echo ">>> user-application: Vite bakes .env.${ENV} into the build at deploy time."
-	echo "    Redeploy when ready: pnpm run deploy:${ENV}:user-application"
+	echo ">>> user-application: wrangler secrets z $UA_ENV"
+	bash "$REPO_ROOT/apps/user-application/sync-secrets.sh" "-${ENV}"
+	echo ""
+	echo ">>> user-application: Vite nadal piecze .env.${ENV} w build — po zmianach publicznych:"
+	echo "    pnpm run deploy:${ENV}:user-application"
+else
+	echo ""
+	echo ">>> user-application: brak $UA_ENV — pomijam (utwórz plik albo: apps/user-application/sync-secrets.sh -production)."
 fi

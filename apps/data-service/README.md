@@ -127,5 +127,7 @@ Sync script - synchronize secrets with remote environment
 
 ```bash
 chmod +x sync-secrets.sh
-./sync-secrets.sh {env}
+./sync-secrets.sh -production
 ```
+
+(Z repo root: `pnpm run sync:secrets`.)

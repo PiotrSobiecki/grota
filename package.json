@@ -18,7 +18,8 @@
 		"lint:fix": "biome check --write .",
 		"lint:ci": "biome ci .",
 		"types": "pnpm run build:data-ops && pnpm run --filter data-service --filter user-application types",
-		"semantic-release": "semantic-release"
+		"semantic-release": "semantic-release",
+		"sync:secrets": "bash scripts/sync-secrets.sh -production"
 	},
 	"keywords": [],
 	"author": "",

@@ -22,16 +22,14 @@ interface SignInClientError {
 
 function resolveSignInErrorMessage(error: SignInClientError | null | undefined): string {
 	const rawMessage = (error?.message ?? "").trim();
+	const rawLower = rawMessage.toLowerCase();
 
 	if (error?.status === 503 || rawMessage.includes("503")) {
 		return "Serwis logowania jest chwilowo niedostępny (503). Spróbuj ponownie za chwilę.";
 	}
 
-	if (
-		rawMessage.includes("Turnstile token required") ||
-		rawMessage.includes("turnstile") ||
-		rawMessage.includes("captcha")
-	) {
+	// 403 z Turnstile — serwer zwraca "Turnstile..." (wielka litera); wcześniej includes("turnstile") nie łapał.
+	if (rawLower.includes("turnstile") || rawLower.includes("captcha")) {
 		return "Weryfikacja antybotowa (Turnstile) nie powiodła się. Odśwież stronę i spróbuj ponownie.";
 	}
 

@@ -74,6 +74,7 @@ pnpm run seed:dev                       # seed Neon
 pnpm run lint                           # biome check
 pnpm run lint:fix                       # biome check --write
 pnpm run types                          # build data-ops + tsc --noEmit per app
+pnpm run sync:secrets                   # data-service + user-application → CF production (bash)
 ```
 
 ### Migracje DB (w `packages/data-ops/`)
@@ -95,7 +96,7 @@ pnpm run reset-password:dev
 | `.dev.vars` | `apps/data-service/` | `wrangler dev` (DB + ENCRYPTION_KEY + OAuth + Resend + Telegram + API_TOKEN) |
 | `.env` per Vite mode | `apps/user-application/` | DB + Better Auth + VITE_DATA_SERVICE_URL + Turnstile |
 
-Sekrety produkcyjne: `wrangler secret put <NAME> --env staging|production` (NIE commitować). Szczegółowa lista w [SETUP.md §3](./SETUP.md#3-lokalne-env-files) i [§2](./SETUP.md#2-cloudflare--one-time-setup).
+Sekrety na Workers (tylko **production**): **`bash scripts/sync-secrets.sh -production`** — `.production.vars` → data-service, potem `.env.production` → user-application. Skrót: `pnpm run sync:secrets`. Pojedyncze appki: `apps/data-service/sync-secrets.sh -production`, `apps/user-application/sync-secrets.sh -production`. Ręcznie: `wrangler secret put … --env production`. Szczegóły: [SETUP.md §2–3](./SETUP.md#2-cloudflare--one-time-setup).
 
 ## Etap 2: backup & migracja (panel UI + VPS runner)
 

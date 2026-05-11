@@ -2,18 +2,18 @@
 
 # Syncs secrets from .${env}.vars to Cloudflare Workers
 # Uses $ROOT_DIR/.env for CF auth (CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_API_TOKEN) if present
-# Usage: ./sync-secrets.sh <env>
+# Usage: ./sync-secrets.sh -production
+# Node + pnpm w PATH (Git Bash na Windows); czysty WSL bez Node → „node: not found” przy pnpm z /mnt/c.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-ENV=${1:-staging}
-
-if [ -z "$1" ]; then
-  echo "Usage: ./sync-secrets.sh <env>"
-  echo "Example: ./sync-secrets.sh staging"
+if [ "${1:-}" != "-production" ]; then
+  echo "Usage: ./sync-secrets.sh -production" >&2
   exit 1
 fi
+
+ENV=production
 
 VARS_FILE="$SCRIPT_DIR/.${ENV}.vars"
 

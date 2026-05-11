@@ -636,11 +636,7 @@ Sync script - synchronize secrets with remote environment
 
 ```bash
 chmod +x sync-secrets.sh
-./sync-secrets.sh {env}
+./sync-secrets.sh -production
 ```
 
-Example:
-```bash
-./sync-secrets.sh staging
-./sync-secrets.sh production
-```
+(Z repo root wygodniej: `pnpm run sync:secrets`.)

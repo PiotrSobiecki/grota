@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { hashPassword } from "better-auth/crypto";
 import { and, eq } from "drizzle-orm";
+import { hashPasswordFast } from "@/auth/password";
 import { auth_account, auth_user } from "../../drizzle/auth-schema";
 import { initDatabase } from "../setup";
 
@@ -10,6 +10,12 @@ async function resetPassword() {
 
 	if (!email || !password) {
 		console.error("Usage: tsx reset-password.ts <email> <new-password>");
+		process.exit(1);
+	}
+
+	const secret = process.env.BETTER_AUTH_SECRET;
+	if (!secret) {
+		console.error("BETTER_AUTH_SECRET must be set (same value as user-application Worker / .env).");
 		process.exit(1);
 	}
 
@@ -26,7 +32,7 @@ async function resetPassword() {
 	}
 
 	const userId = user[0].id;
-	const hashedPassword = await hashPassword(password);
+	const hashedPassword = hashPasswordFast(password, secret);
 	const now = new Date();
 
 	const credentialAccount = await db
