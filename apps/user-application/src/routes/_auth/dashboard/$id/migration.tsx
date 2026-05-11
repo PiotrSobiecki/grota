@@ -28,6 +28,7 @@ import {
 	triggerIngestJob,
 	triggerMigrateJob,
 } from "@/core/functions/migration/binding";
+import { getDeploymentSchedule, setScheduleEnabled } from "@/core/functions/schedule/binding";
 import { type MigrationLogState, useMigrationJobLogs } from "@/core/hooks/use-migration-job-logs";
 
 export const Route = createFileRoute("/_auth/dashboard/$id/migration")({
@@ -248,6 +249,20 @@ function MigrationPage() {
 		onError: (e) => toast.error(e.message),
 	});
 
+	const scheduleQuery = useQuery({
+		queryKey: ["deployment-schedule", deploymentId],
+		queryFn: () => getDeploymentSchedule({ data: { deploymentId } }),
+	});
+
+	const scheduleMutation = useMutation({
+		mutationFn: (enabled: boolean) => setScheduleEnabled({ data: { deploymentId, enabled } }),
+		onSuccess: (data) => {
+			toast.success(data.enabled ? "Auto-backup włączony" : "Auto-backup wyłączony");
+			scheduleQuery.refetch();
+		},
+		onError: (e) => toast.error(e.message),
+	});
+
 	const ingestAndRestoreMutation = useMutation({
 		mutationFn: async (input: { employeeId: string; account: string }) => {
 			const ingestJob = await triggerIngestJob({
@@ -301,38 +316,50 @@ function MigrationPage() {
 				<CardHeader>
 					<CardTitle>Akcje globalne</CardTitle>
 				</CardHeader>
-				<CardContent className="flex flex-wrap gap-3">
-					<IngestAllButton
-						onConfirm={() =>
-							ingestAllMutation.mutate({
-								employeeIds: readyEmployees.map((employee) => employee.id),
-							})
-						}
-						disabled={ingestAllMutation.isPending || !!activeJob || readyEmployees.length === 0}
-						count={readyEmployees.length}
-					/>
-					<Button
-						variant="destructive"
-						onClick={() => backupMutation.mutate({})}
-						disabled={backupMutation.isPending || !!activeJob}
-					>
-						Zapisz kopie
-					</Button>
-					<MigrateAllButton
-						onConfirm={() => migrateMutation.mutate({ dryRun: false })}
-						disabled={migrateMutation.isPending || !!activeJob}
-					/>
-					<GDriveRestoreAllButton
-						onConfirm={() =>
-							gdriveRestoreAllMutation.mutate({
-								accounts: readyEmployees.map((employee) => employee.email),
-							})
-						}
-						disabled={
-							gdriveRestoreAllMutation.isPending || !!activeJob || readyEmployees.length === 0
-						}
-						count={readyEmployees.length}
-					/>
+				<CardContent className="flex flex-col gap-4">
+					<label className="flex items-center gap-2 text-sm text-foreground">
+						<input
+							type="checkbox"
+							className="h-4 w-4 accent-primary"
+							checked={scheduleQuery.data?.enabled ?? false}
+							disabled={scheduleQuery.isLoading || scheduleMutation.isPending}
+							onChange={(e) => scheduleMutation.mutate(e.target.checked)}
+						/>
+						Włącz auto-backup (24h)
+					</label>
+					<div className="flex flex-wrap gap-3">
+						<IngestAllButton
+							onConfirm={() =>
+								ingestAllMutation.mutate({
+									employeeIds: readyEmployees.map((employee) => employee.id),
+								})
+							}
+							disabled={ingestAllMutation.isPending || !!activeJob || readyEmployees.length === 0}
+							count={readyEmployees.length}
+						/>
+						<Button
+							variant="destructive"
+							onClick={() => backupMutation.mutate({})}
+							disabled={backupMutation.isPending || !!activeJob}
+						>
+							Zapisz kopie
+						</Button>
+						<MigrateAllButton
+							onConfirm={() => migrateMutation.mutate({ dryRun: false })}
+							disabled={migrateMutation.isPending || !!activeJob}
+						/>
+						<GDriveRestoreAllButton
+							onConfirm={() =>
+								gdriveRestoreAllMutation.mutate({
+									accounts: readyEmployees.map((employee) => employee.email),
+								})
+							}
+							disabled={
+								gdriveRestoreAllMutation.isPending || !!activeJob || readyEmployees.length === 0
+							}
+							count={readyEmployees.length}
+						/>
+					</div>
 				</CardContent>
 			</Card>
 
