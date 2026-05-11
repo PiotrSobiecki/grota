@@ -15,7 +15,7 @@ End-to-end onboarding świeżego klonu — od pustego konta Cloudflare do dział
 | **Cloudflare Turnstile** | Antybot na onboarding employee | `VITE_TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` |
 | **VPS klienta** (Debian/Ubuntu) | Hosting `apps/runner` + CLI + rclone | dostęp root SSH |
 
-> **Uwaga (baza danych)**: obecnie wszystkie środowiska Drizzle (`dev`, `staging`, `production`) wskazują na jedną bazę Neon (dev). Nie ma osobnej bazy staging/prod — komendy `drizzle:staging:*` / `drizzle:production:*` istnieją w `package.json`, ale w praktyce nie używać dopóki nie zostaną wprowadzone osobne bazy.
+> **Uwaga (baza danych)**: są dwa środowiska Drizzle — `dev` i `production` (każde wskazuje na osobny projekt Neon). Środowisko `staging` nie istnieje — komendy `drizzle:staging:*` są w `package.json`, ale nie ma odpowiadającej bazy. Nie używać.
 
 ## 2. Cloudflare — one-time setup
 
