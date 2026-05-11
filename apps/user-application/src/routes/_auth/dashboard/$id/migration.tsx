@@ -46,9 +46,9 @@ const STATUS_BADGE: Record<
 };
 
 const TYPE_LABEL: Record<MigrationJobDto["type"], string> = {
-	backup: "Backup",
-	migrate: "Migracja B2 → lokalny",
-	"gdrive-restore": "Przywracanie do Workspace",
+	backup: "Backup do B2",
+	migrate: "Przywracanie z B2",
+	"gdrive-restore": "Wysyłanie do Workspace",
 	ingest: "Pobieranie z Drive",
 };
 
@@ -77,7 +77,7 @@ function MigrationPage() {
 		mutationFn: (input: { account?: string }) =>
 			triggerBackupJob({ data: { deploymentId, account: input.account } }),
 		onSuccess: () => {
-			toast.success("Backup uruchomiony");
+			toast.success("Backup do B2 uruchomiony");
 			refetchJobs();
 		},
 		onError: (e) => toast.error(e.message),
@@ -89,7 +89,9 @@ function MigrationPage() {
 				data: { deploymentId, account: input.account, dryRun: input.dryRun },
 			}),
 		onSuccess: (job) => {
-			toast.success(job.dryRun ? "Dry-run uruchomiony" : "Migracja uruchomiona");
+			toast.success(
+				job.dryRun ? "Podgląd przywracania uruchomiony" : "Przywracanie z B2 uruchomione",
+			);
 			refetchJobs();
 		},
 		onError: (e) => toast.error(e.message),
@@ -101,7 +103,7 @@ function MigrationPage() {
 				data: { deploymentId, account: input.account },
 			}),
 		onSuccess: () => {
-			toast.success("Przywracanie do Workspace uruchomione");
+			toast.success("Wysyłanie do Workspace uruchomione");
 			refetchJobs();
 		},
 		onError: (e) => toast.error(e.message),
@@ -172,14 +174,14 @@ function MigrationPage() {
 						onClick={() => backupMutation.mutate({})}
 						disabled={backupMutation.isPending || !!activeJob}
 					>
-						Backup wszystkich
+						Backup wszystkich do B2
 					</Button>
 					<Button
 						variant="outline"
 						onClick={() => migrateMutation.mutate({ dryRun: true })}
 						disabled={migrateMutation.isPending || !!activeJob}
 					>
-						Dry-run wszystkich
+						Podgląd przywracania (wszyscy)
 					</Button>
 					<MigrateAllButton
 						onConfirm={() => migrateMutation.mutate({ dryRun: false })}
@@ -284,7 +286,7 @@ function EmployeeRow(props: EmployeeRowProps) {
 					onClick={props.onBackup}
 					disabled={props.disabled}
 				>
-					Backup
+					Backup do B2
 				</Button>
 				<Button
 					size="sm"
@@ -292,7 +294,7 @@ function EmployeeRow(props: EmployeeRowProps) {
 					onClick={props.onDryRun}
 					disabled={props.disabled || !ready}
 				>
-					Dry-run
+					Podgląd przywracania
 				</Button>
 				<MigrateRowButton
 					onConfirm={props.onMigrate}
@@ -326,10 +328,11 @@ function IngestRowButton({
 				<AlertDialogHeader>
 					<AlertDialogTitle>Pobierz {email} z Drive</AlertDialogTitle>
 					<AlertDialogDescription>
-						Pliki z prywatnego Google Drive pracownika zostana sciagniete do
-						lokalnego katalogu na VPSie. Wybrane foldery (wg konfiguracji
-						pracownika) zostana zsynchronizowane. Po skonczeniu mozna uruchomic
-						Backup do B2 lub Przywroc do Workspace. Kontynuowac?
+						Pliki z prywatnego Google Drive pracownika zostana sciagniete na
+						lokalny katalog VPSa. Synchronizowane sa foldery wybrane przez
+						pracownika podczas onboardingu. Po skonczeniu masz dane lokalnie
+						i mozesz: zrobic Backup do B2 (off-site) albo Wyslac do Workspace
+						(shared drive firmy). Kontynuowac?
 					</AlertDialogDescription>
 				</AlertDialogHeader>
 				<AlertDialogFooter>
@@ -358,17 +361,18 @@ function GDriveRestoreRowButton({
 		<AlertDialog open={open} onOpenChange={setOpen}>
 			<AlertDialogTrigger asChild>
 				<Button size="sm" variant="default" disabled={disabled}>
-					Przywroc do Workspace
+					Wyślij do Workspace
 				</Button>
 			</AlertDialogTrigger>
 			<AlertDialogContent>
 				<AlertDialogHeader>
-					<AlertDialogTitle>Przywroc {email} do Workspace</AlertDialogTitle>
+					<AlertDialogTitle>Wyślij {email} do Workspace</AlertDialogTitle>
 					<AlertDialogDescription>
-						Pliki z lokalnego katalogu na VPSie (`{`{backup_path}`}/{email}`) zostana
-						skopiowane do Google Drive (folder `{email}/` na shared drive). Wymaga ze
-						wczesniej wykonano Migrate (B2 → lokalny). Akcja moze nadpisac
-						istniejace pliki na shared drive. Kontynuowac?
+						Pliki z lokalnego katalogu na VPSie (`{`{backup_path}`}/{email}`)
+						zostana wyslane na Workspace shared drive firmy (folder `{email}/`).
+						Wymaga ze lokalny katalog ma juz dane — po wczesniejszym Pobierz z
+						Drive lub Przywróć z B2. Akcja moze nadpisac istniejace pliki na
+						shared drive. Kontynuowac?
 					</AlertDialogDescription>
 				</AlertDialogHeader>
 				<AlertDialogFooter>
@@ -379,7 +383,7 @@ function GDriveRestoreRowButton({
 							onConfirm();
 						}}
 					>
-						Tak, przywroc
+						Tak, wyślij
 					</AlertDialogAction>
 				</AlertDialogFooter>
 			</AlertDialogContent>
@@ -479,16 +483,17 @@ function MigrateAllButton({ onConfirm, disabled }: ConfirmActionProps) {
 		<AlertDialog open={open} onOpenChange={setOpen}>
 			<AlertDialogTrigger asChild>
 				<Button variant="destructive" disabled={disabled}>
-					Migruj wszystkich
+					Przywróć wszystkich z B2
 				</Button>
 			</AlertDialogTrigger>
 			<AlertDialogContent>
 				<AlertDialogHeader>
-					<AlertDialogTitle>Potwierdz migracje wszystkich</AlertDialogTitle>
+					<AlertDialogTitle>Potwierdź przywracanie wszystkich z B2</AlertDialogTitle>
 					<AlertDialogDescription>
-						Akcja sciagnie pliki z B2 do lokalnego katalogu na VPSie
+						Akcja sciagnie pliki z B2 (backup) do lokalnego katalogu na VPSie
 						(`backup_path`). Operacja nadpisuje dane lokalne — jesli B2 jest
-						pusty, lokalny katalog zostanie wyczyszczony. Kontynuowac?
+						pusty, lokalny katalog zostanie wyczyszczony. Po przywroceniu mozesz
+						uzyc Wyslij do Workspace. Kontynuowac?
 					</AlertDialogDescription>
 				</AlertDialogHeader>
 				<AlertDialogFooter>
@@ -499,7 +504,7 @@ function MigrateAllButton({ onConfirm, disabled }: ConfirmActionProps) {
 							onConfirm();
 						}}
 					>
-						Tak, migruj
+						Tak, przywróć z B2
 					</AlertDialogAction>
 				</AlertDialogFooter>
 			</AlertDialogContent>
@@ -517,17 +522,18 @@ function MigrateRowButton({
 		<AlertDialog open={open} onOpenChange={setOpen}>
 			<AlertDialogTrigger asChild>
 				<Button size="sm" variant="destructive" disabled={disabled}>
-					Migruj
+					Przywróć z B2
 				</Button>
 			</AlertDialogTrigger>
 			<AlertDialogContent>
 				<AlertDialogHeader>
-					<AlertDialogTitle>Migruj {email}</AlertDialogTitle>
+					<AlertDialogTitle>Przywróć {email} z B2</AlertDialogTitle>
 					<AlertDialogDescription>
-						Pliki z B2 dla konta {email} zostana sciagniete do lokalnego
-						katalogu na VPSie (`backup_path`). Operacja nadpisuje dane
+						Pliki z B2 (backup) dla konta {email} zostana sciagniete na
+						lokalny katalog VPSa (`backup_path`). Operacja nadpisuje dane
 						lokalne — jesli B2 jest pusty, lokalny katalog zostanie
-						wyczyszczony. Kontynuowac?
+						wyczyszczony. Po przywroceniu mozesz uzyc Wyslij do Workspace.
+						Kontynuowac?
 					</AlertDialogDescription>
 				</AlertDialogHeader>
 				<AlertDialogFooter>
@@ -538,7 +544,7 @@ function MigrateRowButton({
 							onConfirm();
 						}}
 					>
-						Tak, migruj
+						Tak, przywróć z B2
 					</AlertDialogAction>
 				</AlertDialogFooter>
 			</AlertDialogContent>
