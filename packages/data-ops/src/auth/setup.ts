@@ -1,5 +1,6 @@
 import { APIError, type BetterAuthOptions, betterAuth } from "better-auth";
 import { createAuthMiddleware } from "better-auth/api";
+import { hashPasswordFast, verifyPasswordFast } from "@/auth/password";
 import { verifyTurnstile } from "@/auth/turnstile";
 
 export const createBetterAuth = (config: {
@@ -15,6 +16,15 @@ export const createBetterAuth = (config: {
 		emailAndPassword: {
 			enabled: true,
 			disableSignUp: true,
+			password: {
+				hash: async (password) => hashPasswordFast(password, config.secret),
+				verify: async ({ hash, password }) =>
+					verifyPasswordFast({
+						hash,
+						password,
+						pepper: config.secret,
+					}),
+			},
 		},
 		user: {
 			modelName: "auth_user",

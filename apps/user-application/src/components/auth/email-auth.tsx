@@ -14,6 +14,42 @@ interface AuthError {
 	message: string;
 }
 
+interface SignInClientError {
+	message?: string;
+	status?: number;
+	statusText?: string;
+}
+
+function resolveSignInErrorMessage(error: SignInClientError | null | undefined): string {
+	const rawMessage = (error?.message ?? "").trim();
+
+	if (error?.status === 503 || rawMessage.includes("503")) {
+		return "Serwis logowania jest chwilowo niedostępny (503). Spróbuj ponownie za chwilę.";
+	}
+
+	if (
+		rawMessage.includes("Turnstile token required") ||
+		rawMessage.includes("turnstile") ||
+		rawMessage.includes("captcha")
+	) {
+		return "Weryfikacja antybotowa (Turnstile) nie powiodła się. Odśwież stronę i spróbuj ponownie.";
+	}
+
+	if (error?.status === 401 || rawMessage.includes("Invalid credentials")) {
+		return "Nieprawidłowy email lub hasło.";
+	}
+
+	if (error?.status === 403) {
+		return "Brak dostępu do konta. Skontaktuj się z administratorem.";
+	}
+
+	if (rawMessage.length > 0) {
+		return `Błąd logowania: ${rawMessage}`;
+	}
+
+	return "Nie udało się zalogować. Spróbuj ponownie.";
+}
+
 export function EmailAuth() {
 	const navigate = useNavigate();
 	const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
@@ -27,7 +63,9 @@ export function EmailAuth() {
 				password: data.password,
 				fetchOptions: { body: { turnstileToken: turnstileToken ?? undefined } },
 			});
-			if (result.error) throw new Error(result.error.message);
+			if (result.error) {
+				throw new Error(resolveSignInErrorMessage(result.error as SignInClientError));
+			}
 			return result;
 		},
 	});

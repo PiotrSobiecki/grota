@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { hashPassword } from "better-auth/crypto";
 import { eq } from "drizzle-orm";
+import { hashPasswordFast } from "../../auth/password";
 import { auth_account, auth_user } from "../../drizzle/auth-schema";
 import { initDatabase } from "../setup";
 
@@ -28,7 +28,7 @@ async function createUser() {
 
 	const userId = randomUUID();
 	const accountId = randomUUID();
-	const hashedPassword = await hashPassword(password);
+	const hashedPassword = hashPasswordFast(password, process.env.BETTER_AUTH_SECRET);
 	const now = new Date();
 
 	await db.insert(auth_user).values({
