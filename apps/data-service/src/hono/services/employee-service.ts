@@ -35,12 +35,12 @@ export async function bulkCreateEmployees(
 		};
 	}
 
-	if (deployment.status === "ready" || deployment.status === "active") {
+	if (deployment.status === "active") {
 		return {
 			ok: false,
 			error: {
 				code: "DEPLOYMENT_LOCKED",
-				message: "Onboarding zakonczony — nie mozna dodawac pracownikow",
+				message: "Wdrozenie jest aktywne — nie mozna importowac pracownikow",
 				status: 403,
 			},
 		};

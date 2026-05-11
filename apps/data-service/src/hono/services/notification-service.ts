@@ -101,16 +101,75 @@ export async function sendEmailSummary(
 	folderCount: number,
 	env: Env,
 ): Promise<void> {
+	const subject = `Grota: Onboarding ${clientName} zakonczony`;
 	const html = `
-		<p>Czesc ${name},</p>
-		<p>Onboarding dla <strong>${clientName}</strong> zostal zakonczony.</p>
-		<ul>
-			<li>Liczba pracownikow: ${employeeCount}</li>
-			<li>Liczba folderow do backupu: ${folderCount}</li>
-		</ul>
-		<p>Operator rozpocznie konfiguracje backupu wkrotce.</p>
-		<p>-- Grota</p>
+		<!doctype html>
+		<html lang="pl">
+			<head>
+				<meta charset="utf-8" />
+				<meta name="viewport" content="width=device-width, initial-scale=1" />
+				<title>${subject}</title>
+			</head>
+			<body style="margin:0;padding:24px;background:#f5f7fb;font-family:Arial,sans-serif;color:#111827;">
+				<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;">
+					<tr>
+						<td style="padding:24px 24px 12px 24px;">
+							<p style="margin:0 0 8px 0;font-size:12px;letter-spacing:0.08em;color:#6b7280;text-transform:uppercase;">Grota</p>
+							<h1 style="margin:0;font-size:22px;line-height:1.3;color:#111827;">Onboarding zakonczony</h1>
+						</td>
+					</tr>
+					<tr>
+						<td style="padding:8px 24px 0 24px;">
+							<p style="margin:0 0 12px 0;font-size:16px;line-height:1.6;">Czesc ${name},</p>
+							<p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#374151;">
+								Onboarding dla klienta <strong>${clientName}</strong> zostal zakonczony.
+							</p>
+						</td>
+					</tr>
+					<tr>
+						<td style="padding:0 24px 8px 24px;">
+							<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #e5e7eb;border-radius:8px;">
+								<tr>
+									<td style="padding:12px 14px;border-bottom:1px solid #e5e7eb;font-size:14px;color:#374151;">Liczba pracownikow</td>
+									<td style="padding:12px 14px;border-bottom:1px solid #e5e7eb;font-size:14px;font-weight:700;color:#111827;text-align:right;">${employeeCount}</td>
+								</tr>
+								<tr>
+									<td style="padding:12px 14px;font-size:14px;color:#374151;">Liczba folderow do backupu</td>
+									<td style="padding:12px 14px;font-size:14px;font-weight:700;color:#111827;text-align:right;">${folderCount}</td>
+								</tr>
+							</table>
+						</td>
+					</tr>
+					<tr>
+						<td style="padding:8px 24px 20px 24px;">
+							<p style="margin:0;font-size:14px;line-height:1.6;color:#4b5563;">
+								Operator rozpocznie konfiguracje backupu wkrotce.
+							</p>
+						</td>
+					</tr>
+					<tr>
+						<td style="padding:16px 24px 24px 24px;border-top:1px solid #e5e7eb;">
+							<p style="margin:0;font-size:12px;line-height:1.6;color:#9ca3af;">
+								To automatyczna wiadomosc systemu Grota.
+							</p>
+						</td>
+					</tr>
+				</table>
+			</body>
+		</html>
 	`;
+
+	const text = [
+		`Czesc ${name},`,
+		"",
+		`Onboarding dla klienta ${clientName} zostal zakonczony.`,
+		`Liczba pracownikow: ${employeeCount}`,
+		`Liczba folderow do backupu: ${folderCount}`,
+		"",
+		"Operator rozpocznie konfiguracje backupu wkrotce.",
+		"",
+		"To automatyczna wiadomosc systemu Grota.",
+	].join("\n");
 
 	await fetch("https://api.resend.com/emails", {
 		method: "POST",
@@ -121,8 +180,9 @@ export async function sendEmailSummary(
 		body: JSON.stringify({
 			from: "Grota <noreply@sobiecki.org>",
 			to: [to],
-			subject: `Grota: Onboarding ${clientName} zakonczony`,
+			subject,
 			html,
+			text,
 		}),
 	});
 }
