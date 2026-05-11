@@ -121,7 +121,26 @@ function MigrationPage() {
 		onError: (e) => toast.error(e.message),
 	});
 
+	const ingestAllMutation = useMutation({
+		mutationFn: async (input: { employeeIds: string[] }) => {
+			for (const employeeId of input.employeeIds) {
+				await triggerIngestJob({
+					data: { deploymentId, employeeId },
+				});
+			}
+			return input.employeeIds.length;
+		},
+		onSuccess: (count) => {
+			toast.success(`Pobieranie z Drive uruchomione dla ${count} pracownikow`);
+			refetchJobs();
+		},
+		onError: (e) => toast.error(e.message),
+	});
+
 	const employees = employeesQuery.data?.data ?? [];
+	const readyEmployees = employees.filter(
+		(e) => e.oauthStatus === "authorized" && e.selectionStatus === "completed",
+	);
 	const jobs = jobsQuery.data ?? [];
 	const activeJob = jobs.find((j) => j.status === "running" || j.status === "queued");
 
@@ -170,6 +189,15 @@ function MigrationPage() {
 					<CardTitle>Akcje globalne</CardTitle>
 				</CardHeader>
 				<CardContent className="flex flex-wrap gap-3">
+					<IngestAllButton
+						onConfirm={() =>
+							ingestAllMutation.mutate({
+								employeeIds: readyEmployees.map((employee) => employee.id),
+							})
+						}
+						disabled={ingestAllMutation.isPending || !!activeJob || readyEmployees.length === 0}
+						count={readyEmployees.length}
+					/>
 					<Button
 						onClick={() => backupMutation.mutate({})}
 						disabled={backupMutation.isPending || !!activeJob}
@@ -320,7 +348,7 @@ function IngestRowButton({
 	return (
 		<AlertDialog open={open} onOpenChange={setOpen}>
 			<AlertDialogTrigger asChild>
-				<Button size="sm" variant="outline" disabled={disabled}>
+				<Button size="sm" variant="default" disabled={disabled}>
 					Pobierz z Drive
 				</Button>
 			</AlertDialogTrigger>
@@ -482,7 +510,7 @@ function MigrateAllButton({ onConfirm, disabled }: ConfirmActionProps) {
 	return (
 		<AlertDialog open={open} onOpenChange={setOpen}>
 			<AlertDialogTrigger asChild>
-				<Button variant="destructive" disabled={disabled}>
+				<Button variant="outline" disabled={disabled}>
 					Przywróć wszystkich z B2
 				</Button>
 			</AlertDialogTrigger>
@@ -521,7 +549,7 @@ function MigrateRowButton({
 	return (
 		<AlertDialog open={open} onOpenChange={setOpen}>
 			<AlertDialogTrigger asChild>
-				<Button size="sm" variant="destructive" disabled={disabled}>
+				<Button size="sm" variant="outline" disabled={disabled}>
 					Przywróć z B2
 				</Button>
 			</AlertDialogTrigger>
@@ -545,6 +573,43 @@ function MigrateRowButton({
 						}}
 					>
 						Tak, przywróć z B2
+					</AlertDialogAction>
+				</AlertDialogFooter>
+			</AlertDialogContent>
+		</AlertDialog>
+	);
+}
+
+function IngestAllButton({
+	onConfirm,
+	disabled,
+	count,
+}: ConfirmActionProps & { count: number }) {
+	const [open, setOpen] = useState(false);
+	return (
+		<AlertDialog open={open} onOpenChange={setOpen}>
+			<AlertDialogTrigger asChild>
+				<Button disabled={disabled}>Pobierz z Drive (wszyscy)</Button>
+			</AlertDialogTrigger>
+			<AlertDialogContent>
+				<AlertDialogHeader>
+					<AlertDialogTitle>Pobierz z Drive dla wszystkich gotowych</AlertDialogTitle>
+					<AlertDialogDescription>
+						Uruchomi pobieranie z prywatnych Drive'ow dla wszystkich gotowych
+						pracownikow ({count}). Dane trafią najpierw na VPS (backup_path).
+						Pozniej mozesz uruchomic backup do B2 lub wysylke do Workspace.
+						Kontynuowac?
+					</AlertDialogDescription>
+				</AlertDialogHeader>
+				<AlertDialogFooter>
+					<AlertDialogCancel>Anuluj</AlertDialogCancel>
+					<AlertDialogAction
+						onClick={() => {
+							setOpen(false);
+							onConfirm();
+						}}
+					>
+						Tak, pobierz dla wszystkich
 					</AlertDialogAction>
 				</AlertDialogFooter>
 			</AlertDialogContent>
