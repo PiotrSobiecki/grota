@@ -110,46 +110,46 @@ export async function sendEmailSummary(
 				<meta name="viewport" content="width=device-width, initial-scale=1" />
 				<title>${subject}</title>
 			</head>
-			<body style="margin:0;padding:24px;background:#f5f7fb;font-family:Arial,sans-serif;color:#111827;">
-				<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;">
+			<body style="margin:0;padding:24px;background:#060b1a;font-family:Arial,sans-serif;color:#e5e7eb;">
+				<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;margin:0 auto;background:#0b1226;border:1px solid #1f2a44;border-radius:12px;">
 					<tr>
 						<td style="padding:24px 24px 12px 24px;">
-							<p style="margin:0 0 8px 0;font-size:12px;letter-spacing:0.08em;color:#6b7280;text-transform:uppercase;">Grota</p>
-							<h1 style="margin:0;font-size:22px;line-height:1.3;color:#111827;">Onboarding zakonczony</h1>
+							<p style="margin:0 0 8px 0;font-size:12px;letter-spacing:0.08em;color:#34d399;text-transform:uppercase;">Grota</p>
+							<h1 style="margin:0;font-size:22px;line-height:1.3;color:#f9fafb;">Onboarding zakonczony</h1>
 						</td>
 					</tr>
 					<tr>
 						<td style="padding:8px 24px 0 24px;">
-							<p style="margin:0 0 12px 0;font-size:16px;line-height:1.6;">Czesc ${name},</p>
-							<p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#374151;">
+							<p style="margin:0 0 12px 0;font-size:16px;line-height:1.6;color:#f3f4f6;">Czesc ${name},</p>
+							<p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#cbd5e1;">
 								Onboarding dla klienta <strong>${clientName}</strong> zostal zakonczony.
 							</p>
 						</td>
 					</tr>
 					<tr>
 						<td style="padding:0 24px 8px 24px;">
-							<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #e5e7eb;border-radius:8px;">
+							<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #1f2a44;border-radius:8px;">
 								<tr>
-									<td style="padding:12px 14px;border-bottom:1px solid #e5e7eb;font-size:14px;color:#374151;">Liczba pracownikow</td>
-									<td style="padding:12px 14px;border-bottom:1px solid #e5e7eb;font-size:14px;font-weight:700;color:#111827;text-align:right;">${employeeCount}</td>
+									<td style="padding:12px 14px;border-bottom:1px solid #1f2a44;font-size:14px;color:#cbd5e1;">Liczba pracownikow</td>
+									<td style="padding:12px 14px;border-bottom:1px solid #1f2a44;font-size:14px;font-weight:700;color:#86efac;text-align:right;">${employeeCount}</td>
 								</tr>
 								<tr>
-									<td style="padding:12px 14px;font-size:14px;color:#374151;">Liczba folderow do backupu</td>
-									<td style="padding:12px 14px;font-size:14px;font-weight:700;color:#111827;text-align:right;">${folderCount}</td>
+									<td style="padding:12px 14px;font-size:14px;color:#cbd5e1;">Liczba folderow do backupu</td>
+									<td style="padding:12px 14px;font-size:14px;font-weight:700;color:#86efac;text-align:right;">${folderCount}</td>
 								</tr>
 							</table>
 						</td>
 					</tr>
 					<tr>
 						<td style="padding:8px 24px 20px 24px;">
-							<p style="margin:0;font-size:14px;line-height:1.6;color:#4b5563;">
+							<p style="margin:0;font-size:14px;line-height:1.6;color:#94a3b8;">
 								Operator rozpocznie konfiguracje backupu wkrotce.
 							</p>
 						</td>
 					</tr>
 					<tr>
-						<td style="padding:16px 24px 24px 24px;border-top:1px solid #e5e7eb;">
-							<p style="margin:0;font-size:12px;line-height:1.6;color:#9ca3af;">
+						<td style="padding:16px 24px 24px 24px;border-top:1px solid #1f2a44;">
+							<p style="margin:0;font-size:12px;line-height:1.6;color:#64748b;">
 								To automatyczna wiadomosc systemu Grota.
 							</p>
 						</td>

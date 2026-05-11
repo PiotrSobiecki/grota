@@ -48,6 +48,7 @@ import {
 import {
 	createEmployee,
 	getEmployeesByDeployment,
+	resendEmployeeMagicLink,
 	sendEmployeeMagicLinks,
 	updateEmployee,
 } from "@/core/functions/employees/binding";
@@ -1482,6 +1483,15 @@ function EmployeeRow({
 		onError: (error) => toast.error(error.message),
 	});
 
+	const resendMutation = useMutation({
+		mutationFn: () => resendEmployeeMagicLink({ data: { employeeId: employee.id } }),
+		onSuccess: () => {
+			toast.success(`Link wyslany do ${employee.email}`);
+			onChanged();
+		},
+		onError: (error) => toast.error(error.message),
+	});
+
 	const form = useForm({
 		defaultValues: { email: employee.email, name: employee.name },
 		onSubmit: async ({ value }) => {
@@ -1582,6 +1592,24 @@ function EmployeeRow({
 				{employee.name && <p className="text-xs text-muted-foreground">{employee.email}</p>}
 			</div>
 			<div className="flex items-center gap-2">
+				<Button
+					variant="outline"
+					size="sm"
+					onClick={() => resendMutation.mutate()}
+					disabled={resendMutation.isPending}
+				>
+					{resendMutation.isPending ? (
+						<>
+							<Loader2 className="mr-2 h-3 w-3 animate-spin" />
+							Wysylanie...
+						</>
+					) : (
+						<>
+							<Mail className="mr-2 h-3 w-3" />
+							Wyslij link
+						</>
+					)}
+				</Button>
 				{linkSent ? (
 					<Badge variant={oauthInfo.variant}>{oauthInfo.label}</Badge>
 				) : (

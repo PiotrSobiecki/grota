@@ -17,13 +17,15 @@ interface AuthError {
 export function EmailAuth() {
 	const navigate = useNavigate();
 	const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+	const turnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined;
+	const isTurnstileEnabled = !!turnstileSiteKey;
 
 	const mutation = useMutation({
 		mutationFn: async (data: { email: string; password: string }) => {
 			const result = await authClient.signIn.email({
 				email: data.email,
 				password: data.password,
-				fetchOptions: { body: { turnstileToken } },
+				fetchOptions: { body: { turnstileToken: turnstileToken ?? undefined } },
 			});
 			if (result.error) throw new Error(result.error.message);
 			return result;
@@ -125,18 +127,22 @@ export function EmailAuth() {
 							)}
 						</form.Field>
 
-						<Turnstile
-							siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
-							onSuccess={setTurnstileToken}
-							onExpire={() => setTurnstileToken(null)}
-						/>
+						{isTurnstileEnabled ? (
+							<Turnstile
+								siteKey={turnstileSiteKey}
+								onSuccess={setTurnstileToken}
+								onExpire={() => setTurnstileToken(null)}
+							/>
+						) : null}
 
 						<form.Subscribe selector={(state) => state.canSubmit}>
 							{(canSubmit) => (
 								<Button
 									type="submit"
 									className="w-full h-12"
-									disabled={!canSubmit || !turnstileToken || mutation.isPending}
+									disabled={
+										!canSubmit || (isTurnstileEnabled && !turnstileToken) || mutation.isPending
+									}
 								>
 									{mutation.isPending ? "Loading..." : "Sign In"}
 								</Button>
