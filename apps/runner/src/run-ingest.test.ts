@@ -104,6 +104,26 @@ describe("buildRcloneIngestArgs", () => {
 		const rootIdx = args.indexOf("--drive-root-folder-id");
 		expect(args[rootIdx + 1]).toBe("root");
 	});
+
+	it("includes --config <tmp-placeholder> so rclone reads our config (not default path)", () => {
+		const folder: IngestFolder = {
+			itemId: "f1",
+			itemName: "X",
+			itemType: "folder",
+			parentFolderId: null,
+			sharedDriveName: "SD",
+			mimeType: null,
+		};
+		const argsFolder = buildRcloneIngestArgs(folder, ACCOUNT, RUNNER_CONFIG, TIMESTAMP);
+		expect(argsFolder).toContain("--config");
+		const argsFile = buildRcloneIngestArgs(
+			{ ...folder, itemType: "file", parentFolderId: "p1", itemName: "f.pdf" },
+			ACCOUNT,
+			RUNNER_CONFIG,
+			TIMESTAMP,
+		);
+		expect(argsFile).toContain("--config");
+	});
 });
 
 describe("createRunIngest", () => {

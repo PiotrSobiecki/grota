@@ -26,6 +26,7 @@ export function buildRcloneIngestConfig(
 }
 
 const EXPORT_FORMATS = "docx,xlsx,pptx,pdf";
+const CONFIG_PLACEHOLDER = "<tmp>";
 
 export function sanitizeEmail(email: string): string {
 	return email.replace(/[@.]/g, "_");
@@ -46,6 +47,8 @@ export function buildRcloneIngestArgs(
 			"copy",
 			remote,
 			targetDir,
+			"--config",
+			CONFIG_PLACEHOLDER,
 			"--drive-root-folder-id",
 			folder.parentFolderId ?? "root",
 			"--include",
@@ -60,6 +63,8 @@ export function buildRcloneIngestArgs(
 		"sync",
 		remote,
 		targetDir,
+		"--config",
+		CONFIG_PLACEHOLDER,
 		"--drive-root-folder-id",
 		folder.itemId,
 		"--backup-dir",
