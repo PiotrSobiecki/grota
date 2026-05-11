@@ -77,7 +77,7 @@ describe("buildRcloneIngestArgs", () => {
 			parentFolderId: "1ParentFolderId",
 			sharedDriveName: "Klient-X",
 			sharedDriveId: "0KX",
-			mimeType: "application/vnd.google-apps.document",
+			mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 		};
 		const args = buildRcloneIngestArgs(file, ACCOUNT, RUNNER_CONFIG, TIMESTAMP);
 		expect(args[0]).toBe("copy");
@@ -106,6 +106,60 @@ describe("buildRcloneIngestArgs", () => {
 		const args = buildRcloneIngestArgs(file, ACCOUNT, RUNNER_CONFIG, TIMESTAMP);
 		const rootIdx = args.indexOf("--drive-root-folder-id");
 		expect(args[rootIdx + 1]).toBe("0ABC123");
+	});
+
+	it("adds export extension to --include for Google Sheet (mimeType=spreadsheet)", () => {
+		const file: IngestFolder = {
+			itemId: "fId",
+			itemName: "koszty czerwiec GS",
+			itemType: "file",
+			parentFolderId: null,
+			sharedDriveName: "SD",
+			sharedDriveId: "0SD",
+			mimeType: "application/vnd.google-apps.spreadsheet",
+		};
+		const args = buildRcloneIngestArgs(file, ACCOUNT, RUNNER_CONFIG, TIMESTAMP);
+		const incIdx = args.indexOf("--include");
+		expect(args[incIdx + 1]).toBe("/koszty czerwiec GS.xlsx");
+	});
+
+	it("adds .docx for Google Doc and .pptx for Google Slides", () => {
+		const base = {
+			itemId: "x",
+			itemType: "file" as const,
+			parentFolderId: null,
+			sharedDriveName: "SD",
+			sharedDriveId: "0SD",
+		};
+		const doc = buildRcloneIngestArgs(
+			{ ...base, itemName: "Notatki", mimeType: "application/vnd.google-apps.document" },
+			ACCOUNT,
+			RUNNER_CONFIG,
+			TIMESTAMP,
+		);
+		expect(doc[doc.indexOf("--include") + 1]).toBe("/Notatki.docx");
+		const slides = buildRcloneIngestArgs(
+			{ ...base, itemName: "Pitch", mimeType: "application/vnd.google-apps.presentation" },
+			ACCOUNT,
+			RUNNER_CONFIG,
+			TIMESTAMP,
+		);
+		expect(slides[slides.indexOf("--include") + 1]).toBe("/Pitch.pptx");
+	});
+
+	it("keeps --include without extension for native files (mimeType not google-apps)", () => {
+		const native: IngestFolder = {
+			itemId: "fId",
+			itemName: "report.pdf",
+			itemType: "file",
+			parentFolderId: "p",
+			sharedDriveName: "SD",
+			sharedDriveId: "0SD",
+			mimeType: "application/pdf",
+		};
+		const args = buildRcloneIngestArgs(native, ACCOUNT, RUNNER_CONFIG, TIMESTAMP);
+		const incIdx = args.indexOf("--include");
+		expect(args[incIdx + 1]).toBe("/report.pdf");
 	});
 
 	it("falls back parentFolderId='root' when both parentFolderId and sharedDriveId are null", () => {

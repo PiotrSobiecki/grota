@@ -28,6 +28,19 @@ export function buildRcloneIngestConfig(
 const EXPORT_FORMATS = "docx,xlsx,pptx,pdf";
 const CONFIG_PLACEHOLDER = "<tmp>";
 
+const GOOGLE_MIME_TO_EXT: Record<string, string> = {
+	"application/vnd.google-apps.document": ".docx",
+	"application/vnd.google-apps.spreadsheet": ".xlsx",
+	"application/vnd.google-apps.presentation": ".pptx",
+	"application/vnd.google-apps.drawing": ".pdf",
+	"application/vnd.google-apps.form": ".pdf",
+};
+
+function exportExtFor(mimeType: string | null): string {
+	if (!mimeType) return "";
+	return GOOGLE_MIME_TO_EXT[mimeType] ?? "";
+}
+
 export function sanitizeEmail(email: string): string {
 	return email.replace(/[@.]/g, "_");
 }
@@ -44,6 +57,7 @@ export function buildRcloneIngestArgs(
 	const driveRoot = folder.parentFolderId ?? folder.sharedDriveId ?? "root";
 	if (folder.itemType === "file") {
 		const targetDir = `${cfg.backupPath}/${sanitized}/${sdName}/_files/${folder.itemName}`;
+		const ext = exportExtFor(folder.mimeType);
 		return [
 			"copy",
 			remote,
@@ -53,7 +67,7 @@ export function buildRcloneIngestArgs(
 			"--drive-root-folder-id",
 			driveRoot,
 			"--include",
-			`/${folder.itemName}`,
+			`/${folder.itemName}${ext}`,
 			"--drive-export-formats",
 			EXPORT_FORMATS,
 			"-v",
