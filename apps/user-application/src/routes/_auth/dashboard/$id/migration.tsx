@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Copy } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -28,7 +28,7 @@ import {
 	triggerIngestJob,
 	triggerMigrateJob,
 } from "@/core/functions/migration/binding";
-import { useMigrationJobLogs } from "@/core/hooks/use-migration-job-logs";
+import { type MigrationLogState, useMigrationJobLogs } from "@/core/hooks/use-migration-job-logs";
 
 export const Route = createFileRoute("/_auth/dashboard/$id/migration")({
 	loader: ({ params }) => getDeploymentById({ data: { id: params.id } }),
@@ -61,9 +61,11 @@ function ActiveJobPanelGroup({
 }) {
 	const latestJob = jobs[0];
 	const logsJobId = activeJob?.id ?? latestJob?.id ?? null;
+	const logsJob = logsJobId ? jobs.find((j) => j.id === logsJobId) : undefined;
+	const streamLogs = !!logsJob && (logsJob.status === "queued" || logsJob.status === "running");
 	const logSubtitle = activeJob
 		? "Na zywo z runnera (SSE)."
-		: "Powtorzenie bufora z runnera dla ostatniego joba — po restarcie runnera lub dlugim czasie lista moze byc pusta.";
+		: "Bez joba w kolejce lub w trakcie nie laczymy z runnerem — po zakonczeniu joba logi zatrzymuja sie; nowy job znowu wlaczy transmisje.";
 
 	return (
 		<>
@@ -74,7 +76,7 @@ function ActiveJobPanelGroup({
 						{activeJob
 							? "Job w kolejce lub w trakcie — ponizej live logi z runnera."
 							: latestJob
-								? "Brak joba w trakcie. Ponizej podsumowanie ostatniego z historii oraz logi (jesli runner jeszcze je trzyma w pamieci)."
+								? "Brak joba w trakcie. Ponizej ostatni job z historii; panel logow pokazuje transmisje tylko gdy job jest w kolejce lub dziala."
 								: "Uruchom akcje ponizej — wtedy pojawi sie job i logi."}
 					</CardDescription>
 				</CardHeader>
@@ -97,7 +99,9 @@ function ActiveJobPanelGroup({
 				</CardContent>
 			</Card>
 
-			{logsJobId ? <LiveLogsPanel jobId={logsJobId} subtitle={logSubtitle} /> : null}
+			{logsJobId ? (
+				<LiveLogsPanel jobId={logsJobId} subtitle={logSubtitle} streamLogs={streamLogs} />
+			) : null}
 		</>
 	);
 }
@@ -535,10 +539,76 @@ function JobRow({ job }: { job: MigrationJobDto }) {
 	);
 }
 
-function LiveLogsPanel({ jobId, subtitle }: { jobId: string; subtitle: string }) {
-	const state = useMigrationJobLogs(jobId);
+function liveLogsBadgeLabel(
+	connected: boolean,
+	streamLogs: boolean,
+	error: string | null,
+	lineCount: number,
+): string {
+	if (connected) return "Polaczony";
+	if (streamLogs) return error ?? "Laczenie...";
+	if (lineCount > 0) return "Logi zatrzymane";
+	return "Brak transmisji";
+}
+
+function LiveLogsScrollContent({
+	lines,
+	connected,
+	error,
+	streamLogs,
+}: MigrationLogState & { streamLogs: boolean }) {
+	if (lines.length === 0 && !connected && error) {
+		return (
+			<p className="text-muted-foreground">
+				Brak linii — {error}. Dla starych jobow runner mogl juz zwolnic bufor; pelna historia jest w
+				sekcji Historia (status / exit).
+			</p>
+		);
+	}
+	if (lines.length === 0 && !streamLogs) {
+		return (
+			<p className="text-muted-foreground">
+				Job zakonczony lub w historii — transmisja wylaczona. Uruchom nowy job, zeby znowu ogladac
+				logi na zywo.
+			</p>
+		);
+	}
+	if (lines.length === 0) {
+		return <p className="text-muted-foreground">Czekam na linie logow z runnera…</p>;
+	}
+	return lines.map((l, i) => (
+		<div key={`${l.ts}-${i}`} className={l.stream === "stderr" ? "text-destructive" : ""}>
+			<span className="text-muted-foreground">{l.ts.slice(11, 19)} </span>
+			{l.line}
+		</div>
+	));
+}
+
+function LiveLogsPanel({
+	jobId,
+	subtitle,
+	streamLogs,
+}: {
+	jobId: string;
+	subtitle: string;
+	streamLogs: boolean;
+}) {
+	const state = useMigrationJobLogs(jobId, streamLogs);
 	const [autoscroll, setAutoscroll] = useState(true);
 	const scrollRef = useRef<HTMLDivElement | null>(null);
+
+	const copyAllLogs = async () => {
+		if (state.lines.length === 0) return;
+		const text = state.lines
+			.map((l) => `${l.stream === "stderr" ? "[stderr] " : ""}${l.ts.slice(11, 19)} ${l.line}`)
+			.join("\n");
+		try {
+			await navigator.clipboard.writeText(text);
+			toast.success("Skopiowano logi do schowka");
+		} catch {
+			toast.error("Nie udalo sie skopiowac (np. brak uprawnien przegladarki)");
+		}
+	};
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: musi reagowac na nowe linie logu, nie tylko na autoscroll
 	useEffect(() => {
@@ -546,6 +616,13 @@ function LiveLogsPanel({ jobId, subtitle }: { jobId: string; subtitle: string })
 			scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
 		}
 	}, [state.lines, autoscroll]);
+
+	const badgeText = liveLogsBadgeLabel(
+		state.connected,
+		streamLogs,
+		state.error,
+		state.lines.length,
+	);
 
 	return (
 		<Card>
@@ -560,9 +637,18 @@ function LiveLogsPanel({ jobId, subtitle }: { jobId: string; subtitle: string })
 						) : null}
 					</span>
 					<div className="flex items-center gap-3 text-sm font-normal">
-						<Badge variant={state.connected ? "default" : "secondary"}>
-							{state.connected ? "Polaczony" : (state.error ?? "Laczenie...")}
-						</Badge>
+						<Badge variant={state.connected ? "default" : "secondary"}>{badgeText}</Badge>
+						<Button
+							type="button"
+							variant="ghost"
+							size="icon"
+							className="shrink-0"
+							disabled={state.lines.length === 0}
+							onClick={() => void copyAllLogs()}
+							title="Kopiuj wszystkie logi"
+						>
+							<Copy className="h-4 w-4" />
+						</Button>
 						<label className="flex cursor-pointer items-center gap-1 text-muted-foreground">
 							<input
 								type="checkbox"
@@ -578,26 +664,9 @@ function LiveLogsPanel({ jobId, subtitle }: { jobId: string; subtitle: string })
 			<CardContent>
 				<div
 					ref={scrollRef}
-					className="max-h-[min(70vh,32rem)] min-h-[12rem] overflow-auto rounded border border-border bg-muted/40 p-3 font-mono text-xs leading-relaxed text-foreground"
+					className="h-[7rem] max-h-[7rem] overflow-y-auto overflow-x-auto rounded border border-border bg-muted/40 p-2 font-mono text-xs leading-snug text-foreground"
 				>
-					{state.lines.length === 0 && !state.connected && state.error ? (
-						<p className="text-muted-foreground">
-							Brak linii — {state.error}. Dla starych jobow runner mogl juz zwolnic bufor; pelna
-							historia jest w sekcji Historia (status / exit).
-						</p>
-					) : state.lines.length === 0 ? (
-						<p className="text-muted-foreground">
-							Czekam na linie logow… Jesli job juz sie skonczyl, runner moze najpierw wyslac bufor
-							(replay), potem zamknac polaczenie.
-						</p>
-					) : (
-						state.lines.map((l, i) => (
-							<div key={`${l.ts}-${i}`} className={l.stream === "stderr" ? "text-destructive" : ""}>
-								<span className="text-muted-foreground">{l.ts.slice(11, 19)} </span>
-								{l.line}
-							</div>
-						))
-					)}
+					<LiveLogsScrollContent {...state} streamLogs={streamLogs} />
 				</div>
 			</CardContent>
 		</Card>

@@ -69,7 +69,11 @@ elif [[ ! -d "$INSTALL_DIR/.git" ]]; then
 else
   sudo -u "$USER" git -C "$INSTALL_DIR" fetch --all --prune
   sudo -u "$USER" git -C "$INSTALL_DIR" checkout "$BRANCH"
-  sudo -u "$USER" git -C "$INSTALL_DIR" pull --ff-only
+  # Po rewrite historii na origin brak FF — sam pull pada. Runnerowy VPS ma byc lustrem repo.
+  if ! sudo -u "$USER" git -C "$INSTALL_DIR" pull --ff-only; then
+    echo "WARN: git pull --ff-only niemozliwy (rozjechana historia). Ustawiam na origin/$BRANCH." >&2
+    sudo -u "$USER" git -C "$INSTALL_DIR" reset --hard "origin/$BRANCH"
+  fi
 fi
 
 # 3) install deps + build data-ops (runner depends on workspace package)

@@ -14,19 +14,42 @@ export interface MigrationLogState {
 
 const MAX_LINES = 5000;
 
-export function useMigrationJobLogs(jobId: string | null): MigrationLogState {
+export function useMigrationJobLogs(
+	jobId: string | null,
+	/** false po zakonczeniu joba — zamykamy SSE, nie laczymy ponownie, nie doklejamy replayu */
+	streamLogs = true,
+): MigrationLogState {
 	const [state, setState] = useState<MigrationLogState>({
 		lines: [],
 		connected: false,
 		error: null,
 	});
 	const sourceRef = useRef<EventSource | null>(null);
+	/** Liczba onopen na tym EventSource — >1 oznacza reconnect; runner wysyla caly replay od zera (inaczej linie sie duplikuja). */
+	const openCountRef = useRef(0);
+	const prevJobIdRef = useRef<string | null>(null);
 
 	useEffect(() => {
 		if (!jobId) {
+			prevJobIdRef.current = null;
 			setState({ lines: [], connected: false, error: null });
 			return;
 		}
+
+		const jobIdChanged = prevJobIdRef.current !== jobId;
+
+		if (!streamLogs) {
+			setState((s) => ({
+				lines: jobIdChanged ? [] : s.lines,
+				connected: false,
+				error: null,
+			}));
+			prevJobIdRef.current = jobId;
+			return;
+		}
+
+		prevJobIdRef.current = jobId;
+		openCountRef.current = 0;
 		const es = new EventSource(`/api/migration/jobs/${jobId}/logs/stream`);
 		sourceRef.current = es;
 		setState({ lines: [], connected: false, error: null });
@@ -44,7 +67,15 @@ export function useMigrationJobLogs(jobId: string | null): MigrationLogState {
 			}
 		};
 
-		es.onopen = () => setState((s) => ({ ...s, connected: true, error: null }));
+		es.onopen = () => {
+			openCountRef.current += 1;
+			const isReconnect = openCountRef.current > 1;
+			setState((s) => ({
+				lines: isReconnect ? [] : s.lines,
+				connected: true,
+				error: null,
+			}));
+		};
 		es.onerror = () => setState((s) => ({ ...s, connected: false, error: "Polaczenie przerwane" }));
 		// Runner (Hono streamSSE) wysyla `event: log` — wtedy onmessage NIE dostaje zdarzenia (tylko typ "message").
 		es.addEventListener("log", onLine);
@@ -56,7 +87,7 @@ export function useMigrationJobLogs(jobId: string | null): MigrationLogState {
 			es.close();
 			sourceRef.current = null;
 		};
-	}, [jobId]);
+	}, [jobId, streamLogs]);
 
 	return state;
 }
