@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getDeploymentById } from "@/core/functions/deployments/direct";
 import { getEmployeesByDeployment } from "@/core/functions/employees/binding";
 import {
@@ -51,6 +51,56 @@ const TYPE_LABEL: Record<MigrationJobDto["type"], string> = {
 	"gdrive-restore": "Wyślij na dysk firmowy",
 	ingest: "Pobierz dane",
 };
+
+function ActiveJobPanelGroup({
+	activeJob,
+	jobs,
+}: {
+	activeJob: MigrationJobDto | undefined;
+	jobs: MigrationJobDto[];
+}) {
+	const latestJob = jobs[0];
+	const logsJobId = activeJob?.id ?? latestJob?.id ?? null;
+	const logSubtitle = activeJob
+		? "Na zywo z runnera (SSE)."
+		: "Powtorzenie bufora z runnera dla ostatniego joba — po restarcie runnera lub dlugim czasie lista moze byc pusta.";
+
+	return (
+		<>
+			<Card>
+				<CardHeader>
+					<CardTitle>Aktywny job</CardTitle>
+					<CardDescription>
+						{activeJob
+							? "Job w kolejce lub w trakcie — ponizej live logi z runnera."
+							: latestJob
+								? "Brak joba w trakcie. Ponizej podsumowanie ostatniego z historii oraz logi (jesli runner jeszcze je trzyma w pamieci)."
+								: "Uruchom akcje ponizej — wtedy pojawi sie job i logi."}
+					</CardDescription>
+				</CardHeader>
+				<CardContent className="space-y-3">
+					{activeJob ? (
+						<JobRow job={activeJob} />
+					) : latestJob ? (
+						<div className="space-y-2">
+							<p className="text-sm text-muted-foreground">Brak aktywnego joba.</p>
+							<div>
+								<p className="mb-1 text-xs font-medium text-muted-foreground">Ostatni job</p>
+								<JobRow job={latestJob} />
+							</div>
+						</div>
+					) : (
+						<p className="text-sm text-muted-foreground">
+							Brak aktywnego joba i brak historii dla tego wdrozenia.
+						</p>
+					)}
+				</CardContent>
+			</Card>
+
+			{logsJobId ? <LiveLogsPanel jobId={logsJobId} subtitle={logSubtitle} /> : null}
+		</>
+	);
+}
 
 function MigrationPage() {
 	const deployment = Route.useLoaderData();
@@ -241,20 +291,7 @@ function MigrationPage() {
 				<h1 className="text-2xl font-bold text-foreground">Migracja: {deployment.clientName}</h1>
 			</div>
 
-			<Card>
-				<CardHeader>
-					<CardTitle>Aktywny job</CardTitle>
-				</CardHeader>
-				<CardContent>
-					{activeJob ? (
-						<JobRow job={activeJob} />
-					) : (
-						<p className="text-sm text-muted-foreground">Brak aktywnego joba.</p>
-					)}
-				</CardContent>
-			</Card>
-
-			{activeJob ? <LiveLogsPanel jobId={activeJob.id} /> : null}
+			<ActiveJobPanelGroup activeJob={activeJob} jobs={jobs} />
 
 			<Card>
 				<CardHeader>
@@ -498,7 +535,7 @@ function JobRow({ job }: { job: MigrationJobDto }) {
 	);
 }
 
-function LiveLogsPanel({ jobId }: { jobId: string }) {
+function LiveLogsPanel({ jobId, subtitle }: { jobId: string; subtitle: string }) {
 	const state = useMigrationJobLogs(jobId);
 	const [autoscroll, setAutoscroll] = useState(true);
 	const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -513,8 +550,15 @@ function LiveLogsPanel({ jobId }: { jobId: string }) {
 	return (
 		<Card>
 			<CardHeader>
-				<CardTitle className="flex items-center justify-between gap-3">
-					<span>Live logi</span>
+				<CardTitle className="flex flex-wrap items-center justify-between gap-3">
+					<span>
+						Live logi
+						{state.lines.length > 0 ? (
+							<span className="ml-2 text-sm font-normal text-muted-foreground">
+								({state.lines.length} linii)
+							</span>
+						) : null}
+					</span>
 					<div className="flex items-center gap-3 text-sm font-normal">
 						<Badge variant={state.connected ? "default" : "secondary"}>
 							{state.connected ? "Polaczony" : (state.error ?? "Laczenie...")}
@@ -529,14 +573,23 @@ function LiveLogsPanel({ jobId }: { jobId: string }) {
 						</label>
 					</div>
 				</CardTitle>
+				<CardDescription>{subtitle}</CardDescription>
 			</CardHeader>
 			<CardContent>
 				<div
 					ref={scrollRef}
-					className="max-h-96 overflow-auto rounded border border-border bg-muted/40 p-3 font-mono text-xs text-foreground"
+					className="max-h-[min(70vh,32rem)] min-h-[12rem] overflow-auto rounded border border-border bg-muted/40 p-3 font-mono text-xs leading-relaxed text-foreground"
 				>
-					{state.lines.length === 0 ? (
-						<p className="text-muted-foreground">Czekam na linie logow...</p>
+					{state.lines.length === 0 && !state.connected && state.error ? (
+						<p className="text-muted-foreground">
+							Brak linii — {state.error}. Dla starych jobow runner mogl juz zwolnic bufor; pelna
+							historia jest w sekcji Historia (status / exit).
+						</p>
+					) : state.lines.length === 0 ? (
+						<p className="text-muted-foreground">
+							Czekam na linie logow… Jesli job juz sie skonczyl, runner moze najpierw wyslac bufor
+							(replay), potem zamknac polaczenie.
+						</p>
 					) : (
 						state.lines.map((l, i) => (
 							<div key={`${l.ts}-${i}`} className={l.stream === "stderr" ? "text-destructive" : ""}>
