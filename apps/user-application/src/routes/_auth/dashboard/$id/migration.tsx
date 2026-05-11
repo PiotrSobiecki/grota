@@ -382,14 +382,6 @@ function EmployeeRow(props: EmployeeRowProps) {
 				>
 					Backup do B2
 				</Button>
-				<Button
-					size="sm"
-					variant="outline"
-					onClick={props.onDryRun}
-					disabled={props.disabled || !ready}
-				>
-					Podgląd przywracania
-				</Button>
 				<MigrateRowButton
 					onConfirm={props.onMigrate}
 					disabled={props.disabled || !ready}
