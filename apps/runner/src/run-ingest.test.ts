@@ -93,7 +93,7 @@ describe("buildRcloneIngestArgs", () => {
 		expect(args).toContain("--drive-export-formats");
 	});
 
-	it("uses sharedDriveId as drive-root when file has parentFolderId=null + sharedDriveId (root of shared drive)", () => {
+	it("uses 'root' (My Drive root) when parentFolderId=null — sharedDriveId is destination tag, NOT source context", () => {
 		const file: IngestFolder = {
 			itemId: "1FileId",
 			itemName: "x.pdf",
@@ -105,7 +105,8 @@ describe("buildRcloneIngestArgs", () => {
 		};
 		const args = buildRcloneIngestArgs(file, ACCOUNT, RUNNER_CONFIG, TIMESTAMP);
 		const rootIdx = args.indexOf("--drive-root-folder-id");
-		expect(args[rootIdx + 1]).toBe("0ABC123");
+		expect(args[rootIdx + 1]).toBe("root");
+		expect(args).not.toContain("--drive-team-drive");
 	});
 
 	it("adds export extension to --include for Google Sheet (mimeType=spreadsheet)", () => {
@@ -162,7 +163,7 @@ describe("buildRcloneIngestArgs", () => {
 		expect(args[incIdx + 1]).toBe("/report.pdf");
 	});
 
-	it("adds --drive-team-drive <sharedDriveId> so rclone enters shared-drive context", () => {
+	it("NEVER adds --drive-team-drive (ingest source = My Drive pracownika, NIE shared drive firmy)", () => {
 		const folder: IngestFolder = {
 			itemId: "f1",
 			itemName: "X.pdf",
@@ -171,21 +172,6 @@ describe("buildRcloneIngestArgs", () => {
 			sharedDriveName: "SD",
 			sharedDriveId: "0SDxyz",
 			mimeType: "application/pdf",
-		};
-		const args = buildRcloneIngestArgs(folder, ACCOUNT, RUNNER_CONFIG, TIMESTAMP);
-		expect(args).toContain("--drive-team-drive");
-		expect(args[args.indexOf("--drive-team-drive") + 1]).toBe("0SDxyz");
-	});
-
-	it("does NOT add --drive-team-drive when sharedDriveId is null", () => {
-		const folder: IngestFolder = {
-			itemId: "f1",
-			itemName: "X.pdf",
-			itemType: "file",
-			parentFolderId: "p1",
-			sharedDriveName: null,
-			sharedDriveId: null,
-			mimeType: null,
 		};
 		const args = buildRcloneIngestArgs(folder, ACCOUNT, RUNNER_CONFIG, TIMESTAMP);
 		expect(args).not.toContain("--drive-team-drive");
