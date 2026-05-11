@@ -55,19 +55,14 @@ export function buildRcloneIngestArgs(
 	const remote = `gdrive_${sanitized}:`;
 	const sdName = folder.sharedDriveName ?? "";
 	// Source dla rclone:
-	// - parentFolderId set       → folder ID (My Drive lub global folder ID)
-	// - parentFolderId null + sharedDriveId → plik "Shared with me" (admin
-	//                              workspace go udostepnil pracownikowi),
-	//                              uzywamy --drive-shared-with-me
-	// - oba null                 → My Drive root pracownika
-	// sharedDriveId w folder_selections to TAG/destination (gdzie pliki maja
-	// byc archiwizowane), nie source context.
+	// - parentFolderId set → folder ID (konkretny folder w My Drive pracownika)
+	// - parentFolderId null → My Drive root pracownika (rclone szuka po nazwie)
+	// sharedDriveId/sharedDriveName to TAG docelowy (gdzie plik ma trafic
+	// lokalnie na VPS), nie kontekst zrodlowy dla rclone.
 	const sourceFlags: string[] =
 		folder.parentFolderId !== null
 			? ["--drive-root-folder-id", folder.parentFolderId]
-			: folder.sharedDriveId !== null
-				? ["--drive-shared-with-me"]
-				: ["--drive-root-folder-id", "root"];
+			: ["--drive-root-folder-id", "root"];
 	if (folder.itemType === "file") {
 		const targetDir = `${cfg.backupPath}/${sanitized}/${sdName}/_files/${folder.itemName}`;
 		const ext = exportExtFor(folder.mimeType);
