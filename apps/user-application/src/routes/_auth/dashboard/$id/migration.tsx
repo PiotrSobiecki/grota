@@ -51,6 +51,7 @@ const TYPE_LABEL: Record<MigrationJobDto["type"], string> = {
 	migrate: "Przywróć kopię",
 	"gdrive-restore": "Wyślij na dysk firmowy",
 	ingest: "Pobierz dane",
+	"scheduled-cycle": "Auto cykl",
 };
 
 function ActiveJobPanelGroup({

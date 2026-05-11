@@ -4,6 +4,7 @@ import { createRunBackup, realRcloneSpawnForBackup } from "./run-backup";
 import { createRunGDriveRestore, realRcloneSpawnForGDriveRestore } from "./run-gdrive-restore";
 import { createRunIngest } from "./run-ingest";
 import { createRunMigrate } from "./run-migrate";
+import { createRunScheduledCycle } from "./run-scheduled-cycle";
 import { createVerifyB2, realRcloneSpawn } from "./verify-b2";
 
 const VERSION = "0.1.0";
@@ -28,6 +29,7 @@ const app = createApp({
 	runMigrate: createRunMigrate(realRcloneSpawnForBackup),
 	runGDriveRestore: createRunGDriveRestore(realRcloneSpawnForGDriveRestore),
 	runIngest: createRunIngest(realRcloneSpawnForGDriveRestore),
+	runScheduledCycle: createRunScheduledCycle(realRcloneSpawnForGDriveRestore),
 });
 
 serve({ fetch: app.fetch, port }, (info) => {

@@ -1,0 +1,1 @@
+ALTER TYPE "public"."migration_job_type" ADD VALUE 'scheduled-cycle';

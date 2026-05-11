@@ -72,6 +72,17 @@ export const IngestRequestSchema = z.object({
 	folders: z.array(IngestFolderSchema).min(1),
 });
 
+export const ScheduledCycleEmployeeSchema = z.object({
+	account: z.string().email(),
+	gdrive: GDriveCredentialsSchema.nullable(),
+	folders: z.array(IngestFolderSchema),
+});
+
+export const ScheduledCycleRequestSchema = z.object({
+	runnerConfig: RunnerJobConfigSchema,
+	employees: z.array(ScheduledCycleEmployeeSchema).min(1),
+});
+
 export const B2VerifyRequestSchema = z.object({
 	b2KeyId: z.string().min(1),
 	b2AppKey: z.string().min(1),
@@ -96,3 +107,5 @@ export type GDriveCredentials = z.infer<typeof GDriveCredentialsSchema>;
 export type GDriveRestoreRequest = z.infer<typeof GDriveRestoreRequestSchema>;
 export type IngestFolder = z.infer<typeof IngestFolderSchema>;
 export type IngestRequest = z.infer<typeof IngestRequestSchema>;
+export type ScheduledCycleEmployee = z.infer<typeof ScheduledCycleEmployeeSchema>;
+export type ScheduledCycleRequest = z.infer<typeof ScheduledCycleRequestSchema>;

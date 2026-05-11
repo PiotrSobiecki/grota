@@ -5,7 +5,13 @@ import { RunnerJobStatusSchema } from "./runner-protocol";
 // Enums
 // ============================================
 
-export const MigrationJobTypeSchema = z.enum(["backup", "migrate", "gdrive-restore", "ingest"]);
+export const MigrationJobTypeSchema = z.enum([
+	"backup",
+	"migrate",
+	"gdrive-restore",
+	"ingest",
+	"scheduled-cycle",
+]);
 export const MigrationJobStatusSchema = RunnerJobStatusSchema;
 
 // ============================================

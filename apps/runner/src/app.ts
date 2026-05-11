@@ -14,6 +14,8 @@ import {
 	type MigrateRequest,
 	MigrateRequestSchema,
 	type RunnerJob,
+	type ScheduledCycleRequest,
+	ScheduledCycleRequestSchema,
 } from "@repo/data-ops/migration";
 import { Hono } from "hono";
 import { bearerAuth } from "hono/bearer-auth";
@@ -45,8 +47,13 @@ export type RunIngestFn = (
 	req: IngestRequest,
 	emitLog: LogEmitter,
 ) => Promise<number>;
+export type RunScheduledCycleFn = (
+	jobId: string,
+	req: ScheduledCycleRequest,
+	emitLog: LogEmitter,
+) => Promise<number>;
 
-type JobType = "backup" | "migrate" | "gdrive-restore" | "ingest";
+type JobType = "backup" | "migrate" | "gdrive-restore" | "ingest" | "scheduled-cycle";
 
 interface InternalJob extends RunnerJob {
 	type: JobType;
@@ -65,6 +72,7 @@ export interface AppConfig {
 	runMigrate?: RunMigrateFn;
 	runGDriveRestore?: RunGDriveRestoreFn;
 	runIngest?: RunIngestFn;
+	runScheduledCycle?: RunScheduledCycleFn;
 }
 
 const verifyB2NotImplemented: VerifyB2Fn = async () => ({
@@ -76,6 +84,7 @@ const runBackupNotImplemented: RunBackupFn = async () => 1;
 const runMigrateNotImplemented: RunMigrateFn = async () => 1;
 const runGDriveRestoreNotImplemented: RunGDriveRestoreFn = async () => 1;
 const runIngestNotImplemented: RunIngestFn = async () => 1;
+const runScheduledCycleNotImplemented: RunScheduledCycleFn = async () => 1;
 
 export function createApp(config: AppConfig): Hono {
 	const app = new Hono();
@@ -84,6 +93,7 @@ export function createApp(config: AppConfig): Hono {
 	const runMigrate = config.runMigrate ?? runMigrateNotImplemented;
 	const runGDriveRestore = config.runGDriveRestore ?? runGDriveRestoreNotImplemented;
 	const runIngest = config.runIngest ?? runIngestNotImplemented;
+	const runScheduledCycle = config.runScheduledCycle ?? runScheduledCycleNotImplemented;
 	const jobs = new Map<string, InternalJob>();
 
 	function isTypeActive(type: JobType): boolean {
@@ -176,6 +186,12 @@ export function createApp(config: AppConfig): Hono {
 	jobRoute("/jobs/migrate", "migrate", MigrateRequestSchema, runMigrate);
 	jobRoute("/jobs/gdrive-restore", "gdrive-restore", GDriveRestoreRequestSchema, runGDriveRestore);
 	jobRoute("/jobs/ingest", "ingest", IngestRequestSchema, runIngest);
+	jobRoute(
+		"/jobs/scheduled-cycle",
+		"scheduled-cycle",
+		ScheduledCycleRequestSchema,
+		runScheduledCycle,
+	);
 
 	app.get("/jobs/:id", (c) => {
 		const id = c.req.param("id");

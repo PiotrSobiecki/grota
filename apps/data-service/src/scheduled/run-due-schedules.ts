@@ -1,11 +1,9 @@
 import { getDeployment } from "@repo/data-ops/deployment";
 import { getDueSchedules, updateScheduleAfterRun } from "@repo/data-ops/schedule";
-import { triggerBackup } from "../hono/services/migration-service";
+import { triggerScheduledCycle } from "../hono/services/migration-service";
 import { evaluateSchedule } from "./evaluate-schedule";
 
-export interface RunDueSchedulesEnv {
-	encryptionKey: string;
-}
+export type RunDueSchedulesEnv = Env;
 
 export interface RunDueSchedulesResult {
 	attempted: number;
@@ -31,10 +29,10 @@ export async function runDueSchedules(
 			continue;
 		}
 
-		const result = await triggerBackup({
+		const result = await triggerScheduledCycle({
 			deploymentId: schedule.deploymentId,
 			triggeredByUserId: deployment.createdBy,
-			encryptionKey: env.encryptionKey,
+			env,
 		});
 
 		if (result.ok) {

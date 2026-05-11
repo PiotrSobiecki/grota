@@ -5,5 +5,5 @@ export async function handleScheduled(
 	env: Env,
 	ctx: ExecutionContext,
 ) {
-	ctx.waitUntil(runDueSchedules({ encryptionKey: env.ENCRYPTION_KEY }, new Date()));
+	ctx.waitUntil(runDueSchedules(env, new Date()));
 }

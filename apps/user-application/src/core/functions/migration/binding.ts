@@ -8,7 +8,7 @@ import { fetchDataService } from "@/lib/data-service";
 export interface MigrationJobDto {
 	id: string;
 	deploymentId: string;
-	type: "backup" | "migrate" | "gdrive-restore" | "ingest";
+	type: "backup" | "migrate" | "gdrive-restore" | "ingest" | "scheduled-cycle";
 	account: string | null;
 	dryRun: boolean;
 	status: "queued" | "running" | "done" | "failed";

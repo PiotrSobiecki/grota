@@ -22,6 +22,8 @@ export type {
 	RunnerJob,
 	RunnerJobConfig,
 	RunnerJobStatus,
+	ScheduledCycleEmployee,
+	ScheduledCycleRequest,
 } from "./runner-protocol.js";
 export {
 	B2VerifyRequestSchema,
@@ -36,6 +38,8 @@ export {
 	RunnerJobConfigSchema,
 	RunnerJobSchema,
 	RunnerJobStatusSchema,
+	ScheduledCycleEmployeeSchema,
+	ScheduledCycleRequestSchema,
 } from "./runner-protocol.js";
 export type {
 	MigrationJob,
