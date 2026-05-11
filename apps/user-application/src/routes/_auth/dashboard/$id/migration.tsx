@@ -73,6 +73,77 @@ function MigrationPage() {
 
 	const refetchJobs = () => jobsQuery.refetch();
 
+	const waitForJobDone = async (jobId: string): Promise<void> => {
+		for (let attempt = 0; attempt < 120; attempt++) {
+			const job = await getMigrationJobStatus({ data: { jobId } });
+			if (job.status === "done") return;
+			if (job.status === "failed") {
+				throw new Error(`Job ${TYPE_LABEL[job.type]} zakonczyl sie bledem (exit: ${job.exitCode ?? "?"})`);
+			}
+			await new Promise((resolve) => setTimeout(resolve, 2000));
+		}
+		throw new Error("Przekroczono czas oczekiwania na zakonczenie joba");
+	};
+
+	const triggerJobWithRetry = async (
+		trigger: () => Promise<MigrationJobDto>,
+	): Promise<MigrationJobDto> => {
+		for (let attempt = 0; attempt < 20; attempt++) {
+			try {
+				return await trigger();
+			} catch (error) {
+				const message = error instanceof Error ? error.message : "";
+				const isActiveJobError = message.includes("Inny job migracji jest juz aktywny");
+				if (!isActiveJobError || attempt === 19) throw error;
+				await refetchJobs();
+				await new Promise((resolve) => setTimeout(resolve, 2000));
+			}
+		}
+		throw new Error("Nie udalo sie uruchomic pobierania danych");
+	};
+
+	const ingestAllMutation = useMutation({
+		mutationFn: async (input: { employeeIds: string[] }) => {
+			for (const employeeId of input.employeeIds) {
+				const job = await triggerJobWithRetry(() =>
+					triggerIngestJob({
+						data: { deploymentId, employeeId },
+					}),
+				);
+				await refetchJobs();
+				await waitForJobDone(job.id);
+				await refetchJobs();
+			}
+			return input.employeeIds.length;
+		},
+		onSuccess: (count) => {
+			toast.success(`Pobieranie danych uruchomione dla ${count} pracownikow`);
+			refetchJobs();
+		},
+		onError: (e) => toast.error(e.message),
+	});
+
+	const gdriveRestoreAllMutation = useMutation({
+		mutationFn: async (input: { accounts: string[] }) => {
+			for (const account of input.accounts) {
+				const job = await triggerJobWithRetry(() =>
+					triggerGDriveRestoreJob({
+						data: { deploymentId, account },
+					}),
+				);
+				await refetchJobs();
+				await waitForJobDone(job.id);
+				await refetchJobs();
+			}
+			return input.accounts.length;
+		},
+		onSuccess: (count) => {
+			toast.success(`Wysyłka na dysk firmowy uruchomiona dla ${count} pracownikow`);
+			refetchJobs();
+		},
+		onError: (e) => toast.error(e.message),
+	});
+
 	const backupMutation = useMutation({
 		mutationFn: (input: { account?: string }) =>
 			triggerBackupJob({ data: { deploymentId, account: input.account } }),
@@ -120,34 +191,6 @@ function MigrationPage() {
 		},
 		onError: (e) => toast.error(e.message),
 	});
-
-	const ingestAllMutation = useMutation({
-		mutationFn: async (input: { employeeIds: string[] }) => {
-			for (const employeeId of input.employeeIds) {
-				await triggerIngestJob({
-					data: { deploymentId, employeeId },
-				});
-			}
-			return input.employeeIds.length;
-		},
-		onSuccess: (count) => {
-			toast.success(`Pobieranie danych uruchomione dla ${count} pracownikow`);
-			refetchJobs();
-		},
-		onError: (e) => toast.error(e.message),
-	});
-
-	const waitForJobDone = async (jobId: string): Promise<void> => {
-		for (let attempt = 0; attempt < 120; attempt++) {
-			const job = await getMigrationJobStatus({ data: { jobId } });
-			if (job.status === "done") return;
-			if (job.status === "failed") {
-				throw new Error(`Job ${TYPE_LABEL[job.type]} zakonczyl sie bledem (exit: ${job.exitCode ?? "?"})`);
-			}
-			await new Promise((resolve) => setTimeout(resolve, 2000));
-		}
-		throw new Error("Przekroczono czas oczekiwania na zakonczenie joba");
-	};
 
 	const ingestAndRestoreMutation = useMutation({
 		mutationFn: async (input: { employeeId: string; account: string }) => {
@@ -252,11 +295,22 @@ function MigrationPage() {
 						onClick={() => backupMutation.mutate({})}
 						disabled={backupMutation.isPending || !!activeJob}
 					>
-						Zapisz kopie (wszyscy)
+						Zapisz kopie
 					</Button>
 					<MigrateAllButton
 						onConfirm={() => migrateMutation.mutate({ dryRun: false })}
 						disabled={migrateMutation.isPending || !!activeJob}
+					/>
+					<GDriveRestoreAllButton
+						onConfirm={() =>
+							gdriveRestoreAllMutation.mutate({
+								accounts: readyEmployees.map((employee) => employee.email),
+							})
+						}
+						disabled={
+							gdriveRestoreAllMutation.isPending || !!activeJob || readyEmployees.length === 0
+						}
+						count={readyEmployees.length}
 					/>
 				</CardContent>
 			</Card>
@@ -553,12 +607,12 @@ function MigrateAllButton({ onConfirm, disabled }: ConfirmActionProps) {
 		<AlertDialog open={open} onOpenChange={setOpen}>
 			<AlertDialogTrigger asChild>
 				<Button variant="destructive" disabled={disabled}>
-					Przywróć kopie (wszyscy)
+					Przywróć kopie
 				</Button>
 			</AlertDialogTrigger>
 			<AlertDialogContent>
 				<AlertDialogHeader>
-					<AlertDialogTitle>Potwierdź: Przywróć kopie (wszyscy)</AlertDialogTitle>
+					<AlertDialogTitle>Potwierdź: Przywróć kopie</AlertDialogTitle>
 					<AlertDialogDescription>
 						Akcja sciagnie pliki z B2 (backup) do lokalnego katalogu na VPSie
 						(`backup_path`). Operacja nadpisuje dane lokalne — jesli B2 jest
@@ -631,7 +685,7 @@ function IngestAllButton({
 	return (
 		<AlertDialog open={open} onOpenChange={setOpen}>
 			<AlertDialogTrigger asChild>
-				<Button disabled={disabled}>Pobierz dane (wszyscy)</Button>
+				<Button disabled={disabled}>Pobierz dane</Button>
 			</AlertDialogTrigger>
 			<AlertDialogContent>
 				<AlertDialogHeader>
@@ -652,6 +706,42 @@ function IngestAllButton({
 						}}
 					>
 						Tak, pobierz dla wszystkich
+					</AlertDialogAction>
+				</AlertDialogFooter>
+			</AlertDialogContent>
+		</AlertDialog>
+	);
+}
+
+function GDriveRestoreAllButton({
+	onConfirm,
+	disabled,
+	count,
+}: ConfirmActionProps & { count: number }) {
+	const [open, setOpen] = useState(false);
+	return (
+		<AlertDialog open={open} onOpenChange={setOpen}>
+			<AlertDialogTrigger asChild>
+				<Button disabled={disabled}>Wyślij na dysk firmowy</Button>
+			</AlertDialogTrigger>
+			<AlertDialogContent>
+				<AlertDialogHeader>
+					<AlertDialogTitle>Wyślij dane na dysk firmowy</AlertDialogTitle>
+					<AlertDialogDescription>
+						Uruchomi wysylke danych dla wszystkich gotowych pracownikow ({count}) na
+						firmowy shared drive. Wymaga wczesniejszego pobrania danych na VPS.
+						Kontynuowac?
+					</AlertDialogDescription>
+				</AlertDialogHeader>
+				<AlertDialogFooter>
+					<AlertDialogCancel>Anuluj</AlertDialogCancel>
+					<AlertDialogAction
+						onClick={() => {
+							setOpen(false);
+							onConfirm();
+						}}
+					>
+						Tak, wyślij
 					</AlertDialogAction>
 				</AlertDialogFooter>
 			</AlertDialogContent>

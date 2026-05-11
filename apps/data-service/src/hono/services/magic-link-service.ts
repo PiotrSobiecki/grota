@@ -194,7 +194,7 @@ export async function sendMagicLinkEmail(
 				<meta name="viewport" content="width=device-width, initial-scale=1" />
 				<title>${subject}</title>
 			</head>
-			<body style="margin:0;padding:24px;background:#060b1a;font-family:Arial,sans-serif;color:#e5e7eb;">
+			<body style="margin:0;padding:24px;background:#ffffff;font-family:Arial,sans-serif;color:#e5e7eb;">
 				<div style="display:none;max-height:0;overflow:hidden;opacity:0;">${preheader}</div>
 				<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;margin:0 auto;background:#0b1226;border:1px solid #1f2a44;border-radius:12px;">
 					<tr>
