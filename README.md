@@ -82,11 +82,13 @@ pnpm run sync:secrets                   # data-service + user-application → CF
 ```bash
 pnpm run drizzle:dev:generate           # generuj SQL z diff schema
 pnpm run drizzle:dev:migrate            # zaaplikuj na Neon dev
-pnpm run create-user:dev                # interaktywny seed pierwszego admina
-pnpm run reset-password:dev
+pnpm run drizzle:production:generate
+pnpm run drizzle:production:migrate     # zaaplikuj na Neon production
+pnpm run create-user:production         # seed admina na production
+pnpm run reset-password:production      # reset hasła admina na production
 ```
 
-> **Uwaga**: skrypty `drizzle:staging:*` i `drizzle:production:*` istnieją w `packages/data-ops/package.json`, ale obecnie wszystkie środowiska wskazują na jedną bazę Neon (dev). Nie używać dopóki nie zostaną wprowadzone osobne bazy staging/prod.
+> **Uwaga**: `drizzle:staging:*` nie używamy — środowisko staging nie istnieje (jest tylko dev i production).
 
 ### Zmienne środowiskowe
 
@@ -119,17 +121,17 @@ Po ukończeniu onboardingu operator zarządza migracją z poziomu UI. VPS klient
 
 `/dashboard/$id/migration` — akcje per-deployment bez SSH:
 
-| Akcja | Typ jobu | Co robi |
+| Przycisk | Typ jobu | Co robi |
 |---|---|---|
-| **Pobierz z Drive** | `ingest` | rclone: prywatny Drive pracownika → `/srv/backup/gdrive/<email>/` na VPSie |
-| **Backup** | `backup` | rclone: `/srv/backup/gdrive/` → Backblaze B2 |
-| **Przywróć do Workspace** | `gdrive-restore` | rclone: VPS → firmowy Shared Drive (OAuth admina Workspace) |
-| **Dry-run** | wariant `backup` / `migrate` | test bez kopiowania |
+| **Pobierz dane** | `ingest` | rclone: prywatny Drive pracownika → `/srv/backup/gdrive/<email>/` na VPSie |
+| **Zapisz kopię** | `backup` | rclone: `/srv/backup/gdrive/` → Backblaze B2 |
+| **Przywróć kopię** | `migrate` | rclone: Backblaze B2 → `/srv/backup/gdrive/` na VPSie (odwrót `backup`) |
+| **Wyślij na dysk firmowy** | `gdrive-restore` | rclone: VPS → firmowy Shared Drive (OAuth admina Workspace) |
 
 - Akcje globalne (wszyscy pracownicy) + per-pracownik
 - Single-job-at-a-time per deployment (lock w UI + 409 z runnera)
 - Historia jobów (status, typ, account, czas startu, duration, exit code)
-- Polling co 2s na aktywny job
+- Polling co 2s na aktywny job + **live logi SSE z runnera** w karcie Aktywny job
 - Confirm dialog na destrukcyjne akcje
 - Rate limit per-deployment + audit log zmian konfiguracji
 

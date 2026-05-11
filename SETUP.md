@@ -185,4 +185,4 @@ Po pierwszym deployu w panelu `/admin/deployments/<id>/server-config` wpisz dla 
 | Loop 301 redirect | SSL mode = Flexible? Redirect rule HTTP→HTTPS włączona? Wyłącz redirect rule, ustaw SSL = Full strict |
 | Runner `/health` zwraca 401 | Bearer token w UI nie zgadza się z `/etc/grota/runner.env` |
 | Runner `/health` w ogóle nie odpowiada | `systemctl status grota-runner` + `journalctl -u grota-runner -f`; tunel: `systemctl status cloudflared` |
-| Migracja w UI „przeniesione do konta Google" mimo że runner zrobił tylko VPS→B2 | Użyj przycisku **„Przywróć do Workspace"** (gdrive-restore) zamiast „Migruj" |
+| Backup tylko leci do B2, nie na firmowy Drive | Użyj przycisku **„Wyślij na dysk firmowy"** (`gdrive-restore`) po „Zapisz kopię" — drugi przycisk wykonuje hop VPS → Workspace Shared Drive |

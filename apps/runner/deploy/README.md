@@ -108,7 +108,7 @@ curl -s -H "Authorization: Bearer $GROTA_TOKEN" https://runner.<klient>.example.
 # {"status":"ok","version":"0.1.0"}
 ```
 
-W panelu admina **`/dashboard/<deploymentId>/migration`** → przycisk **Backup** powinien wystartowac job, ktory pojawi sie w karcie Aktywny job, a po zakonczeniu w Historii.
+W panelu admina **`/dashboard/<deploymentId>/migration`** → przycisk **Zapisz kopię** wystartuje job, ktory pojawi sie w karcie Aktywny job (z live logami SSE z runnera), a po zakonczeniu w Historii. Pelen pipeline: **Pobierz dane** (Drive → VPS) → **Zapisz kopię** (VPS → B2) → **Wyślij na dysk firmowy** (VPS → Workspace Shared Drive). Przycisk **Przywróć kopię** robi hop odwrotny B2 → VPS.
 
 ## Operacje
 
