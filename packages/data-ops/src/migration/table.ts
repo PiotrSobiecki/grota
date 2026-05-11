@@ -15,6 +15,7 @@ export const migrationJobTypeEnum = pgEnum("migration_job_type", [
 	"backup",
 	"migrate",
 	"gdrive-restore",
+	"ingest",
 ]);
 
 export const migrationJobStatusEnum = pgEnum("migration_job_status", [

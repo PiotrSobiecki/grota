@@ -8,7 +8,7 @@ import { fetchDataService } from "@/lib/data-service";
 export interface MigrationJobDto {
 	id: string;
 	deploymentId: string;
-	type: "backup" | "migrate" | "gdrive-restore";
+	type: "backup" | "migrate" | "gdrive-restore" | "ingest";
 	account: string | null;
 	dryRun: boolean;
 	status: "queued" | "running" | "done" | "failed";
@@ -33,6 +33,11 @@ const TriggerMigrateInput = z.object({
 const TriggerGDriveRestoreInput = z.object({
 	deploymentId: z.string().uuid(),
 	account: z.string().email(),
+});
+
+const TriggerIngestInput = z.object({
+	deploymentId: z.string().uuid(),
+	employeeId: z.string().uuid(),
 });
 
 const JobIdInput = z.object({ jobId: z.string().uuid() });
@@ -106,6 +111,18 @@ export const triggerGDriveRestoreJob = createServerFn({ method: "POST" })
 			{ deploymentId: data.deploymentId, account: data.account },
 			context.userId,
 			"MIGRATION_GDRIVE_RESTORE_FAILED",
+		),
+	);
+
+export const triggerIngestJob = createServerFn({ method: "POST" })
+	.middleware([protectedFunctionMiddleware])
+	.inputValidator(TriggerIngestInput)
+	.handler(async ({ data, context }) =>
+		postAdminMigration(
+			"/ingest",
+			{ deploymentId: data.deploymentId, employeeId: data.employeeId },
+			context.userId,
+			"MIGRATION_INGEST_FAILED",
 		),
 	);
 

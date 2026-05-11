@@ -112,6 +112,52 @@ Globalnego przycisku "Pobierz dla wszystkich" na razie nie robimy (YAGNI — adm
 
 ---
 
+## Implementation log
+
+### 2026-05-11 — Slice 3 (runner) + Slice 4 (UI) ✅
+
+**Slice 3 — runner:**
+- `apps/runner/src/run-ingest.ts`: `sanitizeEmail` (`@.` → `_`, spojne z `apps/cli/lib/backup.sh:36` — fix bug #1 path mismatch), `buildRcloneIngestArgs(folder, account, cfg, timestamp)` (folder → `rclone sync` + `--backup-dir <versionDir>`; file → `rclone copy` + `--include /<name>` + `_files/<name>`; parentFolderId=null → "root"), `buildRcloneIngestConfig` ([b2] + per-employee `[gdrive_<sanitized>]` remote), `createRunIngest(spawn)` (loop: skip gdy `sharedDriveName=null`, rclone exit 9 → return 6 OAuth revoked + stop, non-zero non-9 → kontynuuj + zlicz `failed`, exit 7 jezeli `failed > 0`).
+- `apps/runner/src/app.ts`: `RunIngestFn` type, `runIngest` w `AppConfig`, `"ingest"` w `JobType` union, route `POST /jobs/ingest` z `IngestRequestSchema`.
+- `apps/runner/src/index.ts`: wire `createRunIngest(realRcloneSpawnForGDriveRestore)` (reuse spawn z gdrive-restore — ten sam profil tmp/config/spawn).
+- `packages/data-ops/src/migration/index.ts`: re-eksport `GDriveCredentials` (typ uzywany przez `run-gdrive-restore.ts` i nowy `run-ingest.ts`, brakowal w barrel'u — preexisting TS2305).
+- +9 unit testów ingest + 3 app testy (happy 202, 409 conflict, 400 invalid body). Pelny `apps/runner` test suite: 72/72 GREEN.
+
+**Slice 4 — UI:**
+- `apps/user-application/src/core/functions/migration/binding.ts`: `MigrationJobDto.type` += `"ingest"`, `TriggerIngestInput` schema (`{deploymentId, employeeId}` UUID), `triggerIngestJob` server fn → `POST /admin/migration/ingest` z `X-Operator-Id` (failure code `MIGRATION_INGEST_FAILED`).
+- `apps/user-application/src/routes/_auth/dashboard/$id/migration.tsx`: `TYPE_LABEL["ingest"] = "Pobieranie z Drive"`, `ingestMutation`, `EmployeeRow` dostaje `employeeId` + `onIngest` props, nowy `IngestRowButton` (variant outline, confirm dialog) jako **pierwszy** w kolejnosci akcji w wierszu, disabled gdy `!ready` (OAuth + folder selections required).
+- Typecheck user-application clean.
+
+**Pending na deploy:**
+- `pnpm run drizzle:staging:generate && :migrate` + production (tylko ALTER TYPE 'ingest', bezpieczne).
+- Smoke test ingest na staging po deployu data-service + user-application.
+- Po smoke testacie: usunac symlink `piotr.sobiecki@gmail.com → piotr_sobiecki_gmail_com` na VPSie (runner teraz sanityzuje konsystentnie).
+
+### 2026-05-07 — Slice 1 (data-ops) + Slice 2 (data-service) ✅
+
+**Slice 1 — data-ops:**
+- `IngestFolderSchema` + `IngestRequestSchema` w `runner-protocol.ts` (account, runnerConfig, gdrive, folders[]). `parentFolderId` i `mimeType` `nullable` po dyskusji z DB (forward null do runnera, runner decyduje per D4).
+- `MigrationJobTypeSchema` (Zod) + `migrationJobTypeEnum` (Drizzle) += `'ingest'`.
+- DB migration `0015_opposite_shadow_king.sql` (jednolinijkowy `ALTER TYPE`) — **applied dev**, staging/prod TODO przed deploy.
+- Barrel re-export `IngestFolderSchema`, `IngestRequestSchema`, `IngestFolder`, `IngestRequest`.
+- +12 unit testów (`runner-protocol.test.ts`, `schema.test.ts`).
+
+**Slice 2 — data-service:**
+- `TriggerIngestRequestSchema` (`{deploymentId, employeeId}` UUID) w `migration/schema.ts` + barrel + 3 testy.
+- `triggerIngest` service (`migration-service.ts`): lookup employee + deployment match, active job lock, server config, B2 runnerConfig, folder selections, join shared_drives.id → name, decrypt+refresh employee `driveOauthToken`, POST runner `/jobs/ingest`, persist `migration_jobs` row.
+- **Refactor:** wspólny `buildGDriveCredentialsFromSource(source, env)` z parametryzowanymi `load`/`save` + teksty błędów. `buildGDriveCredentialsForRunner` (workspace) i `buildEmployeeGDriveCredentialsForRunner` (employee) to teraz cienkie wrappery. Wymagało doc 006 helpera, dotychczas duplikat ~75 linii.
+- Handler `POST /admin/migration/ingest` z `zValidator(TriggerIngestRequestSchema)`, auth + X-Operator-Id, 202.
+- Stany błędów: `EMPLOYEE_NOT_FOUND` (missing/cross-deployment), `NO_EMPLOYEE_TOKEN`, `NO_FOLDERS_SELECTED`, `JOB_ALREADY_RUNNING`, `CONFIG_INCOMPLETE`, `NOT_FOUND` (deployment).
+- +6 integration testów (1 happy + 5 error states), wszystkie GREEN. Pełny `pnpm test:integration` 45/45 GREEN po refactorze.
+
+**Pending na poniedziałek przed deploy:**
+- `pnpm run drizzle:staging:generate && :migrate`, `:production:` to samo (tylko ALTER TYPE, bezpieczne).
+- Decyzja: czy `migration-service.ts` (~895 linii, limit 500) splittować przed Slice 3 czy po.
+
+**Otwarte (z doc):** Mass ingest (Pobierz dla wszystkich), versioning `--backup-dir`, disk space pre-check — wszystkie ostatecznie pozostają w slice 5 (hardening).
+
+---
+
 ## Status (2026-05-07, EOD)
 
 **Stan**: doc napisany, nic nie zaimplementowane. Workaround dla pierwszego wdrozenia: CLI na VPSie (`grota backup account <email>`) + symlink dla zgodnosci sciezki, finalny krok przez UI ("Przywroc do Workspace") dziala.
@@ -147,8 +193,8 @@ Globalnego przycisku "Pobierz dla wszystkich" na razie nie robimy (YAGNI — adm
 5. Cloudflare auto-stworzy DNS dla nowych hostnames; usunac stare custom_domain routes na auditmos.com (recznie w dashboardzie)
 
 **Priorytet B — implementacja doc 007 (UI-driven ingest)**:
-- **Slice 1** (data-ops, ~30 min): `migrationJobTypeEnum` += `'ingest'` + DB migration. `IngestRequestSchema` w `runner-protocol.ts`. Eksport types. Unit testy.
-- **Slice 2** (data-service, ~1.5h): `triggerIngest` service — lookup employee, decrypt+refresh `driveOauthToken` (refactor wspolnego helpera z `gdrive-restore`), join folder selections z shared drive names, POST runner. Handler `POST /admin/migration/ingest`. Stany bledow. Integration testy.
+- ✅ **Slice 1** (data-ops) — done 2026-05-07
+- ✅ **Slice 2** (data-service) — done 2026-05-07
 - **Slice 3** (runner, ~1h): `POST /jobs/ingest`. Pure helpers `buildRcloneIngestArgs` (per-folder/file zgodnie z D4). Loop per folder, per-folder log emit. Sanityzacja email -> spojna z CLI (fix bug #1). Unit testy.
 - **Slice 4** (UI, ~45 min): przycisk "Pobierz z Drive" w `EmployeeRow`. Server fn `triggerIngestJob`. `TYPE_LABEL['ingest']`. Confirm dialog.
 - **Slice 5** (hardening, ~30 min): OAuth revoked handling, partial failures, disk space pre-check.

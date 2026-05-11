@@ -4,6 +4,7 @@ import {
 	MigrationJobListRequestSchema,
 	TriggerBackupRequestSchema,
 	TriggerGDriveRestoreRequestSchema,
+	TriggerIngestRequestSchema,
 	TriggerMigrateRequestSchema,
 } from "@repo/data-ops/migration";
 import { Hono } from "hono";
@@ -74,16 +75,33 @@ migrationHandlers.post(
 	},
 );
 
+migrationHandlers.post(
+	"/ingest",
+	(c, next) => authMiddleware(c.env.API_TOKEN)(c, next),
+	zValidator("json", TriggerIngestRequestSchema),
+	async (c) => {
+		const body = c.req.valid("json");
+		const operatorId = c.req.header("X-Operator-Id") ?? "";
+		return resultToResponse(
+			c,
+			await migrationService.triggerIngest({
+				deploymentId: body.deploymentId,
+				employeeId: body.employeeId,
+				triggeredByUserId: operatorId,
+				env: c.env,
+			}),
+			202,
+		);
+	},
+);
+
 migrationHandlers.get(
 	"/jobs",
 	(c, next) => authMiddleware(c.env.API_TOKEN)(c, next),
 	zValidator("query", MigrationJobListRequestSchema),
 	async (c) => {
 		const query = c.req.valid("query");
-		return resultToResponse(
-			c,
-			await migrationService.listMigrationJobsForAdmin(query),
-		);
+		return resultToResponse(c, await migrationService.listMigrationJobsForAdmin(query));
 	},
 );
 

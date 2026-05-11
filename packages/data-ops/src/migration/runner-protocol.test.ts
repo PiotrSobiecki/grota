@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
 	BackupRequestSchema,
 	GDriveRestoreRequestSchema,
+	IngestRequestSchema,
 	JobCreatedResponseSchema,
 	LogLineSchema,
 	MigrateRequestSchema,
@@ -46,9 +47,7 @@ describe("BackupRequestSchema", () => {
 	});
 
 	it("accepts a body with a specific account", () => {
-		expect(
-			BackupRequestSchema.safeParse({ account: "user@example.com" }).success,
-		).toBe(true);
+		expect(BackupRequestSchema.safeParse({ account: "user@example.com" }).success).toBe(true);
 	});
 
 	it("rejects a body with non-email account", () => {
@@ -56,9 +55,7 @@ describe("BackupRequestSchema", () => {
 	});
 
 	it("accepts a body with full runnerConfig", () => {
-		expect(
-			BackupRequestSchema.safeParse({ runnerConfig: validRunnerConfig }).success,
-		).toBe(true);
+		expect(BackupRequestSchema.safeParse({ runnerConfig: validRunnerConfig }).success).toBe(true);
 	});
 
 	it("rejects body where runnerConfig.b2KeyId is empty", () => {
@@ -194,5 +191,96 @@ describe("GDriveRestoreRequestSchema", () => {
 		expect(
 			GDriveRestoreRequestSchema.safeParse({ ...validRequest, account: "not-email" }).success,
 		).toBe(false);
+	});
+});
+
+describe("IngestRequestSchema", () => {
+	const validIngestRequest = {
+		account: "user@example.com",
+		runnerConfig: validRunnerConfig,
+		gdrive: {
+			clientId: "google-client-id",
+			clientSecret: "google-client-secret",
+			accessToken: "ya29.a0Af...",
+			refreshToken: "1//0g...",
+			expiry: "2026-05-07T12:00:00.000Z",
+		},
+		folders: [
+			{
+				itemId: "1aBcDeF",
+				itemName: "Reports",
+				itemType: "folder" as const,
+				parentFolderId: "0ROOT",
+				sharedDriveName: "ClientX",
+				mimeType: "application/vnd.google-apps.folder",
+			},
+		],
+	};
+
+	it("accepts a complete valid request", () => {
+		expect(IngestRequestSchema.safeParse(validIngestRequest).success).toBe(true);
+	});
+
+	it("rejects missing account", () => {
+		const { account: _a, ...rest } = validIngestRequest;
+		expect(IngestRequestSchema.safeParse(rest).success).toBe(false);
+	});
+
+	it("rejects non-email account", () => {
+		expect(
+			IngestRequestSchema.safeParse({ ...validIngestRequest, account: "not-email" }).success,
+		).toBe(false);
+	});
+
+	it("rejects missing gdrive credentials", () => {
+		const { gdrive: _g, ...rest } = validIngestRequest;
+		expect(IngestRequestSchema.safeParse(rest).success).toBe(false);
+	});
+
+	it("rejects missing runnerConfig", () => {
+		const { runnerConfig: _r, ...rest } = validIngestRequest;
+		expect(IngestRequestSchema.safeParse(rest).success).toBe(false);
+	});
+
+	it("rejects empty folders array", () => {
+		expect(IngestRequestSchema.safeParse({ ...validIngestRequest, folders: [] }).success).toBe(
+			false,
+		);
+	});
+
+	it("accepts folder with sharedDriveName: null (skipped by runner per D4)", () => {
+		expect(
+			IngestRequestSchema.safeParse({
+				...validIngestRequest,
+				folders: [{ ...validIngestRequest.folders[0], sharedDriveName: null }],
+			}).success,
+		).toBe(true);
+	});
+
+	it("rejects unknown itemType", () => {
+		expect(
+			IngestRequestSchema.safeParse({
+				...validIngestRequest,
+				folders: [{ ...validIngestRequest.folders[0], itemType: "shortcut" }],
+			}).success,
+		).toBe(false);
+	});
+
+	it("accepts folder with mimeType: null (DB legacy rows)", () => {
+		expect(
+			IngestRequestSchema.safeParse({
+				...validIngestRequest,
+				folders: [{ ...validIngestRequest.folders[0], mimeType: null }],
+			}).success,
+		).toBe(true);
+	});
+
+	it("accepts folder with parentFolderId: null (Drive root)", () => {
+		expect(
+			IngestRequestSchema.safeParse({
+				...validIngestRequest,
+				folders: [{ ...validIngestRequest.folders[0], parentFolderId: null }],
+			}).success,
+		).toBe(true);
 	});
 });

@@ -8,6 +8,8 @@ import {
 	BackupRequestSchema,
 	type GDriveRestoreRequest,
 	GDriveRestoreRequestSchema,
+	type IngestRequest,
+	IngestRequestSchema,
 	type LogLine,
 	type MigrateRequest,
 	MigrateRequestSchema,
@@ -38,8 +40,13 @@ export type RunGDriveRestoreFn = (
 	req: GDriveRestoreRequest,
 	emitLog: LogEmitter,
 ) => Promise<number>;
+export type RunIngestFn = (
+	jobId: string,
+	req: IngestRequest,
+	emitLog: LogEmitter,
+) => Promise<number>;
 
-type JobType = "backup" | "migrate" | "gdrive-restore";
+type JobType = "backup" | "migrate" | "gdrive-restore" | "ingest";
 
 interface InternalJob extends RunnerJob {
 	type: JobType;
@@ -57,6 +64,7 @@ export interface AppConfig {
 	runBackup?: RunBackupFn;
 	runMigrate?: RunMigrateFn;
 	runGDriveRestore?: RunGDriveRestoreFn;
+	runIngest?: RunIngestFn;
 }
 
 const verifyB2NotImplemented: VerifyB2Fn = async () => ({
@@ -67,6 +75,7 @@ const verifyB2NotImplemented: VerifyB2Fn = async () => ({
 const runBackupNotImplemented: RunBackupFn = async () => 1;
 const runMigrateNotImplemented: RunMigrateFn = async () => 1;
 const runGDriveRestoreNotImplemented: RunGDriveRestoreFn = async () => 1;
+const runIngestNotImplemented: RunIngestFn = async () => 1;
 
 export function createApp(config: AppConfig): Hono {
 	const app = new Hono();
@@ -74,6 +83,7 @@ export function createApp(config: AppConfig): Hono {
 	const runBackup = config.runBackup ?? runBackupNotImplemented;
 	const runMigrate = config.runMigrate ?? runMigrateNotImplemented;
 	const runGDriveRestore = config.runGDriveRestore ?? runGDriveRestoreNotImplemented;
+	const runIngest = config.runIngest ?? runIngestNotImplemented;
 	const jobs = new Map<string, InternalJob>();
 
 	function isTypeActive(type: JobType): boolean {
@@ -170,6 +180,7 @@ export function createApp(config: AppConfig): Hono {
 		GDriveRestoreRequestSchema,
 		runGDriveRestore,
 	);
+	jobRoute("/jobs/ingest", "ingest", IngestRequestSchema, runIngest);
 
 	app.get("/jobs/:id", (c) => {
 		const id = c.req.param("id");

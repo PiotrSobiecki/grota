@@ -55,6 +55,22 @@ export const GDriveRestoreRequestSchema = z.object({
 	gdrive: GDriveCredentialsSchema,
 });
 
+export const IngestFolderSchema = z.object({
+	itemId: z.string().min(1),
+	itemName: z.string().min(1),
+	itemType: z.enum(["file", "folder"]),
+	parentFolderId: z.string().min(1).nullable(),
+	sharedDriveName: z.string().min(1).nullable(),
+	mimeType: z.string().min(1).nullable(),
+});
+
+export const IngestRequestSchema = z.object({
+	account: z.string().email(),
+	runnerConfig: RunnerJobConfigSchema,
+	gdrive: GDriveCredentialsSchema,
+	folders: z.array(IngestFolderSchema).min(1),
+});
+
 export const B2VerifyRequestSchema = z.object({
 	b2KeyId: z.string().min(1),
 	b2AppKey: z.string().min(1),
@@ -77,3 +93,5 @@ export type B2VerifyRequest = z.infer<typeof B2VerifyRequestSchema>;
 export type B2VerifyResponse = z.infer<typeof B2VerifyResponseSchema>;
 export type GDriveCredentials = z.infer<typeof GDriveCredentialsSchema>;
 export type GDriveRestoreRequest = z.infer<typeof GDriveRestoreRequestSchema>;
+export type IngestFolder = z.infer<typeof IngestFolderSchema>;
+export type IngestRequest = z.infer<typeof IngestRequestSchema>;

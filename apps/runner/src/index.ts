@@ -2,6 +2,7 @@ import { serve } from "@hono/node-server";
 import { createApp } from "./app";
 import { createRunBackup, realRcloneSpawnForBackup } from "./run-backup";
 import { createRunGDriveRestore, realRcloneSpawnForGDriveRestore } from "./run-gdrive-restore";
+import { createRunIngest } from "./run-ingest";
 import { createRunMigrate } from "./run-migrate";
 import { createVerifyB2, realRcloneSpawn } from "./verify-b2";
 
@@ -26,6 +27,7 @@ const app = createApp({
 	runBackup: createRunBackup(realRcloneSpawnForBackup),
 	runMigrate: createRunMigrate(realRcloneSpawnForBackup),
 	runGDriveRestore: createRunGDriveRestore(realRcloneSpawnForGDriveRestore),
+	runIngest: createRunIngest(realRcloneSpawnForGDriveRestore),
 });
 
 serve({ fetch: app.fetch, port }, (info) => {

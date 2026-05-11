@@ -3,6 +3,7 @@ import {
 	MigrationJobSchema,
 	MigrationJobTypeSchema,
 	TriggerBackupRequestSchema,
+	TriggerIngestRequestSchema,
 	TriggerMigrateRequestSchema,
 } from "./schema";
 
@@ -10,6 +11,14 @@ describe("MigrationJobTypeSchema", () => {
 	it("accepts backup and migrate", () => {
 		expect(MigrationJobTypeSchema.parse("backup")).toBe("backup");
 		expect(MigrationJobTypeSchema.parse("migrate")).toBe("migrate");
+	});
+
+	it("accepts gdrive-restore", () => {
+		expect(MigrationJobTypeSchema.parse("gdrive-restore")).toBe("gdrive-restore");
+	});
+
+	it("accepts ingest (employee Drive -> VPS first hop)", () => {
+		expect(MigrationJobTypeSchema.parse("ingest")).toBe("ingest");
 	});
 
 	it("rejects unknown types", () => {
@@ -75,6 +84,29 @@ describe("TriggerBackupRequestSchema", () => {
 			account: "not-an-email",
 		});
 		expect(result.success).toBe(false);
+	});
+});
+
+describe("TriggerIngestRequestSchema", () => {
+	const valid = {
+		deploymentId: "11111111-1111-4111-8111-111111111111",
+		employeeId: "22222222-2222-4222-8222-222222222222",
+	};
+
+	it("requires deploymentId + employeeId as uuids", () => {
+		expect(TriggerIngestRequestSchema.safeParse(valid).success).toBe(true);
+	});
+
+	it("rejects missing employeeId", () => {
+		expect(TriggerIngestRequestSchema.safeParse({ deploymentId: valid.deploymentId }).success).toBe(
+			false,
+		);
+	});
+
+	it("rejects non-uuid employeeId", () => {
+		expect(TriggerIngestRequestSchema.safeParse({ ...valid, employeeId: "abc" }).success).toBe(
+			false,
+		);
 	});
 });
 

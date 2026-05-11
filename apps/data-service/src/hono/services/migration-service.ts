@@ -1,12 +1,14 @@
+import { recordServerConfigChange } from "@repo/data-ops/audit-log";
+import type { Deployment } from "@repo/data-ops/deployment";
 import {
 	getDeployment,
 	getDeploymentServerConfig,
+	getWorkspaceOAuthToken,
 	type ServerConfig,
 	setDeploymentServerConfig,
+	setWorkspaceOAuthToken,
 } from "@repo/data-ops/deployment";
-import { recordServerConfigChange } from "@repo/data-ops/audit-log";
-import { getWorkspaceOAuthToken, setWorkspaceOAuthToken } from "@repo/data-ops/deployment";
-import { getSharedDrivesByDeployment } from "@repo/data-ops/shared-drive";
+import { getDriveOAuthToken, getEmployeeById, setDriveOAuthToken } from "@repo/data-ops/employee";
 import {
 	decrypt,
 	decryptServerConfig,
@@ -14,6 +16,7 @@ import {
 	encryptServerConfig,
 	maskSecret,
 } from "@repo/data-ops/encryption";
+import { getFolderSelectionsByEmployee } from "@repo/data-ops/folder-selection";
 import {
 	createMigrationJob,
 	getActiveMigrationJob,
@@ -25,7 +28,7 @@ import {
 	RunnerJobSchema,
 	updateMigrationJobStatus,
 } from "@repo/data-ops/migration";
-import type { Deployment } from "@repo/data-ops/deployment";
+import { getSharedDrivesByDeployment } from "@repo/data-ops/shared-drive";
 import type { Result } from "../types/result";
 
 const NOT_FOUND = {
@@ -156,9 +159,7 @@ export interface TriggerBackupInput {
 	encryptionKey: string;
 }
 
-export async function triggerBackup(
-	input: TriggerBackupInput,
-): Promise<Result<MigrationJob>> {
+export async function triggerBackup(input: TriggerBackupInput): Promise<Result<MigrationJob>> {
 	const deployment = await getDeployment(input.deploymentId);
 	if (!deployment) return NOT_FOUND;
 
@@ -248,9 +249,7 @@ export interface TriggerMigrateInput {
 	encryptionKey: string;
 }
 
-export async function triggerMigrate(
-	input: TriggerMigrateInput,
-): Promise<Result<MigrationJob>> {
+export async function triggerMigrate(input: TriggerMigrateInput): Promise<Result<MigrationJob>> {
 	const deployment = await getDeployment(input.deploymentId);
 	if (!deployment) return NOT_FOUND;
 
@@ -350,33 +349,36 @@ interface WorkspaceTokenPayload {
 	expiry_date: number;
 }
 
-async function buildGDriveCredentialsForRunner(
-	deploymentId: string,
+interface GDriveTokenSource {
+	load: () => Promise<string | null>;
+	save: (encrypted: string) => Promise<void>;
+	missingCode: string;
+	missingMessage: string;
+	decryptMessage: string;
+	refreshMessage: string;
+}
+
+async function buildGDriveCredentialsFromSource(
+	source: GDriveTokenSource,
 	env: Env,
 ): Promise<Result<GDriveCredentialsForRunner>> {
-	const encryptedToken = await getWorkspaceOAuthToken(deploymentId);
+	const encryptedToken = await source.load();
 	if (!encryptedToken) {
 		return {
 			ok: false,
-			error: {
-				code: "NO_WORKSPACE_TOKEN",
-				message: "Brak autoryzacji Workspace. Przejdz przez krok 2 onboardingu.",
-				status: 401,
-			},
+			error: { code: source.missingCode, message: source.missingMessage, status: 401 },
 		};
 	}
 
 	let payload: WorkspaceTokenPayload;
 	try {
-		payload = JSON.parse(await decrypt(encryptedToken, env.ENCRYPTION_KEY)) as WorkspaceTokenPayload;
+		payload = JSON.parse(
+			await decrypt(encryptedToken, env.ENCRYPTION_KEY),
+		) as WorkspaceTokenPayload;
 	} catch {
 		return {
 			ok: false,
-			error: {
-				code: "TOKEN_DECRYPT_FAILED",
-				message: "Nie udalo sie odszyfrowac tokenu Workspace",
-				status: 500,
-			},
+			error: { code: "TOKEN_DECRYPT_FAILED", message: source.decryptMessage, status: 500 },
 		};
 	}
 
@@ -396,7 +398,7 @@ async function buildGDriveCredentialsForRunner(
 				ok: false,
 				error: {
 					code: "TOKEN_REFRESH_FAILED",
-					message: "Nie udalo sie odswiezyc tokenu Workspace",
+					message: source.refreshMessage,
 					status: 401,
 				},
 			};
@@ -410,10 +412,7 @@ async function buildGDriveCredentialsForRunner(
 			access_token: refreshData.access_token,
 			expiry_date: Date.now() + refreshData.expires_in * 1000,
 		};
-		await setWorkspaceOAuthToken(
-			deploymentId,
-			await encrypt(JSON.stringify(payload), env.ENCRYPTION_KEY),
-		);
+		await source.save(await encrypt(JSON.stringify(payload), env.ENCRYPTION_KEY));
 	}
 
 	return {
@@ -426,6 +425,20 @@ async function buildGDriveCredentialsForRunner(
 			expiry: new Date(payload.expiry_date).toISOString(),
 		},
 	};
+}
+
+function buildGDriveCredentialsForRunner(deploymentId: string, env: Env) {
+	return buildGDriveCredentialsFromSource(
+		{
+			load: () => getWorkspaceOAuthToken(deploymentId),
+			save: (encrypted) => setWorkspaceOAuthToken(deploymentId, encrypted),
+			missingCode: "NO_WORKSPACE_TOKEN",
+			missingMessage: "Brak autoryzacji Workspace. Przejdz przez krok 2 onboardingu.",
+			decryptMessage: "Nie udalo sie odszyfrowac tokenu Workspace",
+			refreshMessage: "Nie udalo sie odswiezyc tokenu Workspace",
+		},
+		env,
+	);
 }
 
 export interface TriggerGDriveRestoreInput {
@@ -469,8 +482,7 @@ export async function triggerGDriveRestore(
 			ok: false,
 			error: {
 				code: "NO_SHARED_DRIVE",
-				message:
-					"Brak shared drive dla wdrozenia. Skonfiguruj shared drive w panelu admina.",
+				message: "Brak shared drive dla wdrozenia. Skonfiguruj shared drive w panelu admina.",
 				status: 400,
 			},
 		};
@@ -618,10 +630,9 @@ export async function streamJobLogs(
 	}
 
 	try {
-		const response = await fetch(
-			`${config.runner_url}/jobs/${job.runnerJobId}/logs/stream`,
-			{ headers: { authorization: `Bearer ${config.runner_token}` } },
-		);
+		const response = await fetch(`${config.runner_url}/jobs/${job.runnerJobId}/logs/stream`, {
+			headers: { authorization: `Bearer ${config.runner_token}` },
+		});
 		return { ok: true, data: response };
 	} catch (_err) {
 		return {
@@ -661,10 +672,26 @@ export async function setServerConfigFromAdmin(
 	const merged: ServerConfig = {
 		backup_path: partial.backup_path ?? existing?.backup_path ?? "",
 		bwlimit: partial.bwlimit ?? existing?.bwlimit ?? "",
-		...(partial.ssh_host !== undefined ? { ssh_host: partial.ssh_host } : existing?.ssh_host ? { ssh_host: existing.ssh_host } : {}),
-		...(partial.ssh_user !== undefined ? { ssh_user: partial.ssh_user } : existing?.ssh_user ? { ssh_user: existing.ssh_user } : {}),
-		...(partial.runner_url !== undefined ? { runner_url: partial.runner_url } : existing?.runner_url ? { runner_url: existing.runner_url } : {}),
-		...(partial.runner_token !== undefined ? { runner_token: partial.runner_token } : existing?.runner_token ? { runner_token: existing.runner_token } : {}),
+		...(partial.ssh_host !== undefined
+			? { ssh_host: partial.ssh_host }
+			: existing?.ssh_host
+				? { ssh_host: existing.ssh_host }
+				: {}),
+		...(partial.ssh_user !== undefined
+			? { ssh_user: partial.ssh_user }
+			: existing?.ssh_user
+				? { ssh_user: existing.ssh_user }
+				: {}),
+		...(partial.runner_url !== undefined
+			? { runner_url: partial.runner_url }
+			: existing?.runner_url
+				? { runner_url: existing.runner_url }
+				: {}),
+		...(partial.runner_token !== undefined
+			? { runner_token: partial.runner_token }
+			: existing?.runner_token
+				? { runner_token: existing.runner_token }
+				: {}),
 	};
 
 	const changedFields = diffServerConfigFields(existing, merged);
@@ -692,10 +719,154 @@ const SERVER_CONFIG_TRACKED_FIELDS = [
 	"runner_token",
 ] as const satisfies readonly (keyof ServerConfig)[];
 
-function diffServerConfigFields(
-	prev: ServerConfig | null,
-	next: ServerConfig,
-): string[] {
+function buildEmployeeGDriveCredentialsForRunner(employeeId: string, env: Env) {
+	return buildGDriveCredentialsFromSource(
+		{
+			load: () => getDriveOAuthToken(employeeId),
+			save: (encrypted) => setDriveOAuthToken(employeeId, encrypted),
+			missingCode: "NO_EMPLOYEE_TOKEN",
+			missingMessage: "Pracownik nie autoryzowal dostepu do Drive",
+			decryptMessage: "Nie udalo sie odszyfrowac tokenu pracownika",
+			refreshMessage: "Nie udalo sie odswiezyc tokenu pracownika",
+		},
+		env,
+	);
+}
+
+export interface TriggerIngestInput {
+	deploymentId: string;
+	employeeId: string;
+	triggeredByUserId: string;
+	env: Env;
+}
+
+export async function triggerIngest(input: TriggerIngestInput): Promise<Result<MigrationJob>> {
+	const { deploymentId, employeeId, triggeredByUserId, env } = input;
+
+	const deployment = await getDeployment(deploymentId);
+	if (!deployment) return NOT_FOUND;
+
+	const employee = await getEmployeeById(employeeId);
+	if (!employee || employee.deploymentId !== deploymentId) {
+		return {
+			ok: false,
+			error: {
+				code: "EMPLOYEE_NOT_FOUND",
+				message: "Pracownik nie zostal znaleziony w tym wdrozeniu",
+				status: 404,
+			},
+		};
+	}
+
+	const active = await getActiveMigrationJob(deploymentId);
+	if (active) return JOB_ALREADY_RUNNING;
+
+	const stored = await getDeploymentServerConfig(deploymentId);
+	const config = stored ? await decryptServerConfig(stored, env.ENCRYPTION_KEY) : null;
+	if (!config?.runner_url || !config.runner_token) {
+		return {
+			ok: false,
+			error: {
+				code: "CONFIG_INCOMPLETE",
+				message: "Brak runner_url lub runner_token w konfiguracji",
+				status: 400,
+			},
+		};
+	}
+
+	const runnerConfig = buildRunnerJobConfig(deployment, config);
+	if (!runnerConfig) return CONFIG_INCOMPLETE_B2;
+
+	const selections = await getFolderSelectionsByEmployee(employeeId);
+	if (selections.length === 0) {
+		return {
+			ok: false,
+			error: {
+				code: "NO_FOLDERS_SELECTED",
+				message: "Pracownik nie wybral zadnych folderow do migracji",
+				status: 400,
+			},
+		};
+	}
+
+	const sharedDrives = await getSharedDrivesByDeployment(deploymentId);
+	const sdNameById = new Map(sharedDrives.map((sd) => [sd.id, sd.name]));
+	const folders = selections.map((s) => ({
+		itemId: s.itemId,
+		itemName: s.itemName,
+		itemType: s.itemType,
+		parentFolderId: s.parentFolderId,
+		mimeType: s.mimeType,
+		sharedDriveName: s.sharedDriveId ? (sdNameById.get(s.sharedDriveId) ?? null) : null,
+	}));
+
+	const gdriveResult = await buildEmployeeGDriveCredentialsForRunner(employeeId, env);
+	if (!gdriveResult.ok) return gdriveResult;
+
+	const requestBody = {
+		account: employee.email,
+		runnerConfig,
+		gdrive: gdriveResult.data,
+		folders,
+	};
+
+	let response: Response;
+	try {
+		response = await fetch(`${config.runner_url}/jobs/ingest`, {
+			method: "POST",
+			headers: {
+				"content-type": "application/json",
+				authorization: `Bearer ${config.runner_token}`,
+			},
+			body: JSON.stringify(requestBody),
+		});
+	} catch (_err) {
+		return {
+			ok: false,
+			error: {
+				code: "RUNNER_UNREACHABLE",
+				message: "Nie udalo sie polaczyc z runnerem",
+				status: 502,
+			},
+		};
+	}
+
+	if (!response.ok) {
+		return {
+			ok: false,
+			error: {
+				code: "RUNNER_REJECTED",
+				message: `Runner odrzucil zadanie (${response.status})`,
+				status: 502,
+			},
+		};
+	}
+
+	const parsed = JobCreatedResponseSchema.safeParse(await response.json());
+	if (!parsed.success) {
+		return {
+			ok: false,
+			error: {
+				code: "RUNNER_INVALID_RESPONSE",
+				message: "Runner zwrocil nieprawidlowa odpowiedz",
+				status: 502,
+			},
+		};
+	}
+
+	const job = await createMigrationJob({
+		deploymentId,
+		type: "ingest",
+		account: employee.email,
+		dryRun: false,
+		runnerJobId: parsed.data.jobId,
+		triggeredByUserId,
+	});
+
+	return { ok: true, data: job };
+}
+
+function diffServerConfigFields(prev: ServerConfig | null, next: ServerConfig): string[] {
 	const changed: string[] = [];
 	for (const field of SERVER_CONFIG_TRACKED_FIELDS) {
 		if ((prev?.[field] ?? undefined) !== (next[field] ?? undefined)) {

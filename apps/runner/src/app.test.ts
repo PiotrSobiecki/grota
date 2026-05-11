@@ -542,4 +542,86 @@ describe("runner app", () => {
 			expect(second.status).toBe(409);
 		});
 	});
+
+	describe("POST /jobs/ingest", () => {
+		const validIngestBody = {
+			account: "user@example.com",
+			runnerConfig: {
+				b2KeyId: "K001abc",
+				b2AppKey: "secret",
+				bucketPrefix: "client-x",
+				backupPath: "/srv/backup/gdrive",
+			},
+			gdrive: {
+				clientId: "g-id",
+				clientSecret: "g-secret",
+				accessToken: "ya29.x",
+				refreshToken: "1//y",
+				expiry: "2026-05-11T12:00:00.000Z",
+			},
+			folders: [
+				{
+					itemId: "f1",
+					itemName: "A",
+					itemType: "folder",
+					parentFolderId: null,
+					sharedDriveName: "Klient-X",
+					mimeType: null,
+				},
+			],
+		};
+
+		it("creates an ingest job and returns 202 with jobId; forwards body to runIngest", async () => {
+			const runIngest = vi.fn(() => new Promise<number>(() => {}));
+			const jobApp = createApp({ token: TOKEN, version: "0.1.0", runIngest });
+			const res = await jobApp.request("/jobs/ingest", {
+				method: "POST",
+				headers: {
+					Authorization: `Bearer ${TOKEN}`,
+					"content-type": "application/json",
+				},
+				body: JSON.stringify(validIngestBody),
+			});
+			expect(res.status).toBe(202);
+			const { jobId } = (await res.json()) as { jobId: string };
+			expect(jobId).toMatch(
+				/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+			);
+			expect(runIngest).toHaveBeenCalledWith(
+				jobId,
+				validIngestBody,
+				expect.any(Function),
+			);
+		});
+
+		it("returns 409 when another ingest job is already running", async () => {
+			const runIngest = vi.fn(() => new Promise<number>(() => {}));
+			const jobApp = createApp({ token: TOKEN, version: "0.1.0", runIngest });
+			const first = await jobApp.request("/jobs/ingest", {
+				method: "POST",
+				headers: {
+					Authorization: `Bearer ${TOKEN}`,
+					"content-type": "application/json",
+				},
+				body: JSON.stringify(validIngestBody),
+			});
+			expect(first.status).toBe(202);
+			const second = await jobApp.request("/jobs/ingest", {
+				method: "POST",
+				headers: {
+					Authorization: `Bearer ${TOKEN}`,
+					"content-type": "application/json",
+				},
+				body: JSON.stringify(validIngestBody),
+			});
+			expect(second.status).toBe(409);
+		});
+
+		it("returns 400 when body is missing required fields", async () => {
+			const res = await authedJsonRequest("/jobs/ingest", {
+				account: "user@example.com",
+			});
+			expect(res.status).toBe(400);
+		});
+	});
 });

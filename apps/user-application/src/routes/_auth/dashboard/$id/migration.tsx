@@ -12,6 +12,7 @@ import {
 	type MigrationJobDto,
 	triggerBackupJob,
 	triggerGDriveRestoreJob,
+	triggerIngestJob,
 	triggerMigrateJob,
 } from "@/core/functions/migration/binding";
 import {
@@ -48,6 +49,7 @@ const TYPE_LABEL: Record<MigrationJobDto["type"], string> = {
 	backup: "Backup",
 	migrate: "Migracja B2 → lokalny",
 	"gdrive-restore": "Przywracanie do Workspace",
+	ingest: "Pobieranie z Drive",
 };
 
 function MigrationPage() {
@@ -100,6 +102,18 @@ function MigrationPage() {
 			}),
 		onSuccess: () => {
 			toast.success("Przywracanie do Workspace uruchomione");
+			refetchJobs();
+		},
+		onError: (e) => toast.error(e.message),
+	});
+
+	const ingestMutation = useMutation({
+		mutationFn: (input: { employeeId: string }) =>
+			triggerIngestJob({
+				data: { deploymentId, employeeId: input.employeeId },
+			}),
+		onSuccess: () => {
+			toast.success("Pobieranie z Drive uruchomione");
 			refetchJobs();
 		},
 		onError: (e) => toast.error(e.message),
@@ -186,11 +200,13 @@ function MigrationPage() {
 							{employees.map((emp) => (
 								<EmployeeRow
 									key={emp.id}
+									employeeId={emp.id}
 									email={emp.email}
 									name={emp.name}
 									oauthStatus={emp.oauthStatus}
 									selectionStatus={emp.selectionStatus}
 									disabled={!!activeJob}
+									onIngest={() => ingestMutation.mutate({ employeeId: emp.id })}
 									onBackup={() => backupMutation.mutate({ account: emp.email })}
 									onDryRun={() =>
 										migrateMutation.mutate({ account: emp.email, dryRun: true })
@@ -229,11 +245,13 @@ function MigrationPage() {
 }
 
 interface EmployeeRowProps {
+	employeeId: string;
 	email: string;
 	name: string;
 	oauthStatus: string;
 	selectionStatus: string;
 	disabled: boolean;
+	onIngest: () => void;
 	onBackup: () => void;
 	onDryRun: () => void;
 	onMigrate: () => void;
@@ -255,6 +273,11 @@ function EmployeeRow(props: EmployeeRowProps) {
 				<Badge variant={ready ? "default" : "secondary"}>
 					{ready ? "Gotowy" : "Niegotowy"}
 				</Badge>
+				<IngestRowButton
+					onConfirm={props.onIngest}
+					disabled={props.disabled || !ready}
+					email={props.email}
+				/>
 				<Button
 					size="sm"
 					variant="outline"
@@ -283,6 +306,45 @@ function EmployeeRow(props: EmployeeRowProps) {
 				/>
 			</div>
 		</div>
+	);
+}
+
+function IngestRowButton({
+	onConfirm,
+	disabled,
+	email,
+}: ConfirmActionProps & { email: string }) {
+	const [open, setOpen] = useState(false);
+	return (
+		<AlertDialog open={open} onOpenChange={setOpen}>
+			<AlertDialogTrigger asChild>
+				<Button size="sm" variant="outline" disabled={disabled}>
+					Pobierz z Drive
+				</Button>
+			</AlertDialogTrigger>
+			<AlertDialogContent>
+				<AlertDialogHeader>
+					<AlertDialogTitle>Pobierz {email} z Drive</AlertDialogTitle>
+					<AlertDialogDescription>
+						Pliki z prywatnego Google Drive pracownika zostana sciagniete do
+						lokalnego katalogu na VPSie. Wybrane foldery (wg konfiguracji
+						pracownika) zostana zsynchronizowane. Po skonczeniu mozna uruchomic
+						Backup do B2 lub Przywroc do Workspace. Kontynuowac?
+					</AlertDialogDescription>
+				</AlertDialogHeader>
+				<AlertDialogFooter>
+					<AlertDialogCancel>Anuluj</AlertDialogCancel>
+					<AlertDialogAction
+						onClick={() => {
+							setOpen(false);
+							onConfirm();
+						}}
+					>
+						Tak, pobierz
+					</AlertDialogAction>
+				</AlertDialogFooter>
+			</AlertDialogContent>
+		</AlertDialog>
 	);
 }
 
