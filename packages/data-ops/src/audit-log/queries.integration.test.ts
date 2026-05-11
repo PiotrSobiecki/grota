@@ -1,9 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import {
-	createTestDeployment,
-	createTestUser,
-	resetTestDatabase,
-} from "@/test/fixtures";
+import { createTestDeployment, createTestUser, resetTestDatabase } from "@/test/fixtures";
 import { getServerConfigAuditLog, recordServerConfigChange } from "./queries";
 
 describe("server-config audit log (integration)", () => {

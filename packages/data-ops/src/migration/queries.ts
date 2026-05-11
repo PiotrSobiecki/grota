@@ -12,9 +12,7 @@ export interface CreateMigrationJobInput {
 	triggeredByUserId: string;
 }
 
-export async function createMigrationJob(
-	input: CreateMigrationJobInput,
-): Promise<MigrationJob> {
+export async function createMigrationJob(input: CreateMigrationJobInput): Promise<MigrationJob> {
 	const db = getDb();
 	const result = await db
 		.insert(migrationJobs)
@@ -34,9 +32,7 @@ export async function createMigrationJob(
 	return row as MigrationJob;
 }
 
-export async function getActiveMigrationJob(
-	deploymentId: string,
-): Promise<MigrationJob | null> {
+export async function getActiveMigrationJob(deploymentId: string): Promise<MigrationJob | null> {
 	const db = getDb();
 	const result = await db
 		.select()
@@ -54,10 +50,7 @@ export async function getActiveMigrationJob(
 
 export async function getMigrationJob(id: string): Promise<MigrationJob | null> {
 	const db = getDb();
-	const result = await db
-		.select()
-		.from(migrationJobs)
-		.where(eq(migrationJobs.id, id));
+	const result = await db.select().from(migrationJobs).where(eq(migrationJobs.id, id));
 	return (result[0] as MigrationJob | undefined) ?? null;
 }
 
@@ -67,9 +60,7 @@ export interface ListMigrationJobsInput {
 	offset: number;
 }
 
-export async function listMigrationJobs(
-	input: ListMigrationJobsInput,
-): Promise<MigrationJob[]> {
+export async function listMigrationJobs(input: ListMigrationJobsInput): Promise<MigrationJob[]> {
 	const db = getDb();
 	const result = await db
 		.select()

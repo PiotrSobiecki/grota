@@ -791,9 +791,7 @@ export async function triggerIngest(input: TriggerIngestInput): Promise<Result<M
 
 	const sharedDrives = await getSharedDrivesByDeployment(deploymentId);
 	const sdNameById = new Map(sharedDrives.map((sd) => [sd.id, sd.name]));
-	const sdGoogleIdByDbId = new Map(
-		sharedDrives.map((sd) => [sd.id, sd.googleDriveId ?? null]),
-	);
+	const sdGoogleIdByDbId = new Map(sharedDrives.map((sd) => [sd.id, sd.googleDriveId ?? null]));
 	const folders = selections.map((s) => ({
 		itemId: s.itemId,
 		itemName: s.itemName,
@@ -801,9 +799,7 @@ export async function triggerIngest(input: TriggerIngestInput): Promise<Result<M
 		parentFolderId: s.parentFolderId,
 		mimeType: s.mimeType,
 		sharedDriveName: s.sharedDriveId ? (sdNameById.get(s.sharedDriveId) ?? null) : null,
-		sharedDriveId: s.sharedDriveId
-			? (sdGoogleIdByDbId.get(s.sharedDriveId) ?? null)
-			: null,
+		sharedDriveId: s.sharedDriveId ? (sdGoogleIdByDbId.get(s.sharedDriveId) ?? null) : null,
 	}));
 
 	const gdriveResult = await buildEmployeeGDriveCredentialsForRunner(employeeId, env);

@@ -1,4 +1,9 @@
-import type { IngestRequest, IngestFolder, LogLine, RunnerJobConfig } from "@repo/data-ops/migration";
+import type {
+	IngestFolder,
+	IngestRequest,
+	LogLine,
+	RunnerJobConfig,
+} from "@repo/data-ops/migration";
 import { describe, expect, it, vi } from "vitest";
 import type { SpawnRcloneFn } from "./run-backup";
 import {
@@ -82,9 +87,7 @@ describe("buildRcloneIngestArgs", () => {
 		const args = buildRcloneIngestArgs(file, ACCOUNT, RUNNER_CONFIG, TIMESTAMP);
 		expect(args[0]).toBe("copy");
 		expect(args[1]).toBe(`${REMOTE}:`);
-		expect(args[2]).toBe(
-			"/srv/backup/gdrive/piotr_sobiecki_gmail_com/Klient-X/_files/raport.docx",
-		);
+		expect(args[2]).toBe("/srv/backup/gdrive/piotr_sobiecki_gmail_com/Klient-X/_files/raport.docx");
 		const rootIdx = args.indexOf("--drive-root-folder-id");
 		expect(args[rootIdx + 1]).toBe("1ParentFolderId");
 		const incIdx = args.indexOf("--include");

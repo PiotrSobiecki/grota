@@ -1,143 +1,143 @@
 {
-  "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "grota-ds",
-  "main": "./src/index.ts",
-  "compatibility_date": "2025-04-01",
-  "compatibility_flags": ["nodejs_compat"],
-  "observability": {
-    "enabled": true,
-  },
-  // "triggers": {
-  //   "crons": [
-  //     "0 * * * *"
-  //   ]
-  // },
-  "env": {
-    /**
-     * Local / Development environment
-     */
-    "dev": {
-      "name": "grota-ds-dev",
-      "r2_buckets": [
-        {
-          "binding": "CONFIG_BUCKET",
-          "bucket_name": "grota",
-        },
-      ],
-      // "kv_namespaces": [
-      //   {
-      //     "binding": "CACHE",
-      //     "id": "eed883194c594bf8ac25811ec3d37751",
-      //     "remote": true
-      //   }
-      // ],
-      // "queues": {
-      //   "producers": [
-      //     {
-      //       "queue": "notification-queue",
-      //       "binding": "NOTIFICATION_QUEUE"
-      //     }
-      //   ],
-      //   "consumers": [
-      //     {
-      //       "queue": "notification-queue",
-      //       "max_batch_size": 10,
-      //       "max_batch_timeout": 5,
-      //       "max_retries": 3,
-      //       "dead_letter_queue": "notification-dlq"
-      //     }
-      //   ]
-      // }
-    },
-    /**
-     * Remote / Staging environment
-     */
-    "staging": {
-      "routes": [
-        {
-          "pattern": "staging-api-grota.sobiecki.org",
-          "custom_domain": true,
-        },
-      ],
-      "name": "grota-ds-staging",
-      "r2_buckets": [
-        {
-          "binding": "CONFIG_BUCKET",
-          "bucket_name": "grota-configs-staging",
-        },
-      ],
-      // "kv_namespaces": [
-      //   {
-      //     "binding": "CACHE",
-      //     "id": "eb683052a4dd40b3a87d212c23b36c0c",
-      //     "remote": false
-      //   }
-      // ],
-      // "queues": {
-      //   "producers": [
-      //     {
-      //       "queue": "notification-queue-stage",
-      //       "binding": "NOTIFICATION_QUEUE"
-      //     }
-      //   ],
-      //   "consumers": [
-      //     {
-      //       "queue": "notification-queue-stage",
-      //       "max_batch_size": 10,
-      //       "max_batch_timeout": 5,
-      //       "max_retries": 3,
-      //       "dead_letter_queue": "notification-dlq-stage"
-      //     }
-      //   ]
-      // }
-    },
-    /**
-     * Remote / Production environment
-     */
-    "production": {
-      "routes": [
-        {
-          "pattern": "api-grota.sobiecki.org",
-          "custom_domain": true,
-        },
-      ],
-      "name": "grota-ds-production",
-      "r2_buckets": [
-        {
-          "binding": "CONFIG_BUCKET",
-          "bucket_name": "grota-configs-production",
-        },
-      ],
-      // "kv_namespaces": [
-      //   {
-      //     "binding": "CACHE",
-      //     "id": "7688a332f25e416795f71a004b557f65",
-      //     "remote": false
-      //   }
-      // ],
-      // "queues": {
-      //   "producers": [
-      //     {
-      //       "queue": "notification-queue-prod",
-      //       "binding": "NOTIFICATION_QUEUE"
-      //     }
-      //   ],
-      //   "consumers": [
-      //     {
-      //       "queue": "notification-queue-prod",
-      //       "max_batch_size": 10,
-      //       "max_batch_timeout": 5,
-      //       "max_retries": 3,
-      //       "dead_letter_queue": "notification-dlq-prod"
-      //     }
-      //   ]
-      // }
-    },
-  },
-  "r2_buckets": [
-    {
-      "bucket_name": "grota-configs-production",
-      "binding": "CONFIG_BUCKET",
-    },
-  ],
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "grota-ds",
+	"main": "./src/index.ts",
+	"compatibility_date": "2025-04-01",
+	"compatibility_flags": ["nodejs_compat"],
+	"observability": {
+		"enabled": true
+	},
+	// "triggers": {
+	//   "crons": [
+	//     "0 * * * *"
+	//   ]
+	// },
+	"env": {
+		/**
+		 * Local / Development environment
+		 */
+		"dev": {
+			"name": "grota-ds-dev",
+			"r2_buckets": [
+				{
+					"binding": "CONFIG_BUCKET",
+					"bucket_name": "grota"
+				}
+			]
+			// "kv_namespaces": [
+			//   {
+			//     "binding": "CACHE",
+			//     "id": "eed883194c594bf8ac25811ec3d37751",
+			//     "remote": true
+			//   }
+			// ],
+			// "queues": {
+			//   "producers": [
+			//     {
+			//       "queue": "notification-queue",
+			//       "binding": "NOTIFICATION_QUEUE"
+			//     }
+			//   ],
+			//   "consumers": [
+			//     {
+			//       "queue": "notification-queue",
+			//       "max_batch_size": 10,
+			//       "max_batch_timeout": 5,
+			//       "max_retries": 3,
+			//       "dead_letter_queue": "notification-dlq"
+			//     }
+			//   ]
+			// }
+		},
+		/**
+		 * Remote / Staging environment
+		 */
+		"staging": {
+			"routes": [
+				{
+					"pattern": "staging-api-grota.sobiecki.org",
+					"custom_domain": true
+				}
+			],
+			"name": "grota-ds-staging",
+			"r2_buckets": [
+				{
+					"binding": "CONFIG_BUCKET",
+					"bucket_name": "grota-configs-staging"
+				}
+			]
+			// "kv_namespaces": [
+			//   {
+			//     "binding": "CACHE",
+			//     "id": "eb683052a4dd40b3a87d212c23b36c0c",
+			//     "remote": false
+			//   }
+			// ],
+			// "queues": {
+			//   "producers": [
+			//     {
+			//       "queue": "notification-queue-stage",
+			//       "binding": "NOTIFICATION_QUEUE"
+			//     }
+			//   ],
+			//   "consumers": [
+			//     {
+			//       "queue": "notification-queue-stage",
+			//       "max_batch_size": 10,
+			//       "max_batch_timeout": 5,
+			//       "max_retries": 3,
+			//       "dead_letter_queue": "notification-dlq-stage"
+			//     }
+			//   ]
+			// }
+		},
+		/**
+		 * Remote / Production environment
+		 */
+		"production": {
+			"routes": [
+				{
+					"pattern": "api-grota.sobiecki.org",
+					"custom_domain": true
+				}
+			],
+			"name": "grota-ds-production",
+			"r2_buckets": [
+				{
+					"binding": "CONFIG_BUCKET",
+					"bucket_name": "grota-configs-production"
+				}
+			]
+			// "kv_namespaces": [
+			//   {
+			//     "binding": "CACHE",
+			//     "id": "7688a332f25e416795f71a004b557f65",
+			//     "remote": false
+			//   }
+			// ],
+			// "queues": {
+			//   "producers": [
+			//     {
+			//       "queue": "notification-queue-prod",
+			//       "binding": "NOTIFICATION_QUEUE"
+			//     }
+			//   ],
+			//   "consumers": [
+			//     {
+			//       "queue": "notification-queue-prod",
+			//       "max_batch_size": 10,
+			//       "max_batch_timeout": 5,
+			//       "max_retries": 3,
+			//       "dead_letter_queue": "notification-dlq-prod"
+			//     }
+			//   ]
+			// }
+		}
+	},
+	"r2_buckets": [
+		{
+			"bucket_name": "grota-configs-production",
+			"binding": "CONFIG_BUCKET"
+		}
+	]
 }

@@ -10,10 +10,7 @@ import {
 	getMigrationJob,
 	updateMigrationJobStatus,
 } from "@repo/data-ops/migration";
-import {
-	createTestDeployment,
-	createTestUser,
-} from "@repo/data-ops/test-fixtures";
+import { createTestDeployment, createTestUser } from "@repo/data-ops/test-fixtures";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { triggerBackup } from "./migration-service";
 
@@ -63,18 +60,16 @@ describe("triggerBackup (integration)", () => {
 	});
 
 	function mockRunnerJobAccept(jobId: string) {
-		fetchSpy.mockImplementation(
-			async (input: RequestInfo | URL, init?: RequestInit) => {
-				const url = typeof input === "string" ? input : input.toString();
-				if (url.startsWith("https://runner.example.com")) {
-					return new Response(JSON.stringify({ jobId }), {
-						status: 202,
-						headers: { "content-type": "application/json" },
-					});
-				}
-				return originalFetch(input, init);
-			},
-		);
+		fetchSpy.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+			const url = typeof input === "string" ? input : input.toString();
+			if (url.startsWith("https://runner.example.com")) {
+				return new Response(JSON.stringify({ jobId }), {
+					status: 202,
+					headers: { "content-type": "application/json" },
+				});
+			}
+			return originalFetch(input, init);
+		});
 	}
 
 	it("returns NOT_FOUND for unknown deployment", async () => {
@@ -125,13 +120,13 @@ describe("triggerBackup (integration)", () => {
 		const persisted = await getMigrationJob(result.data.id);
 		expect(persisted?.runnerJobId).toBe(runnerJobId);
 
-		const calls = (
-			fetchSpy.mock.calls as unknown as [RequestInfo | URL, RequestInit?][]
-		).filter((args) => {
-			const u = args[0];
-			const url = typeof u === "string" ? u : u.toString();
-			return url.startsWith("https://runner.example.com");
-		});
+		const calls = (fetchSpy.mock.calls as unknown as [RequestInfo | URL, RequestInit?][]).filter(
+			(args) => {
+				const u = args[0];
+				const url = typeof u === "string" ? u : u.toString();
+				return url.startsWith("https://runner.example.com");
+			},
+		);
 		expect(calls).toHaveLength(1);
 		const first = calls[0];
 		if (!first) throw new Error("no call");
@@ -172,15 +167,13 @@ describe("triggerBackup (integration)", () => {
 	it("returns RUNNER_UNREACHABLE on fetch network error", async () => {
 		const deploymentId = await setupReadyDeployment();
 		const user = await createTestUser();
-		fetchSpy.mockImplementation(
-			async (input: RequestInfo | URL, init?: RequestInit) => {
-				const url = typeof input === "string" ? input : input.toString();
-				if (url.startsWith("https://runner.example.com")) {
-					throw new TypeError("fetch failed");
-				}
-				return originalFetch(input, init);
-			},
-		);
+		fetchSpy.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+			const url = typeof input === "string" ? input : input.toString();
+			if (url.startsWith("https://runner.example.com")) {
+				throw new TypeError("fetch failed");
+			}
+			return originalFetch(input, init);
+		});
 
 		const result = await triggerBackup({
 			deploymentId,
@@ -194,18 +187,16 @@ describe("triggerBackup (integration)", () => {
 	it("returns RUNNER_REJECTED when runner responds with non-2xx status", async () => {
 		const deploymentId = await setupReadyDeployment();
 		const user = await createTestUser();
-		fetchSpy.mockImplementation(
-			async (input: RequestInfo | URL, init?: RequestInit) => {
-				const url = typeof input === "string" ? input : input.toString();
-				if (url.startsWith("https://runner.example.com")) {
-					return new Response(JSON.stringify({ error: "job_already_running" }), {
-						status: 409,
-						headers: { "content-type": "application/json" },
-					});
-				}
-				return originalFetch(input, init);
-			},
-		);
+		fetchSpy.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+			const url = typeof input === "string" ? input : input.toString();
+			if (url.startsWith("https://runner.example.com")) {
+				return new Response(JSON.stringify({ error: "job_already_running" }), {
+					status: 409,
+					headers: { "content-type": "application/json" },
+				});
+			}
+			return originalFetch(input, init);
+		});
 
 		const result = await triggerBackup({
 			deploymentId,
@@ -228,16 +219,14 @@ describe("triggerBackup (integration)", () => {
 			triggeredByUserId: user.id,
 		});
 		const runnerCalls: string[] = [];
-		fetchSpy.mockImplementation(
-			async (input: RequestInfo | URL, init?: RequestInit) => {
-				const url = typeof input === "string" ? input : input.toString();
-				if (url.startsWith("https://runner.example.com")) {
-					runnerCalls.push(url);
-					throw new Error("runner must not be called");
-				}
-				return originalFetch(input, init);
-			},
-		);
+		fetchSpy.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+			const url = typeof input === "string" ? input : input.toString();
+			if (url.startsWith("https://runner.example.com")) {
+				runnerCalls.push(url);
+				throw new Error("runner must not be called");
+			}
+			return originalFetch(input, init);
+		});
 
 		const result = await triggerBackup({
 			deploymentId,

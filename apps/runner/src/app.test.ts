@@ -1,15 +1,6 @@
-import type {
-	B2VerifyRequest,
-	B2VerifyResponse,
-	LogLine,
-} from "@repo/data-ops/migration";
+import type { B2VerifyRequest, B2VerifyResponse, LogLine } from "@repo/data-ops/migration";
 import { describe, expect, it, vi } from "vitest";
-import {
-	createApp,
-	type LogEmitter,
-	type RunBackupFn,
-	type RunMigrateFn,
-} from "./app";
+import { createApp, type LogEmitter, type RunBackupFn, type RunMigrateFn } from "./app";
 
 describe("runner app", () => {
 	const TOKEN = "test-token-123";
@@ -58,9 +49,7 @@ describe("runner app", () => {
 		};
 
 		it("returns ok=true with verifyB2 happy path and forwards request", async () => {
-			const verifyB2 = vi.fn(
-				async (): Promise<B2VerifyResponse> => ({ ok: true }),
-			);
+			const verifyB2 = vi.fn(async (): Promise<B2VerifyResponse> => ({ ok: true }));
 			const verifyApp = createApp({
 				token: TOKEN,
 				version: "0.1.0",
@@ -174,10 +163,9 @@ describe("runner app", () => {
 		});
 
 		it("GET /jobs/:id returns 404 for unknown job", async () => {
-			const res = await app.request(
-				"/jobs/00000000-0000-4000-8000-000000000000",
-				{ headers: { Authorization: `Bearer ${TOKEN}` } },
-			);
+			const res = await app.request("/jobs/00000000-0000-4000-8000-000000000000", {
+				headers: { Authorization: `Bearer ${TOKEN}` },
+			});
 			expect(res.status).toBe(404);
 		});
 
@@ -350,10 +338,9 @@ describe("runner app", () => {
 		});
 
 		it("returns 404 for unknown job id", async () => {
-			const res = await app.request(
-				"/jobs/00000000-0000-4000-8000-000000000000/logs",
-				{ headers: { Authorization: `Bearer ${TOKEN}` } },
-			);
+			const res = await app.request("/jobs/00000000-0000-4000-8000-000000000000/logs", {
+				headers: { Authorization: `Bearer ${TOKEN}` },
+			});
 			expect(res.status).toBe(404);
 		});
 
@@ -419,9 +406,7 @@ describe("runner app", () => {
 				headers: { Authorization: `Bearer ${TOKEN}` },
 			});
 			expect(streamRes.status).toBe(200);
-			expect(streamRes.headers.get("content-type")).toContain(
-				"text/event-stream",
-			);
+			expect(streamRes.headers.get("content-type")).toContain("text/event-stream");
 
 			const collect = (async () => {
 				const reader = streamRes.body!.getReader();
@@ -447,10 +432,9 @@ describe("runner app", () => {
 		});
 
 		it("returns 404 for unknown job id", async () => {
-			const res = await app.request(
-				"/jobs/00000000-0000-4000-8000-000000000000/logs/stream",
-				{ headers: { Authorization: `Bearer ${TOKEN}` } },
-			);
+			const res = await app.request("/jobs/00000000-0000-4000-8000-000000000000/logs/stream", {
+				headers: { Authorization: `Bearer ${TOKEN}` },
+			});
 			expect(res.status).toBe(404);
 		});
 	});
@@ -585,14 +569,8 @@ describe("runner app", () => {
 			});
 			expect(res.status).toBe(202);
 			const { jobId } = (await res.json()) as { jobId: string };
-			expect(jobId).toMatch(
-				/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
-			);
-			expect(runIngest).toHaveBeenCalledWith(
-				jobId,
-				validIngestBody,
-				expect.any(Function),
-			);
+			expect(jobId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+			expect(runIngest).toHaveBeenCalledWith(jobId, validIngestBody, expect.any(Function));
 		});
 
 		it("returns 409 when another ingest job is already running", async () => {

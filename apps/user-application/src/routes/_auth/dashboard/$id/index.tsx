@@ -165,8 +165,8 @@ function DeploymentDetailPage() {
 								Pamietaj o ponownym eksporcie konfiguracji
 							</p>
 							<p className="text-sm text-amber-800/90 dark:text-amber-300/90">
-								Po dodaniu nowego pracownika lub zmianie folderow wyeksportuj config ponownie,
-								aby plik dla tego deploymentu zawieral aktualne dane.
+								Po dodaniu nowego pracownika lub zmianie folderow wyeksportuj config ponownie, aby
+								plik dla tego deploymentu zawieral aktualne dane.
 							</p>
 						</div>
 						<Button asChild variant="outline" className="border-amber-400/70">
@@ -760,11 +760,7 @@ function ServerConfigCard({ deployment, onUpdated }: ServerConfigCardProps) {
 							<Download className="mr-2 h-3 w-3" />
 							Eksportuj
 						</Button>
-						<Button
-							variant="outline"
-							size="sm"
-							onClick={() => importInputRef.current?.click()}
-						>
+						<Button variant="outline" size="sm" onClick={() => importInputRef.current?.click()}>
 							<Upload className="mr-2 h-3 w-3" />
 							Importuj
 						</Button>
@@ -1211,10 +1207,7 @@ function EmployeeSection({
 						)}
 					</CardTitle>
 					<div className="flex gap-2">
-						<Button
-							variant="outline"
-							onClick={() => setIsAdding((v) => !v)}
-						>
+						<Button variant="outline" onClick={() => setIsAdding((v) => !v)}>
 							{isAdding ? (
 								<>
 									<X className="mr-2 h-4 w-4" />
@@ -1256,7 +1249,7 @@ function EmployeeSection({
 						<Button
 							variant={linksSent || sendLinksMutation.isSuccess ? "outline" : "default"}
 							onClick={() => sendLinksMutation.mutate()}
-						disabled={sendLinksMutation.isPending || employeeTotal === 0}
+							disabled={sendLinksMutation.isPending || employeeTotal === 0}
 						>
 							{sendLinksMutation.isPending ? (
 								<>
@@ -1338,9 +1331,7 @@ function AddEmployeeForm({
 			}}
 			className="mb-4 space-y-3 rounded-md border border-border bg-muted/30 p-3"
 		>
-			{mutation.isError && (
-				<p className="text-sm text-destructive">{mutation.error.message}</p>
-			)}
+			{mutation.isError && <p className="text-sm text-destructive">{mutation.error.message}</p>}
 			<div className="grid gap-3 md:grid-cols-2">
 				<form.Field name="email">
 					{(field) => (
@@ -1516,9 +1507,7 @@ function EmployeeRow({
 				}}
 				className="space-y-2 rounded-md border border-border bg-muted/30 p-3"
 			>
-				{mutation.isError && (
-					<p className="text-sm text-destructive">{mutation.error.message}</p>
-				)}
+				{mutation.isError && <p className="text-sm text-destructive">{mutation.error.message}</p>}
 				<div className="grid gap-2 md:grid-cols-2">
 					<form.Field name="email">
 						{(field) => (
@@ -1586,9 +1575,7 @@ function EmployeeRow({
 	return (
 		<div className="flex items-center justify-between rounded-md border border-border p-3">
 			<div>
-				<p className="text-sm font-medium text-foreground">
-					{employee.name || employee.email}
-				</p>
+				<p className="text-sm font-medium text-foreground">{employee.name || employee.email}</p>
 				{employee.name && <p className="text-xs text-muted-foreground">{employee.email}</p>}
 			</div>
 			<div className="flex items-center gap-2">

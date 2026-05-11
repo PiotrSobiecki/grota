@@ -1,11 +1,11 @@
 import type { GDriveRestoreRequest, LogLine } from "@repo/data-ops/migration";
 import { describe, expect, it, vi } from "vitest";
+import type { SpawnRcloneFn } from "./run-backup";
 import {
 	buildRcloneGDriveConfig,
 	buildRcloneGDriveRestoreArgs,
 	createRunGDriveRestore,
 } from "./run-gdrive-restore";
-import type { SpawnRcloneFn } from "./run-backup";
 
 const validRequest: GDriveRestoreRequest = {
 	account: "user@example.com",

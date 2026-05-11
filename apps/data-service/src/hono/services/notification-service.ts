@@ -83,15 +83,18 @@ export async function sendTelegramNotification(
 		`<b>Plik:</b> <code>configs/${deploymentId}/config.json</code>`,
 	].join("\n");
 
-	const response = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({
-			chat_id: env.TELEGRAM_CHAT_ID,
-			text: message,
-			parse_mode: "HTML",
-		}),
-	});
+	const response = await fetch(
+		`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`,
+		{
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				chat_id: env.TELEGRAM_CHAT_ID,
+				text: message,
+				parse_mode: "HTML",
+			}),
+		},
+	);
 	if (!response.ok) {
 		const body = await response.text();
 		throw new Error(`Telegram API error: ${response.status} ${body}`);

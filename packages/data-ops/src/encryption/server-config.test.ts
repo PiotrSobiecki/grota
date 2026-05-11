@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import { decryptServerConfig, encryptServerConfig } from "./server-config";
 import { generateEncryptionKey } from "./index";
+import { decryptServerConfig, encryptServerConfig } from "./server-config";
 
 let key: string;
 beforeAll(() => {

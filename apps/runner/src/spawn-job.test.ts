@@ -47,9 +47,7 @@ describe("spawnJob", () => {
 		});
 
 		expect(result.exitCode).toBe(0);
-		const stdout = onLog.mock.calls
-			.map(([line]) => line as { line: string })
-			.map((l) => l.line);
+		const stdout = onLog.mock.calls.map(([line]) => line as { line: string }).map((l) => l.line);
 		expect(stdout).toContain("from-parent");
 	});
 

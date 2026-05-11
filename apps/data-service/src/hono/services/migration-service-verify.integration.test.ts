@@ -1,7 +1,7 @@
 import {
+	type ServerConfig,
 	setDeploymentServerConfig,
 	updateDeployment,
-	type ServerConfig,
 } from "@repo/data-ops/deployment";
 import { encryptServerConfig } from "@repo/data-ops/encryption";
 import { createTestDeployment } from "@repo/data-ops/test-fixtures";
@@ -59,10 +59,7 @@ describe("testRunnerConnection (integration)", () => {
 		await setB2Config(deployment.id);
 		await setDeploymentServerConfig(
 			deployment.id,
-			await encryptServerConfig(
-				{ backup_path: "client", bwlimit: "08:00,5M" },
-				encryptionKey(),
-			),
+			await encryptServerConfig({ backup_path: "client", bwlimit: "08:00,5M" }, encryptionKey()),
 		);
 		const result = await testRunnerConnection(deployment.id, encryptionKey());
 		expect(result.ok).toBe(false);

@@ -1,16 +1,13 @@
+import { getServerConfigAuditLog } from "@repo/data-ops/audit-log";
 import {
 	getDeploymentServerConfig,
-	setDeploymentServerConfig,
 	type ServerConfig,
+	setDeploymentServerConfig,
 } from "@repo/data-ops/deployment";
 import { decryptServerConfig, encryptServerConfig } from "@repo/data-ops/encryption";
-import { getServerConfigAuditLog } from "@repo/data-ops/audit-log";
 import { createTestDeployment, createTestUser } from "@repo/data-ops/test-fixtures";
 import { describe, expect, it } from "vitest";
-import {
-	getServerConfigForAdmin,
-	setServerConfigFromAdmin,
-} from "./migration-service";
+import { getServerConfigForAdmin, setServerConfigFromAdmin } from "./migration-service";
 
 describe("getServerConfigForAdmin (integration)", () => {
 	it("returns null data when deployment has no server_config", async () => {
@@ -88,9 +85,7 @@ describe("setServerConfigFromAdmin (integration)", () => {
 		expect(stored?.runner_token).not.toBe("live-token-xyz");
 		expect(stored?.runner_token).toMatch(/^[0-9a-f]+:[0-9a-f]+$/);
 
-		const decrypted = stored
-			? await decryptServerConfig(stored, encryptionKey())
-			: null;
+		const decrypted = stored ? await decryptServerConfig(stored, encryptionKey()) : null;
 		expect(decrypted?.runner_token).toBe("live-token-xyz");
 	});
 
@@ -115,9 +110,7 @@ describe("setServerConfigFromAdmin (integration)", () => {
 		expect(result.ok).toBe(true);
 
 		const stored = await getDeploymentServerConfig(deployment.id);
-		const decrypted = stored
-			? await decryptServerConfig(stored, encryptionKey())
-			: null;
+		const decrypted = stored ? await decryptServerConfig(stored, encryptionKey()) : null;
 		expect(decrypted?.bwlimit).toBe("23:00,50M");
 		expect(decrypted?.backup_path).toBe("client");
 		expect(decrypted?.runner_url).toBe("https://runner.example.com");

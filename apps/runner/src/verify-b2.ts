@@ -29,11 +29,7 @@ export type RcloneSpawnFn = (
 export function createVerifyB2(spawn: RcloneSpawnFn) {
 	return async (req: B2VerifyRequest): Promise<B2VerifyResponse> => {
 		const configContent = buildRcloneConfig(req);
-		const result = await spawn(
-			"rclone",
-			["--config", "<tmp>", "lsd", "b2:"],
-			{ configContent },
-		);
+		const result = await spawn("rclone", ["--config", "<tmp>", "lsd", "b2:"], { configContent });
 		if (result.exitCode === 0) return { ok: true };
 		return {
 			ok: false,

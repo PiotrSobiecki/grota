@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { GDriveCredentials, GDriveRestoreRequest } from "@repo/data-ops/migration";
 import type { LogEmitter, RunGDriveRestoreFn } from "./app.js";
-import { type SpawnRcloneFn, buildRcloneB2Config } from "./run-backup.js";
+import { buildRcloneB2Config, type SpawnRcloneFn } from "./run-backup.js";
 import { spawnJob } from "./spawn-job.js";
 
 export type PathExistsFn = (path: string) => Promise<boolean>;
@@ -38,14 +38,7 @@ export function buildRcloneGDriveConfig(creds: GDriveCredentials): string {
 export function buildRcloneGDriveRestoreArgs(req: GDriveRestoreRequest): string[] {
 	const targetFolder = req.gdrive.targetFolder ?? req.account;
 	const sourcePath = `${req.runnerConfig.backupPath}/${sanitizeEmail(req.account)}`;
-	return [
-		"sync",
-		sourcePath,
-		`gdrive:${targetFolder}`,
-		"--config",
-		CONFIG_PLACEHOLDER,
-		"-v",
-	];
+	return ["sync", sourcePath, `gdrive:${targetFolder}`, "--config", CONFIG_PLACEHOLDER, "-v"];
 }
 
 export function createRunGDriveRestore(

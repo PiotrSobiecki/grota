@@ -174,25 +174,14 @@ export function createApp(config: AppConfig): Hono {
 
 	jobRoute("/jobs/backup", "backup", BackupRequestSchema, runBackup);
 	jobRoute("/jobs/migrate", "migrate", MigrateRequestSchema, runMigrate);
-	jobRoute(
-		"/jobs/gdrive-restore",
-		"gdrive-restore",
-		GDriveRestoreRequestSchema,
-		runGDriveRestore,
-	);
+	jobRoute("/jobs/gdrive-restore", "gdrive-restore", GDriveRestoreRequestSchema, runGDriveRestore);
 	jobRoute("/jobs/ingest", "ingest", IngestRequestSchema, runIngest);
 
 	app.get("/jobs/:id", (c) => {
 		const id = c.req.param("id");
 		const job = jobs.get(id);
 		if (!job) return c.json({ error: "not_found" }, 404);
-		const {
-			type: _t,
-			logs: _l,
-			subscribers: _s,
-			finishWaiters: _w,
-			...publicJob
-		} = job;
+		const { type: _t, logs: _l, subscribers: _s, finishWaiters: _w, ...publicJob } = job;
 		return c.json(publicJob satisfies RunnerJob);
 	});
 

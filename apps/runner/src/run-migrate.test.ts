@@ -1,7 +1,7 @@
 import type { LogLine, RunnerJobConfig } from "@repo/data-ops/migration";
 import { describe, expect, it, vi } from "vitest";
-import { buildRcloneMigrateArgs, createRunMigrate } from "./run-migrate";
 import type { SpawnRcloneFn } from "./run-backup";
+import { buildRcloneMigrateArgs, createRunMigrate } from "./run-migrate";
 
 const baseConfig: RunnerJobConfig = {
 	b2KeyId: "K001abc",

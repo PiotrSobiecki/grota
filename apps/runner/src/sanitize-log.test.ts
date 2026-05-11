@@ -3,9 +3,7 @@ import { sanitizeLogLine } from "./sanitize-log";
 
 describe("sanitizeLogLine", () => {
 	it("passes through plain log lines unchanged", () => {
-		expect(sanitizeLogLine("Transferred: 12 / 100, 12%")).toBe(
-			"Transferred: 12 / 100, 12%",
-		);
+		expect(sanitizeLogLine("Transferred: 12 / 100, 12%")).toBe("Transferred: 12 / 100, 12%");
 	});
 
 	it("masks Bearer tokens in Authorization-style strings", () => {

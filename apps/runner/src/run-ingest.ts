@@ -1,6 +1,6 @@
 import type { GDriveCredentials, IngestFolder, RunnerJobConfig } from "@repo/data-ops/migration";
 import type { LogEmitter, RunIngestFn } from "./app.js";
-import { type SpawnRcloneFn, buildRcloneB2Config } from "./run-backup.js";
+import { buildRcloneB2Config, type SpawnRcloneFn } from "./run-backup.js";
 
 export function buildRcloneIngestConfig(
 	account: string,

@@ -1,16 +1,10 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { getDb } from "@/database/setup";
-import {
-	decryptServerConfig,
-	encryptServerConfig,
-} from "@/encryption/server-config";
 import { generateEncryptionKey } from "@/encryption/index";
+import { decryptServerConfig, encryptServerConfig } from "@/encryption/server-config";
 import { createTestDeployment } from "@/test/fixtures";
-import {
-	getDeploymentServerConfig,
-	setDeploymentServerConfig,
-} from "./queries";
+import { getDeploymentServerConfig, setDeploymentServerConfig } from "./queries";
 import { deployments } from "./table";
 
 describe("getDeploymentServerConfig (integration)", () => {
@@ -37,9 +31,7 @@ describe("getDeploymentServerConfig (integration)", () => {
 	});
 
 	it("returns null when deployment id does not exist", async () => {
-		const result = await getDeploymentServerConfig(
-			"00000000-0000-4000-8000-000000000000",
-		);
+		const result = await getDeploymentServerConfig("00000000-0000-4000-8000-000000000000");
 		expect(result).toBeNull();
 	});
 });

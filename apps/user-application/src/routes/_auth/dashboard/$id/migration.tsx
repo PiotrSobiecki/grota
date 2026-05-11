@@ -3,18 +3,6 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { getDeploymentById } from "@/core/functions/deployments/direct";
-import { getEmployeesByDeployment } from "@/core/functions/employees/binding";
-import { useMigrationJobLogs } from "@/core/hooks/use-migration-job-logs";
-import {
-	getMigrationJobStatus,
-	listMigrationJobs,
-	type MigrationJobDto,
-	triggerBackupJob,
-	triggerGDriveRestoreJob,
-	triggerIngestJob,
-	triggerMigrateJob,
-} from "@/core/functions/migration/binding";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -29,6 +17,18 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getDeploymentById } from "@/core/functions/deployments/direct";
+import { getEmployeesByDeployment } from "@/core/functions/employees/binding";
+import {
+	getMigrationJobStatus,
+	listMigrationJobs,
+	type MigrationJobDto,
+	triggerBackupJob,
+	triggerGDriveRestoreJob,
+	triggerIngestJob,
+	triggerMigrateJob,
+} from "@/core/functions/migration/binding";
+import { useMigrationJobLogs } from "@/core/hooks/use-migration-job-logs";
 
 export const Route = createFileRoute("/_auth/dashboard/$id/migration")({
 	loader: ({ params }) => getDeploymentById({ data: { id: params.id } }),
@@ -78,7 +78,9 @@ function MigrationPage() {
 			const job = await getMigrationJobStatus({ data: { jobId } });
 			if (job.status === "done") return;
 			if (job.status === "failed") {
-				throw new Error(`Job ${TYPE_LABEL[job.type]} zakonczyl sie bledem (exit: ${job.exitCode ?? "?"})`);
+				throw new Error(
+					`Job ${TYPE_LABEL[job.type]} zakonczyl sie bledem (exit: ${job.exitCode ?? "?"})`,
+				);
 			}
 			await new Promise((resolve) => setTimeout(resolve, 2000));
 		}
@@ -209,26 +211,6 @@ function MigrationPage() {
 		onError: (e) => toast.error(e.message),
 	});
 
-	const ingestAndRestoreAllMutation = useMutation({
-		mutationFn: async (input: { employees: Array<{ id: string; email: string }> }) => {
-			for (const employee of input.employees) {
-				const ingestJob = await triggerIngestJob({
-					data: { deploymentId, employeeId: employee.id },
-				});
-				await waitForJobDone(ingestJob.id);
-				await triggerGDriveRestoreJob({
-					data: { deploymentId, account: employee.email },
-				});
-			}
-			return input.employees.length;
-		},
-		onSuccess: (count) => {
-			toast.success(`Pobieranie danych + wysylka uruchomione dla ${count} pracownikow`);
-			refetchJobs();
-		},
-		onError: (e) => toast.error(e.message),
-	});
-
 	const employees = employeesQuery.data?.data ?? [];
 	const readyEmployees = employees.filter(
 		(e) => e.oauthStatus === "authorized" && e.selectionStatus === "completed",
@@ -256,9 +238,7 @@ function MigrationPage() {
 						<ArrowLeft className="h-4 w-4 text-foreground" />
 					</Link>
 				</Button>
-				<h1 className="text-2xl font-bold text-foreground">
-					Migracja: {deployment.clientName}
-				</h1>
+				<h1 className="text-2xl font-bold text-foreground">Migracja: {deployment.clientName}</h1>
 			</div>
 
 			<Card>
@@ -335,15 +315,9 @@ function MigrationPage() {
 									disabled={!!activeJob}
 									onIngest={() => ingestMutation.mutate({ employeeId: emp.id })}
 									onBackup={() => backupMutation.mutate({ account: emp.email })}
-									onDryRun={() =>
-										migrateMutation.mutate({ account: emp.email, dryRun: true })
-									}
-									onMigrate={() =>
-										migrateMutation.mutate({ account: emp.email, dryRun: false })
-									}
-									onGDriveRestore={() =>
-										gdriveRestoreMutation.mutate({ account: emp.email })
-									}
+									onDryRun={() => migrateMutation.mutate({ account: emp.email, dryRun: true })}
+									onMigrate={() => migrateMutation.mutate({ account: emp.email, dryRun: false })}
+									onGDriveRestore={() => gdriveRestoreMutation.mutate({ account: emp.email })}
 									onIngestAndRestore={() =>
 										ingestAndRestoreMutation.mutate({
 											employeeId: emp.id,
@@ -393,31 +367,21 @@ interface EmployeeRowProps {
 }
 
 function EmployeeRow(props: EmployeeRowProps) {
-	const ready =
-		props.oauthStatus === "authorized" && props.selectionStatus === "completed";
+	const ready = props.oauthStatus === "authorized" && props.selectionStatus === "completed";
 	return (
 		<div className="flex items-center justify-between rounded border border-border p-3">
 			<div className="flex flex-col">
-				<span className="text-sm font-medium text-foreground">
-					{props.name || props.email}
-				</span>
+				<span className="text-sm font-medium text-foreground">{props.name || props.email}</span>
 				<span className="text-xs text-muted-foreground">{props.email}</span>
 			</div>
 			<div className="flex items-center gap-2">
-				<Badge variant={ready ? "default" : "secondary"}>
-					{ready ? "Gotowy" : "Niegotowy"}
-				</Badge>
+				<Badge variant={ready ? "default" : "secondary"}>{ready ? "Gotowy" : "Niegotowy"}</Badge>
 				<IngestRowButton
 					onConfirm={props.onIngest}
 					disabled={props.disabled || !ready}
 					email={props.email}
 				/>
-				<Button
-					size="sm"
-					variant="destructive"
-					onClick={props.onBackup}
-					disabled={props.disabled}
-				>
+				<Button size="sm" variant="destructive" onClick={props.onBackup} disabled={props.disabled}>
 					Zapisz kopię
 				</Button>
 				<MigrateRowButton
@@ -435,11 +399,7 @@ function EmployeeRow(props: EmployeeRowProps) {
 	);
 }
 
-function IngestRowButton({
-	onConfirm,
-	disabled,
-	email,
-}: ConfirmActionProps & { email: string }) {
+function IngestRowButton({ onConfirm, disabled, email }: ConfirmActionProps & { email: string }) {
 	const [open, setOpen] = useState(false);
 	return (
 		<AlertDialog open={open} onOpenChange={setOpen}>
@@ -452,11 +412,9 @@ function IngestRowButton({
 				<AlertDialogHeader>
 					<AlertDialogTitle>Pobierz dane pracownika {email}</AlertDialogTitle>
 					<AlertDialogDescription>
-						Pliki z prywatnego Google Drive pracownika zostana sciagniete na
-						lokalny katalog VPSa. Synchronizowane sa foldery wybrane przez
-						pracownika podczas onboardingu. Po skonczeniu masz dane lokalnie
-						i mozesz: Zapisz kopię albo Wyślij na dysk firmowy.
-						Kontynuowac?
+						Pliki z prywatnego Google Drive pracownika zostana sciagniete na lokalny katalog VPSa.
+						Synchronizowane sa foldery wybrane przez pracownika podczas onboardingu. Po skonczeniu
+						masz dane lokalnie i mozesz: Zapisz kopię albo Wyślij na dysk firmowy. Kontynuowac?
 					</AlertDialogDescription>
 				</AlertDialogHeader>
 				<AlertDialogFooter>
@@ -492,10 +450,9 @@ function GDriveRestoreRowButton({
 				<AlertDialogHeader>
 					<AlertDialogTitle>Wyślij {email} na dysk firmowy</AlertDialogTitle>
 					<AlertDialogDescription>
-						Pliki z lokalnego katalogu na VPSie (`{`{backup_path}`}/{email}`)
-						zostana wyslane na firmowy shared drive (folder `{email}/`).
-						Wymaga ze lokalny katalog ma juz dane — po wczesniejszym Pobierz
-						dane lub Przywróć kopię. Akcja moze nadpisac istniejace pliki.
+						Pliki z lokalnego katalogu na VPSie (`{`{backup_path}`}/{email}`) zostana wyslane na
+						firmowy shared drive (folder `{email}/`). Wymaga ze lokalny katalog ma juz dane — po
+						wczesniejszym Pobierz dane lub Przywróć kopię. Akcja moze nadpisac istniejace pliki.
 						Kontynuowac?
 					</AlertDialogDescription>
 				</AlertDialogHeader>
@@ -546,6 +503,7 @@ function LiveLogsPanel({ jobId }: { jobId: string }) {
 	const [autoscroll, setAutoscroll] = useState(true);
 	const scrollRef = useRef<HTMLDivElement | null>(null);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: musi reagowac na nowe linie logu, nie tylko na autoscroll
 	useEffect(() => {
 		if (autoscroll && scrollRef.current) {
 			scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -559,7 +517,7 @@ function LiveLogsPanel({ jobId }: { jobId: string }) {
 					<span>Live logi</span>
 					<div className="flex items-center gap-3 text-sm font-normal">
 						<Badge variant={state.connected ? "default" : "secondary"}>
-							{state.connected ? "Polaczony" : state.error ?? "Laczenie..."}
+							{state.connected ? "Polaczony" : (state.error ?? "Laczenie...")}
 						</Badge>
 						<label className="flex cursor-pointer items-center gap-1 text-muted-foreground">
 							<input
@@ -581,10 +539,7 @@ function LiveLogsPanel({ jobId }: { jobId: string }) {
 						<p className="text-muted-foreground">Czekam na linie logow...</p>
 					) : (
 						state.lines.map((l, i) => (
-							<div
-								key={`${l.ts}-${i}`}
-								className={l.stream === "stderr" ? "text-destructive" : ""}
-							>
+							<div key={`${l.ts}-${i}`} className={l.stream === "stderr" ? "text-destructive" : ""}>
 								<span className="text-muted-foreground">{l.ts.slice(11, 19)} </span>
 								{l.line}
 							</div>
@@ -614,10 +569,9 @@ function MigrateAllButton({ onConfirm, disabled }: ConfirmActionProps) {
 				<AlertDialogHeader>
 					<AlertDialogTitle>Potwierdź: Przywróć kopie</AlertDialogTitle>
 					<AlertDialogDescription>
-						Akcja sciagnie pliki z B2 (backup) do lokalnego katalogu na VPSie
-						(`backup_path`). Operacja nadpisuje dane lokalne — jesli B2 jest
-						pusty, lokalny katalog zostanie wyczyszczony. Po przywroceniu mozesz
-						uzyc Wyślij na dysk firmowy. Kontynuowac?
+						Akcja sciagnie pliki z B2 (backup) do lokalnego katalogu na VPSie (`backup_path`).
+						Operacja nadpisuje dane lokalne — jesli B2 jest pusty, lokalny katalog zostanie
+						wyczyszczony. Po przywroceniu mozesz uzyc Wyślij na dysk firmowy. Kontynuowac?
 					</AlertDialogDescription>
 				</AlertDialogHeader>
 				<AlertDialogFooter>
@@ -636,11 +590,7 @@ function MigrateAllButton({ onConfirm, disabled }: ConfirmActionProps) {
 	);
 }
 
-function MigrateRowButton({
-	onConfirm,
-	disabled,
-	email,
-}: ConfirmActionProps & { email: string }) {
+function MigrateRowButton({ onConfirm, disabled, email }: ConfirmActionProps & { email: string }) {
 	const [open, setOpen] = useState(false);
 	return (
 		<AlertDialog open={open} onOpenChange={setOpen}>
@@ -653,11 +603,9 @@ function MigrateRowButton({
 				<AlertDialogHeader>
 					<AlertDialogTitle>Przywróć {email} z B2</AlertDialogTitle>
 					<AlertDialogDescription>
-						Pliki z B2 (backup) dla konta {email} zostana sciagniete na
-						lokalny katalog VPSa (`backup_path`). Operacja nadpisuje dane
-						lokalne — jesli B2 jest pusty, lokalny katalog zostanie
-						wyczyszczony. Po przywroceniu mozesz uzyc Wyślij na dysk firmowy.
-						Kontynuowac?
+						Pliki z B2 (backup) dla konta {email} zostana sciagniete na lokalny katalog VPSa
+						(`backup_path`). Operacja nadpisuje dane lokalne — jesli B2 jest pusty, lokalny katalog
+						zostanie wyczyszczony. Po przywroceniu mozesz uzyc Wyślij na dysk firmowy. Kontynuowac?
 					</AlertDialogDescription>
 				</AlertDialogHeader>
 				<AlertDialogFooter>
@@ -676,11 +624,7 @@ function MigrateRowButton({
 	);
 }
 
-function IngestAllButton({
-	onConfirm,
-	disabled,
-	count,
-}: ConfirmActionProps & { count: number }) {
+function IngestAllButton({ onConfirm, disabled, count }: ConfirmActionProps & { count: number }) {
 	const [open, setOpen] = useState(false);
 	return (
 		<AlertDialog open={open} onOpenChange={setOpen}>
@@ -691,10 +635,9 @@ function IngestAllButton({
 				<AlertDialogHeader>
 					<AlertDialogTitle>Pobierz dane (wszyscy gotowi)</AlertDialogTitle>
 					<AlertDialogDescription>
-						Uruchomi pobieranie z prywatnych Drive'ow dla wszystkich gotowych
-						pracownikow ({count}). Dane trafią najpierw na VPS (backup_path).
-						Pozniej mozesz uruchomic Zapisz kopie lub Wyślij na dysk firmowy.
-						Kontynuowac?
+						Uruchomi pobieranie z prywatnych Drive'ow dla wszystkich gotowych pracownikow ({count}).
+						Dane trafią najpierw na VPS (backup_path). Pozniej mozesz uruchomic Zapisz kopie lub
+						Wyślij na dysk firmowy. Kontynuowac?
 					</AlertDialogDescription>
 				</AlertDialogHeader>
 				<AlertDialogFooter>
@@ -728,9 +671,8 @@ function GDriveRestoreAllButton({
 				<AlertDialogHeader>
 					<AlertDialogTitle>Wyślij dane na dysk firmowy</AlertDialogTitle>
 					<AlertDialogDescription>
-						Uruchomi wysylke danych dla wszystkich gotowych pracownikow ({count}) na
-						firmowy shared drive. Wymaga wczesniejszego pobrania danych na VPS.
-						Kontynuowac?
+						Uruchomi wysylke danych dla wszystkich gotowych pracownikow ({count}) na firmowy shared
+						drive. Wymaga wczesniejszego pobrania danych na VPS. Kontynuowac?
 					</AlertDialogDescription>
 				</AlertDialogHeader>
 				<AlertDialogFooter>
@@ -742,83 +684,6 @@ function GDriveRestoreAllButton({
 						}}
 					>
 						Tak, wyślij
-					</AlertDialogAction>
-				</AlertDialogFooter>
-			</AlertDialogContent>
-		</AlertDialog>
-	);
-}
-
-function IngestAndRestoreAllButton({
-	onConfirm,
-	disabled,
-	count,
-}: ConfirmActionProps & { count: number }) {
-	const [open, setOpen] = useState(false);
-	return (
-		<AlertDialog open={open} onOpenChange={setOpen}>
-			<AlertDialogTrigger asChild>
-				<Button variant="default" disabled={disabled}>
-					Pobierz i wyslij (wszyscy)
-				</Button>
-			</AlertDialogTrigger>
-			<AlertDialogContent>
-				<AlertDialogHeader>
-					<AlertDialogTitle>Pobierz i wyslij na dysk firmowy (wszyscy)</AlertDialogTitle>
-					<AlertDialogDescription>
-						Dla kazdego gotowego pracownika ({count}) uruchomi sekwencje:
-						Pobierz dane, a po sukcesie Wyślij na dysk firmowy. W razie bledu
-						pobierania dalsze kroki zostana zatrzymane. Kontynuowac?
-					</AlertDialogDescription>
-				</AlertDialogHeader>
-				<AlertDialogFooter>
-					<AlertDialogCancel>Anuluj</AlertDialogCancel>
-					<AlertDialogAction
-						onClick={() => {
-							setOpen(false);
-							onConfirm();
-						}}
-					>
-						Tak, uruchom sekwencje
-					</AlertDialogAction>
-				</AlertDialogFooter>
-			</AlertDialogContent>
-		</AlertDialog>
-	);
-}
-
-function IngestAndRestoreRowButton({
-	onConfirm,
-	disabled,
-	email,
-}: ConfirmActionProps & { email: string }) {
-	const [open, setOpen] = useState(false);
-	return (
-		<AlertDialog open={open} onOpenChange={setOpen}>
-			<AlertDialogTrigger asChild>
-				<Button size="sm" variant="default" disabled={disabled}>
-					Pobierz i wyslij
-				</Button>
-			</AlertDialogTrigger>
-			<AlertDialogContent>
-				<AlertDialogHeader>
-					<AlertDialogTitle>Pobierz i wyslij {email}</AlertDialogTitle>
-					<AlertDialogDescription>
-						Uruchomi sekwencje dla konta {email}: najpierw Pobierz dane,
-						a po sukcesie automatycznie Wyślij na dysk firmowy. Jezeli
-						pobieranie sie nie powiedzie, wysylka nie zostanie uruchomiona.
-						Kontynuowac?
-					</AlertDialogDescription>
-				</AlertDialogHeader>
-				<AlertDialogFooter>
-					<AlertDialogCancel>Anuluj</AlertDialogCancel>
-					<AlertDialogAction
-						onClick={() => {
-							setOpen(false);
-							onConfirm();
-						}}
-					>
-						Tak, pobierz i wyslij
 					</AlertDialogAction>
 				</AlertDialogFooter>
 			</AlertDialogContent>

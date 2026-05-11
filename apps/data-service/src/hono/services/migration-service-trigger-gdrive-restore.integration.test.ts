@@ -5,13 +5,10 @@ import {
 	setWorkspaceOAuthToken,
 	updateDeployment,
 } from "@repo/data-ops/deployment";
-import { upsertSharedDrives } from "@repo/data-ops/shared-drive";
 import { encrypt, encryptServerConfig } from "@repo/data-ops/encryption";
 import { getMigrationJob } from "@repo/data-ops/migration";
-import {
-	createTestDeployment,
-	createTestUser,
-} from "@repo/data-ops/test-fixtures";
+import { upsertSharedDrives } from "@repo/data-ops/shared-drive";
+import { createTestDeployment, createTestUser } from "@repo/data-ops/test-fixtures";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { triggerGDriveRestore } from "./migration-service";
 
@@ -73,19 +70,17 @@ describe("triggerGDriveRestore (integration)", () => {
 		const user = await createTestUser();
 		const runnerJobId = randomUUID();
 		let capturedBody: unknown;
-		fetchSpy.mockImplementation(
-			async (input: RequestInfo | URL, init?: RequestInit) => {
-				const url = typeof input === "string" ? input : input.toString();
-				if (url === "https://runner.example.com/jobs/gdrive-restore") {
-					capturedBody = JSON.parse(init?.body as string);
-					return new Response(JSON.stringify({ jobId: runnerJobId }), {
-						status: 202,
-						headers: { "content-type": "application/json" },
-					});
-				}
-				return originalFetch(input, init);
-			},
-		);
+		fetchSpy.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+			const url = typeof input === "string" ? input : input.toString();
+			if (url === "https://runner.example.com/jobs/gdrive-restore") {
+				capturedBody = JSON.parse(init?.body as string);
+				return new Response(JSON.stringify({ jobId: runnerJobId }), {
+					status: 202,
+					headers: { "content-type": "application/json" },
+				});
+			}
+			return originalFetch(input, init);
+		});
 
 		const result = await triggerGDriveRestore({
 			deploymentId,
@@ -124,19 +119,17 @@ describe("triggerGDriveRestore (integration)", () => {
 		const deploymentId = await setupReadyDeployment();
 		const user = await createTestUser();
 		let capturedBody: { gdrive: { sharedDriveId?: string } } | undefined;
-		fetchSpy.mockImplementation(
-			async (input: RequestInfo | URL, init?: RequestInit) => {
-				const url = typeof input === "string" ? input : input.toString();
-				if (url === "https://runner.example.com/jobs/gdrive-restore") {
-					capturedBody = JSON.parse(init?.body as string);
-					return new Response(JSON.stringify({ jobId: randomUUID() }), {
-						status: 202,
-						headers: { "content-type": "application/json" },
-					});
-				}
-				return originalFetch(input, init);
-			},
-		);
+		fetchSpy.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+			const url = typeof input === "string" ? input : input.toString();
+			if (url === "https://runner.example.com/jobs/gdrive-restore") {
+				capturedBody = JSON.parse(init?.body as string);
+				return new Response(JSON.stringify({ jobId: randomUUID() }), {
+					status: 202,
+					headers: { "content-type": "application/json" },
+				});
+			}
+			return originalFetch(input, init);
+		});
 
 		await triggerGDriveRestore({
 			deploymentId,

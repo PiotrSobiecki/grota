@@ -32,8 +32,7 @@ export function useMigrationJobLogs(jobId: string | null): MigrationLogState {
 		setState({ lines: [], connected: false, error: null });
 
 		es.onopen = () => setState((s) => ({ ...s, connected: true, error: null }));
-		es.onerror = () =>
-			setState((s) => ({ ...s, connected: false, error: "Polaczenie przerwane" }));
+		es.onerror = () => setState((s) => ({ ...s, connected: false, error: "Polaczenie przerwane" }));
 		es.onmessage = (ev) => {
 			try {
 				const parsed = JSON.parse(ev.data) as MigrationLogLine;

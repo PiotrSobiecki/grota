@@ -1,14 +1,8 @@
 import { randomUUID } from "node:crypto";
-import {
-	type ServerConfig,
-	setDeploymentServerConfig,
-} from "@repo/data-ops/deployment";
+import { type ServerConfig, setDeploymentServerConfig } from "@repo/data-ops/deployment";
 import { encryptServerConfig } from "@repo/data-ops/encryption";
 import { createMigrationJob, getMigrationJob } from "@repo/data-ops/migration";
-import {
-	createTestDeployment,
-	createTestUser,
-} from "@repo/data-ops/test-fixtures";
+import { createTestDeployment, createTestUser } from "@repo/data-ops/test-fixtures";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getMigrationJobStatus } from "./migration-service";
 
@@ -34,10 +28,7 @@ async function setupReadyDeployment(): Promise<string> {
 	return deployment.id;
 }
 
-async function seedJob(opts: {
-	deploymentId: string;
-	runnerJobId?: string;
-}) {
+async function seedJob(opts: { deploymentId: string; runnerJobId?: string }) {
 	const user = await createTestUser();
 	return createMigrationJob({
 		deploymentId: opts.deploymentId,
@@ -66,27 +57,25 @@ describe("getMigrationJobStatus (integration)", () => {
 		status: "queued" | "running" | "done" | "failed";
 		exitCode?: number | null;
 	}) {
-		fetchSpy.mockImplementation(
-			async (input: RequestInfo | URL, init?: RequestInit) => {
-				const url = typeof input === "string" ? input : input.toString();
-				if (url.startsWith("https://runner.example.com")) {
-					return new Response(
-						JSON.stringify({
-							id: payload.id,
-							status: payload.status,
-							startedAt: new Date().toISOString(),
-							finishedAt:
-								payload.status === "done" || payload.status === "failed"
-									? new Date().toISOString()
-									: null,
-							exitCode: payload.exitCode ?? null,
-						}),
-						{ status: 200, headers: { "content-type": "application/json" } },
-					);
-				}
-				return originalFetch(input, init);
-			},
-		);
+		fetchSpy.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+			const url = typeof input === "string" ? input : input.toString();
+			if (url.startsWith("https://runner.example.com")) {
+				return new Response(
+					JSON.stringify({
+						id: payload.id,
+						status: payload.status,
+						startedAt: new Date().toISOString(),
+						finishedAt:
+							payload.status === "done" || payload.status === "failed"
+								? new Date().toISOString()
+								: null,
+						exitCode: payload.exitCode ?? null,
+					}),
+					{ status: 200, headers: { "content-type": "application/json" } },
+				);
+			}
+			return originalFetch(input, init);
+		});
 	}
 
 	it("returns NOT_FOUND for unknown job id", async () => {
@@ -102,9 +91,7 @@ describe("getMigrationJobStatus (integration)", () => {
 		const deploymentId = await setupReadyDeployment();
 		const job = await seedJob({ deploymentId });
 		// mark terminal directly via runner-side state simulated by query
-		const { updateMigrationJobStatus } = await import(
-			"@repo/data-ops/migration"
-		);
+		const { updateMigrationJobStatus } = await import("@repo/data-ops/migration");
 		await updateMigrationJobStatus(job.id, { status: "done", exitCode: 0 });
 
 		const result = await getMigrationJobStatus(job.id, encryptionKey());
@@ -157,15 +144,13 @@ describe("getMigrationJobStatus (integration)", () => {
 	it("returns stale DB row when runner is unreachable for non-terminal job", async () => {
 		const deploymentId = await setupReadyDeployment();
 		const job = await seedJob({ deploymentId });
-		fetchSpy.mockImplementation(
-			async (input: RequestInfo | URL, init?: RequestInit) => {
-				const url = typeof input === "string" ? input : input.toString();
-				if (url.startsWith("https://runner.example.com")) {
-					throw new TypeError("fetch failed");
-				}
-				return originalFetch(input, init);
-			},
-		);
+		fetchSpy.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+			const url = typeof input === "string" ? input : input.toString();
+			if (url.startsWith("https://runner.example.com")) {
+				throw new TypeError("fetch failed");
+			}
+			return originalFetch(input, init);
+		});
 
 		const result = await getMigrationJobStatus(job.id, encryptionKey());
 		expect(result.ok).toBe(true);

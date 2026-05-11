@@ -1,14 +1,8 @@
 import { randomUUID } from "node:crypto";
-import {
-	type ServerConfig,
-	setDeploymentServerConfig,
-} from "@repo/data-ops/deployment";
+import { type ServerConfig, setDeploymentServerConfig } from "@repo/data-ops/deployment";
 import { encryptServerConfig } from "@repo/data-ops/encryption";
 import { createMigrationJob } from "@repo/data-ops/migration";
-import {
-	createTestDeployment,
-	createTestUser,
-} from "@repo/data-ops/test-fixtures";
+import { createTestDeployment, createTestUser } from "@repo/data-ops/test-fixtures";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { streamJobLogs } from "./migration-service";
 
@@ -59,10 +53,7 @@ describe("streamJobLogs (integration)", () => {
 	});
 
 	it("returns NOT_FOUND for unknown job id", async () => {
-		const result = await streamJobLogs(
-			"00000000-0000-4000-8000-000000000000",
-			encryptionKey(),
-		);
+		const result = await streamJobLogs("00000000-0000-4000-8000-000000000000", encryptionKey());
 		expect(result.ok).toBe(false);
 		if (!result.ok) expect(result.error.code).toBe("NOT_FOUND");
 	});
@@ -81,36 +72,32 @@ describe("streamJobLogs (integration)", () => {
 		const job = await seedJob(deploymentId, runnerJobId);
 
 		const sseBody = `data: {"line":"hello"}\n\ndata: {"line":"world"}\n\n`;
-		fetchSpy.mockImplementation(
-			async (input: RequestInfo | URL, init?: RequestInit) => {
-				const url = typeof input === "string" ? input : input.toString();
-				if (url.startsWith("https://runner.example.com")) {
-					return new Response(sseBody, {
-						status: 200,
-						headers: { "content-type": "text/event-stream" },
-					});
-				}
-				return originalFetch(input, init);
-			},
-		);
+		fetchSpy.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+			const url = typeof input === "string" ? input : input.toString();
+			if (url.startsWith("https://runner.example.com")) {
+				return new Response(sseBody, {
+					status: 200,
+					headers: { "content-type": "text/event-stream" },
+				});
+			}
+			return originalFetch(input, init);
+		});
 
 		const result = await streamJobLogs(job.id, encryptionKey());
 		expect(result.ok).toBe(true);
 		if (!result.ok) return;
 
-		const calls = (
-			fetchSpy.mock.calls as unknown as [RequestInfo | URL, RequestInit?][]
-		).filter((args) => {
-			const u = args[0];
-			const url = typeof u === "string" ? u : u.toString();
-			return url.startsWith("https://runner.example.com");
-		});
+		const calls = (fetchSpy.mock.calls as unknown as [RequestInfo | URL, RequestInit?][]).filter(
+			(args) => {
+				const u = args[0];
+				const url = typeof u === "string" ? u : u.toString();
+				return url.startsWith("https://runner.example.com");
+			},
+		);
 		expect(calls).toHaveLength(1);
 		const [url, init] = calls[0]!;
 		const urlStr = typeof url === "string" ? url : url.toString();
-		expect(urlStr).toBe(
-			`https://runner.example.com/jobs/${runnerJobId}/logs/stream`,
-		);
+		expect(urlStr).toBe(`https://runner.example.com/jobs/${runnerJobId}/logs/stream`);
 		const headers = new Headers(init?.headers);
 		expect(headers.get("authorization")).toBe("Bearer secret-token");
 
@@ -123,15 +110,13 @@ describe("streamJobLogs (integration)", () => {
 	it("returns RUNNER_UNREACHABLE on network error", async () => {
 		const deploymentId = await setupReadyDeployment();
 		const job = await seedJob(deploymentId);
-		fetchSpy.mockImplementation(
-			async (input: RequestInfo | URL, init?: RequestInit) => {
-				const url = typeof input === "string" ? input : input.toString();
-				if (url.startsWith("https://runner.example.com")) {
-					throw new TypeError("fetch failed");
-				}
-				return originalFetch(input, init);
-			},
-		);
+		fetchSpy.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+			const url = typeof input === "string" ? input : input.toString();
+			if (url.startsWith("https://runner.example.com")) {
+				throw new TypeError("fetch failed");
+			}
+			return originalFetch(input, init);
+		});
 
 		const result = await streamJobLogs(job.id, encryptionKey());
 		expect(result.ok).toBe(false);
