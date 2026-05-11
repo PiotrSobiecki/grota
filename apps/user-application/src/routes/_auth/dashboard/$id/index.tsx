@@ -9,17 +9,19 @@ import {
 	Check,
 	ChevronDown,
 	Copy,
+	Download,
 	Info,
 	Loader2,
 	Mail,
 	Pencil,
 	Plus,
 	Send,
+	Upload,
 	UserPlus,
 	Users,
 	X,
 } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import {
 	AlertDialog,
@@ -111,6 +113,7 @@ function DeploymentDetailPage() {
 
 	const showEmployeeSection = deployment.status !== "draft" && deployment.status !== "onboarding";
 	const isActive = deployment.status === "active";
+	const shouldRemindConfigExport = deployment.status === "ready" || isActive;
 
 	return (
 		<div className="space-y-6">
@@ -152,6 +155,27 @@ function DeploymentDetailPage() {
 					onCopyLink={handleCopyLink}
 				/>
 			</div>
+
+			{shouldRemindConfigExport && (
+				<Card className="border-amber-300/60 bg-amber-50/40 dark:border-amber-800/70 dark:bg-amber-950/20">
+					<CardContent className="flex flex-col gap-3 pt-6 md:flex-row md:items-center md:justify-between">
+						<div>
+							<p className="text-sm font-medium text-amber-900 dark:text-amber-200">
+								Pamietaj o ponownym eksporcie konfiguracji
+							</p>
+							<p className="text-sm text-amber-800/90 dark:text-amber-300/90">
+								Po dodaniu nowego pracownika lub zmianie folderow wyeksportuj config ponownie,
+								aby plik dla tego deploymentu zawieral aktualne dane.
+							</p>
+						</div>
+						<Button asChild variant="outline" className="border-amber-400/70">
+							<Link to="/dashboard/$id/config" params={{ id: deployment.id }}>
+								Przejdz do eksportu
+							</Link>
+						</Button>
+					</CardContent>
+				</Card>
+			)}
 
 			<ServerConfigCard deployment={deployment} onUpdated={() => router.invalidate()} />
 
@@ -418,6 +442,23 @@ interface FormValue {
 	runnerToken: string;
 }
 
+interface ServerConfigTemplate {
+	version: 1;
+	b2: {
+		keyId: string;
+		appKey: string;
+		bucketPrefix: string;
+	};
+	server: {
+		backupPath: string;
+		bwlimit: string;
+		sshHost: string;
+		sshUser: string;
+		runnerUrl: string;
+		runnerToken: string;
+	};
+}
+
 function buildB2Update(value: FormValue): B2Config | null {
 	if (!value.b2KeyId || !value.b2AppKey) return null;
 	return {
@@ -539,6 +580,7 @@ function ServerConfigDisplay({
 function ServerConfigCard({ deployment, onUpdated }: ServerConfigCardProps) {
 	const [isEditing, setIsEditing] = useState(false);
 	const [showAdvanced, setShowAdvanced] = useState(!!deployment.serverConfig);
+	const importInputRef = useRef<HTMLInputElement | null>(null);
 
 	const maskedQuery = useQuery({
 		queryKey: ["server-config", deployment.id],
@@ -611,6 +653,80 @@ function ServerConfigCard({ deployment, onUpdated }: ServerConfigCardProps) {
 	const runnerStatus: "configured" | "missing" =
 		maskedConfig?.runner_url && maskedConfig?.runner_token ? "configured" : "missing";
 
+	const buildTemplate = (): ServerConfigTemplate => ({
+		version: 1,
+		b2: {
+			keyId: form.state.values.b2KeyId,
+			appKey: form.state.values.b2AppKey,
+			bucketPrefix: form.state.values.b2BucketPrefix,
+		},
+		server: {
+			backupPath: form.state.values.backupPath,
+			bwlimit: form.state.values.bwlimit,
+			sshHost: form.state.values.sshHost,
+			sshUser: form.state.values.sshUser,
+			runnerUrl: form.state.values.runnerUrl,
+			runnerToken: form.state.values.runnerToken,
+		},
+	});
+
+	const handleExportTemplate = () => {
+		const template = buildTemplate();
+		const blob = new Blob([JSON.stringify(template, null, 2)], {
+			type: "application/json",
+		});
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement("a");
+		a.href = url;
+		a.download = `server-config-${slugify(deployment.clientName)}.json`;
+		a.click();
+		URL.revokeObjectURL(url);
+		toast.success("Wyeksportowano konfiguracje serwera");
+	};
+
+	const applyTemplate = (template: ServerConfigTemplate) => {
+		form.setFieldValue("b2KeyId", template.b2.keyId ?? "");
+		form.setFieldValue("b2AppKey", template.b2.appKey ?? "");
+		form.setFieldValue("b2BucketPrefix", template.b2.bucketPrefix ?? "");
+		form.setFieldValue("backupPath", template.server.backupPath ?? "");
+		form.setFieldValue("bwlimit", template.server.bwlimit ?? "");
+		form.setFieldValue("sshHost", template.server.sshHost ?? "");
+		form.setFieldValue("sshUser", template.server.sshUser ?? "");
+		form.setFieldValue("runnerUrl", template.server.runnerUrl ?? "");
+		form.setFieldValue("runnerToken", template.server.runnerToken ?? "");
+		setShowAdvanced(true);
+		setIsEditing(true);
+	};
+
+	const handleImportTemplate = async (file: File) => {
+		try {
+			const raw = await file.text();
+			const parsed = JSON.parse(raw) as Partial<ServerConfigTemplate>;
+			if (
+				parsed.version !== 1 ||
+				!parsed.b2 ||
+				!parsed.server ||
+				typeof parsed.b2.keyId !== "string" ||
+				typeof parsed.b2.appKey !== "string" ||
+				typeof parsed.b2.bucketPrefix !== "string" ||
+				typeof parsed.server.backupPath !== "string" ||
+				typeof parsed.server.bwlimit !== "string" ||
+				typeof parsed.server.sshHost !== "string" ||
+				typeof parsed.server.sshUser !== "string" ||
+				typeof parsed.server.runnerUrl !== "string" ||
+				typeof parsed.server.runnerToken !== "string"
+			) {
+				throw new Error("Nieprawidlowy format pliku");
+			}
+			applyTemplate(parsed as ServerConfigTemplate);
+			toast.success("Zaimportowano konfiguracje. Kliknij Zapisz.");
+		} catch (error) {
+			const message =
+				error instanceof Error ? error.message : "Nie udalo sie zaimportowac konfiguracji";
+			toast.error(message);
+		}
+	};
+
 	return (
 		<Card>
 			<CardHeader>
@@ -639,6 +755,31 @@ function ServerConfigCard({ deployment, onUpdated }: ServerConfigCardProps) {
 								)}
 							</Button>
 						)}
+						<Button variant="outline" size="sm" onClick={handleExportTemplate}>
+							<Download className="mr-2 h-3 w-3" />
+							Eksportuj
+						</Button>
+						<Button
+							variant="outline"
+							size="sm"
+							onClick={() => importInputRef.current?.click()}
+						>
+							<Upload className="mr-2 h-3 w-3" />
+							Importuj
+						</Button>
+						<input
+							ref={importInputRef}
+							type="file"
+							accept="application/json"
+							className="hidden"
+							onChange={(e) => {
+								const file = e.target.files?.[0];
+								if (file) {
+									void handleImportTemplate(file);
+								}
+								e.currentTarget.value = "";
+							}}
+						/>
 						{isEditing ? (
 							<Button
 								variant="ghost"
@@ -1115,9 +1256,7 @@ function EmployeeSection({
 						<Button
 							variant={linksSent || sendLinksMutation.isSuccess ? "outline" : "default"}
 							onClick={() => sendLinksMutation.mutate()}
-							disabled={
-								sendLinksMutation.isPending || employeeTotal === 0 || deploymentStatus === "active"
-							}
+						disabled={sendLinksMutation.isPending || employeeTotal === 0}
 						>
 							{sendLinksMutation.isPending ? (
 								<>
