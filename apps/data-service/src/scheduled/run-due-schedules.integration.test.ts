@@ -237,8 +237,12 @@ describe("runDueSchedules (integration)", () => {
 		expect(Math.abs((after?.nextRunAt?.getTime() ?? 0) - expectedNext)).toBeLessThan(2000);
 
 		const calls = fetchSpy.mock.calls;
-		const tgCall = calls.find((c: Parameters<typeof fetch>) => String(c[0]).startsWith("https://api.telegram.org"));
-		const mailCall = calls.find((c: Parameters<typeof fetch>) => String(c[0]).startsWith("https://api.resend.com"));
+		const tgCall = calls.find((c: Parameters<typeof fetch>) =>
+			String(c[0]).startsWith("https://api.telegram.org"),
+		);
+		const mailCall = calls.find((c: Parameters<typeof fetch>) =>
+			String(c[0]).startsWith("https://api.resend.com"),
+		);
 		expect(tgCall).toBeDefined();
 		expect(mailCall).toBeDefined();
 	});
@@ -265,8 +269,16 @@ describe("runDueSchedules (integration)", () => {
 		expect(after?.lastStatus).toBe("retry_pending");
 
 		const calls = fetchSpy.mock.calls;
-		expect(calls.find((c: Parameters<typeof fetch>) => String(c[0]).startsWith("https://api.telegram.org"))).toBeUndefined();
-		expect(calls.find((c: Parameters<typeof fetch>) => String(c[0]).startsWith("https://api.resend.com"))).toBeUndefined();
+		expect(
+			calls.find((c: Parameters<typeof fetch>) =>
+				String(c[0]).startsWith("https://api.telegram.org"),
+			),
+		).toBeUndefined();
+		expect(
+			calls.find((c: Parameters<typeof fetch>) =>
+				String(c[0]).startsWith("https://api.resend.com"),
+			),
+		).toBeUndefined();
 	});
 
 	it("resets retry counter and marks ok after a successful run following a pending retry", async () => {
@@ -408,8 +420,16 @@ describe("runDueSchedules (integration)", () => {
 		expect(result.failed).toBe(1);
 
 		const calls = fetchSpy.mock.calls;
-		expect(calls.find((c: Parameters<typeof fetch>) => String(c[0]).startsWith("https://api.telegram.org"))).toBeDefined();
-		expect(calls.find((c: Parameters<typeof fetch>) => String(c[0]).startsWith("https://api.resend.com"))).toBeDefined();
+		expect(
+			calls.find((c: Parameters<typeof fetch>) =>
+				String(c[0]).startsWith("https://api.telegram.org"),
+			),
+		).toBeDefined();
+		expect(
+			calls.find((c: Parameters<typeof fetch>) =>
+				String(c[0]).startsWith("https://api.resend.com"),
+			),
+		).toBeDefined();
 	});
 
 	it("when includeGdriveRestore=false, POSTs scheduled-cycle WITHOUT gdriveRestore payload", async () => {
