@@ -20,6 +20,7 @@ function requireEnv(name: string): string {
 
 const token = requireEnv("GROTA_TOKEN");
 const port = Number(process.env.GROTA_PORT ?? "7878");
+const hostname = process.env.GROTA_BIND_HOST ?? "127.0.0.1";
 
 const app = createApp({
 	token,
@@ -32,6 +33,6 @@ const app = createApp({
 	runScheduledCycle: createRunScheduledCycle(realRcloneSpawnForGDriveRestore),
 });
 
-serve({ fetch: app.fetch, port }, (info) => {
-	console.log(`grota-runner v${VERSION} listening on :${info.port}`);
+serve({ fetch: app.fetch, port, hostname }, (info) => {
+	console.log(`grota-runner v${VERSION} listening on ${hostname}:${info.port}`);
 });

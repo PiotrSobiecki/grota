@@ -87,6 +87,8 @@ if [[ ! -f "$ENV_FILE" ]]; then
 # grota-runner env. NIE COMMITOWAC. chmod 600.
 GROTA_TOKEN=$TOKEN
 GROTA_PORT=7878
+# bind tylko na localhost (cloudflared łączy z localhost). NIE zmieniać bez powodu.
+GROTA_BIND_HOST=127.0.0.1
 EOF
   chmod 600 "$ENV_FILE"
   chown root:root "$ENV_FILE"
