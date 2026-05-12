@@ -12,6 +12,7 @@ const VERSION = "0.1.0";
 function requireEnv(name: string): string {
 	const value = process.env[name];
 	if (!value || value.length === 0) {
+		// biome-ignore lint/suspicious/noConsole: startup error must be visible in systemd logs
 		console.error(`Missing required env var: ${name}`);
 		process.exit(1);
 	}
@@ -34,5 +35,6 @@ const app = createApp({
 });
 
 serve({ fetch: app.fetch, port, hostname }, (info) => {
+	// biome-ignore lint/suspicious/noConsole: startup message must be visible in systemd logs
 	console.log(`grota-runner v${VERSION} listening on ${hostname}:${info.port}`);
 });

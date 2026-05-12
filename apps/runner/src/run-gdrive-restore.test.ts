@@ -33,7 +33,7 @@ describe("buildRcloneGDriveConfig", () => {
 		expect(config).toContain("client_secret = g-client-secret");
 		expect(config).toContain("token = ");
 		const tokenLine = config.split("\n").find((l) => l.startsWith("token = "));
-		const tokenJson = JSON.parse(tokenLine!.replace("token = ", ""));
+		const tokenJson = JSON.parse((tokenLine ?? "").replace("token = ", ""));
 		expect(tokenJson.access_token).toBe("ya29.a0Af");
 		expect(tokenJson.refresh_token).toBe("1//0g");
 		expect(tokenJson.expiry).toBe("2026-05-07T12:00:00.000Z");
@@ -85,8 +85,8 @@ describe("createRunGDriveRestore", () => {
 		const exit = await run("job-1", validRequest, (l) => logs.push(l));
 		expect(exit).toBe(0);
 		expect(captured).not.toBeNull();
-		expect(captured!.args[0]).toBe("sync");
-		expect(captured!.configContent).toContain("[gdrive]");
+		expect(captured?.args[0]).toBe("sync");
+		expect(captured?.configContent).toContain("[gdrive]");
 	});
 
 	it("returns exit 2 with stderr when source path does not exist (no Migrate done yet)", async () => {

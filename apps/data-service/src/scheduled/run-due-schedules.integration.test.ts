@@ -153,7 +153,7 @@ describe("runDueSchedules (integration)", () => {
 
 		const result = await runDueSchedules(envForTest(), tickAt);
 
-		const runnerCalls = fetchSpy.mock.calls.filter((c) =>
+		const runnerCalls = fetchSpy.mock.calls.filter((c: Parameters<typeof fetch>) =>
 			String(c[0]).startsWith("https://runner.example.com"),
 		);
 		expect(runnerCalls.length).toBe(0);
@@ -178,7 +178,7 @@ describe("runDueSchedules (integration)", () => {
 		const deploymentId = await setupEligibleDeployment();
 		await setSchedule(deploymentId, { enabled: true, intervalHours: 6, anchorTime: "02:00" });
 
-		fetchSpy.mockImplementation(async (input, init) => {
+		fetchSpy.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
 			const url = String(input);
 			if (url.startsWith("https://runner.example.com")) {
 				throw new TypeError("network down");
@@ -213,7 +213,7 @@ describe("runDueSchedules (integration)", () => {
 			retryAttemptsRemaining: 1,
 		});
 
-		fetchSpy.mockImplementation(async (input, init) => {
+		fetchSpy.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
 			const url = String(input);
 			if (url.startsWith("https://runner.example.com")) {
 				throw new TypeError("network still down");
@@ -237,8 +237,8 @@ describe("runDueSchedules (integration)", () => {
 		expect(Math.abs((after?.nextRunAt?.getTime() ?? 0) - expectedNext)).toBeLessThan(2000);
 
 		const calls = fetchSpy.mock.calls;
-		const tgCall = calls.find((c) => String(c[0]).startsWith("https://api.telegram.org"));
-		const mailCall = calls.find((c) => String(c[0]).startsWith("https://api.resend.com"));
+		const tgCall = calls.find((c: Parameters<typeof fetch>) => String(c[0]).startsWith("https://api.telegram.org"));
+		const mailCall = calls.find((c: Parameters<typeof fetch>) => String(c[0]).startsWith("https://api.resend.com"));
 		expect(tgCall).toBeDefined();
 		expect(mailCall).toBeDefined();
 	});
@@ -247,7 +247,7 @@ describe("runDueSchedules (integration)", () => {
 		const deploymentId = await setupEligibleDeployment();
 		await setSchedule(deploymentId, { enabled: true, intervalHours: 6, anchorTime: "02:00" });
 
-		fetchSpy.mockImplementation(async (input, init) => {
+		fetchSpy.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
 			const url = String(input);
 			if (url.startsWith("https://runner.example.com")) {
 				throw new TypeError("network down");
@@ -265,8 +265,8 @@ describe("runDueSchedules (integration)", () => {
 		expect(after?.lastStatus).toBe("retry_pending");
 
 		const calls = fetchSpy.mock.calls;
-		expect(calls.find((c) => String(c[0]).startsWith("https://api.telegram.org"))).toBeUndefined();
-		expect(calls.find((c) => String(c[0]).startsWith("https://api.resend.com"))).toBeUndefined();
+		expect(calls.find((c: Parameters<typeof fetch>) => String(c[0]).startsWith("https://api.telegram.org"))).toBeUndefined();
+		expect(calls.find((c: Parameters<typeof fetch>) => String(c[0]).startsWith("https://api.resend.com"))).toBeUndefined();
 	});
 
 	it("resets retry counter and marks ok after a successful run following a pending retry", async () => {
@@ -279,7 +279,7 @@ describe("runDueSchedules (integration)", () => {
 			retryAttemptsRemaining: 1,
 		});
 
-		fetchSpy.mockImplementation(async (input, init) => {
+		fetchSpy.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
 			const url = String(input);
 			if (url === "https://runner.example.com/jobs/scheduled-cycle") {
 				return new Response(JSON.stringify({ jobId: "11111111-1111-4111-8111-111111111111" }), {
@@ -321,7 +321,7 @@ describe("runDueSchedules (integration)", () => {
 		});
 
 		let capturedBody: unknown;
-		fetchSpy.mockImplementation(async (input, init) => {
+		fetchSpy.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
 			const url = String(input);
 			if (url === "https://runner.example.com/jobs/scheduled-cycle") {
 				capturedBody = JSON.parse(init?.body as string);
@@ -360,7 +360,7 @@ describe("runDueSchedules (integration)", () => {
 			includeGdriveRestore: true,
 		});
 
-		fetchSpy.mockImplementation(async (input, init) => {
+		fetchSpy.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
 			const url = String(input);
 			if (url.startsWith("https://runner.example.com")) {
 				return new Response(JSON.stringify({ jobId: "33333333-3333-4333-8333-333333333333" }), {
@@ -377,7 +377,7 @@ describe("runDueSchedules (integration)", () => {
 		expect(result.failed).toBe(1);
 		expect(result.succeeded).toBe(0);
 
-		const runnerCalls = fetchSpy.mock.calls.filter((c) =>
+		const runnerCalls = fetchSpy.mock.calls.filter((c: Parameters<typeof fetch>) =>
 			String(c[0]).startsWith("https://runner.example.com/jobs/scheduled-cycle"),
 		);
 		expect(runnerCalls.length).toBe(0);
@@ -396,7 +396,7 @@ describe("runDueSchedules (integration)", () => {
 			includeGdriveRestore: true,
 		});
 
-		fetchSpy.mockImplementation(async (input, init) => {
+		fetchSpy.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
 			const url = String(input);
 			if (url.startsWith("https://api.telegram.org") || url.startsWith("https://api.resend.com")) {
 				return new Response("{}", { status: 200 });
@@ -408,8 +408,8 @@ describe("runDueSchedules (integration)", () => {
 		expect(result.failed).toBe(1);
 
 		const calls = fetchSpy.mock.calls;
-		expect(calls.find((c) => String(c[0]).startsWith("https://api.telegram.org"))).toBeDefined();
-		expect(calls.find((c) => String(c[0]).startsWith("https://api.resend.com"))).toBeDefined();
+		expect(calls.find((c: Parameters<typeof fetch>) => String(c[0]).startsWith("https://api.telegram.org"))).toBeDefined();
+		expect(calls.find((c: Parameters<typeof fetch>) => String(c[0]).startsWith("https://api.resend.com"))).toBeDefined();
 	});
 
 	it("when includeGdriveRestore=false, POSTs scheduled-cycle WITHOUT gdriveRestore payload", async () => {
@@ -422,7 +422,7 @@ describe("runDueSchedules (integration)", () => {
 		});
 
 		let capturedBody: unknown;
-		fetchSpy.mockImplementation(async (input, init) => {
+		fetchSpy.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
 			const url = String(input);
 			if (url === "https://runner.example.com/jobs/scheduled-cycle") {
 				capturedBody = JSON.parse(init?.body as string);

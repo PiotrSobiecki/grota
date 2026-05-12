@@ -147,7 +147,7 @@ describe("getMigrationJobStatus (integration)", () => {
 			return url.startsWith("https://runner.example.com");
 		});
 		expect(runnerCalls).toHaveLength(1);
-		const [url, init] = runnerCalls[0]!;
+		const [url, init] = runnerCalls[0] ?? [];
 		const urlStr = typeof url === "string" ? url : url.toString();
 		expect(urlStr).toBe(`https://runner.example.com/jobs/${runnerJobId}`);
 		const headers = new Headers(init?.headers);

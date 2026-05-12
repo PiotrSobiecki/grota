@@ -164,10 +164,7 @@ describe("runScheduledCycle", () => {
 			"job-5",
 			{
 				runnerConfig,
-				employees: [
-					eligibleEmployee("a@example.com"),
-					eligibleEmployee("missing@example.com"),
-				],
+			employees: [eligibleEmployee("a@example.com"), eligibleEmployee("missing@example.com")],
 				gdriveRestore: {
 					gdrive: { ...gdrive, sharedDriveId: "company-sd" },
 					targets: [

@@ -95,7 +95,7 @@ describe("streamJobLogs (integration)", () => {
 			},
 		);
 		expect(calls).toHaveLength(1);
-		const [url, init] = calls[0]!;
+		const [url, init] = calls[0] ?? [];
 		const urlStr = typeof url === "string" ? url : url.toString();
 		expect(urlStr).toBe(`https://runner.example.com/jobs/${runnerJobId}/logs/stream`);
 		const headers = new Headers(init?.headers);

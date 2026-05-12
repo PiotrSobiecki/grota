@@ -409,7 +409,7 @@ describe("runner app", () => {
 			expect(streamRes.headers.get("content-type")).toContain("text/event-stream");
 
 			const collect = (async () => {
-				const reader = streamRes.body!.getReader();
+				const reader = streamRes.body?.getReader();
 				const decoder = new TextDecoder();
 				let acc = "";
 				while (true) {

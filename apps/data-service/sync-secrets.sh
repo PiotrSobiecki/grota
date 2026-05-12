@@ -41,6 +41,10 @@ while IFS= read -r line || [ -n "$line" ]; do
   key=$(echo "$key" | xargs)
   value=$(echo "$value" | xargs)
 
+  if [ -z "$key" ]; then
+    continue
+  fi
+
   echo "Setting $key..."
   echo "$value" | pnpm --filter data-service exec wrangler secret put "$key" --env "$ENV" $ENV_FILE_FLAG
 done < "$VARS_FILE"
