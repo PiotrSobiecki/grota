@@ -134,6 +134,8 @@ function formatLastStatus(status: string | null): string | null {
 	if (status === "ok") return "Sukces";
 	if (status === "skipped:locked") return "Pominięto";
 	if (status === "retry_pending") return "Ponawianie";
+	if (status === "failed:CONFIG_INCOMPLETE_COMPANY_DRIVE")
+		return "Brak konfiguracji dysku firmowego — uzupełnij OAuth";
 	if (status === "failed" || status.startsWith("failed:")) return "Błąd";
 	return status;
 }
@@ -151,24 +153,34 @@ function ScheduleWidget({
 		nextRunAt: string | null;
 		lastRunAt: string | null;
 		lastStatus: string | null;
+		includeGdriveRestore: boolean;
 	} | null;
 	loading: boolean;
 	saving: boolean;
-	onSave: (input: { enabled: boolean; intervalHours: IntervalPreset; anchorTime: string }) => void;
+	onSave: (input: {
+		enabled: boolean;
+		intervalHours: IntervalPreset;
+		anchorTime: string;
+		includeGdriveRestore: boolean;
+	}) => void;
 }) {
 	const enabled = schedule?.enabled ?? false;
 	const intervalHours = (schedule?.intervalHours ?? 24) as IntervalPreset;
 	const anchorTime = (schedule?.anchorTime ?? "02:00").slice(0, 5);
+	const includeGdriveRestore = schedule?.includeGdriveRestore ?? false;
 	const nextRun = formatScheduleDate(schedule?.nextRunAt ?? null);
 	const lastRun = formatScheduleDate(schedule?.lastRunAt ?? null);
 
 	const handleToggle = (checked: boolean) =>
-		onSave({ enabled: checked, intervalHours, anchorTime });
+		onSave({ enabled: checked, intervalHours, anchorTime, includeGdriveRestore });
 	const handleInterval = (value: string) => {
 		const next = Number(value) as IntervalPreset;
-		onSave({ enabled, intervalHours: next, anchorTime });
+		onSave({ enabled, intervalHours: next, anchorTime, includeGdriveRestore });
 	};
-	const handleAnchor = (value: string) => onSave({ enabled, intervalHours, anchorTime: value });
+	const handleAnchor = (value: string) =>
+		onSave({ enabled, intervalHours, anchorTime: value, includeGdriveRestore });
+	const handleRestoreToggle = (checked: boolean) =>
+		onSave({ enabled, intervalHours, anchorTime, includeGdriveRestore: checked });
 
 	return (
 		<div className="flex flex-col gap-3 rounded-md border border-border bg-card p-3">
@@ -207,6 +219,16 @@ function ScheduleWidget({
 						disabled={loading || saving}
 						onChange={(e) => handleAnchor(e.target.value)}
 					/>
+				</label>
+				<label className="flex items-center gap-2 text-sm text-foreground">
+					<input
+						type="checkbox"
+						className="h-4 w-4 accent-primary"
+						checked={includeGdriveRestore}
+						disabled={loading || saving}
+						onChange={(e) => handleRestoreToggle(e.target.checked)}
+					/>
+					Wyślij też na dysk firmowy (po backupie)
 				</label>
 			</div>
 			{(nextRun || lastRun) && (
@@ -378,6 +400,7 @@ function MigrationPage() {
 			enabled: boolean;
 			intervalHours: 1 | 6 | 12 | 24 | 168;
 			anchorTime: string;
+			includeGdriveRestore: boolean;
 		}) => setSchedule({ data: { deploymentId, ...input } }),
 		onSuccess: (data) => {
 			toast.success(data.enabled ? "Harmonogram zapisany" : "Harmonogram wyłączony");

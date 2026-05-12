@@ -142,6 +142,55 @@ async function sendEmailAlert(
 	}
 }
 
+export interface NotifyJobSucceededInput {
+	deploymentId: string;
+	jobId: string;
+	clientName: string;
+	durationSeconds: number | null;
+}
+
+export async function notifyJobSucceeded(
+	input: NotifyJobSucceededInput,
+	env: Env,
+): Promise<{ telegram: "ok" | "err" }> {
+	const link = buildPanelLink(env, input.deploymentId);
+	const lines = [
+		"✅ <b>Grota: cykl ukończony pomyślnie</b>",
+		"",
+		`<b>Klient:</b> ${input.clientName}`,
+		`<b>Deployment:</b> <code>${input.deploymentId}</code>`,
+		`<b>Job ID:</b> <code>${input.jobId}</code>`,
+		`<b>Czas trwania:</b> ${input.durationSeconds === null ? "n/a" : `${input.durationSeconds}s`}`,
+		`<b>Panel:</b> ${link}`,
+	];
+	try {
+		const response = await fetch(
+			`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`,
+			{
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					chat_id: env.TELEGRAM_CHAT_ID,
+					text: lines.join("\n"),
+					parse_mode: "HTML",
+					disable_web_page_preview: true,
+				}),
+			},
+		);
+		if (!response.ok) return { telegram: "err" };
+		return { telegram: "ok" };
+	} catch {
+		return { telegram: "err" };
+	}
+}
+
+export function isSuccessNotificationEnabled(env: Env): boolean {
+	const raw = (env as unknown as Record<string, string | undefined>).OPERATOR_NOTIFY_SUCCESS;
+	if (raw === undefined) return true;
+	const normalized = raw.trim().toLowerCase();
+	return normalized !== "false" && normalized !== "0" && normalized !== "";
+}
+
 function escapeHtml(value: string): string {
 	return value
 		.replace(/&/g, "&amp;")

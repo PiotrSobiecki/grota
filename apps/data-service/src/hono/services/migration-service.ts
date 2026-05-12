@@ -32,11 +32,14 @@ import {
 	type RunnerJobConfig,
 	RunnerJobSchema,
 	type ScheduledCycleEmployee,
+	type ScheduledCycleRestore,
 	updateMigrationJobStatus,
 } from "@repo/data-ops/migration";
+import { getSchedule } from "@repo/data-ops/schedule";
 import { getSharedDrivesByDeployment } from "@repo/data-ops/shared-drive";
 import type { Result } from "../types/result";
-import { notifyJobFailed } from "./alert-service";
+import { isSuccessNotificationEnabled, notifyJobFailed, notifyJobSucceeded } from "./alert-service";
+import { buildRestoreTargets } from "./build-restore-targets";
 
 const NOT_FOUND = {
 	ok: false as const,
@@ -363,7 +366,34 @@ export async function triggerScheduledCycle(
 		};
 	}
 
-	const requestBody = { runnerConfig, employees: cycleEmployees };
+	const schedule = await getSchedule(deploymentId);
+	let gdriveRestore: ScheduledCycleRestore | undefined;
+	if (schedule?.includeGdriveRestore) {
+		const companyGDrive = await buildGDriveCredentialsForRunner(deploymentId, env);
+		if (!companyGDrive.ok) {
+			return {
+				ok: false,
+				error: {
+					code: "CONFIG_INCOMPLETE_COMPANY_DRIVE",
+					message: "Brak konfiguracji dysku firmowego - uzupelnij OAuth",
+					status: 400,
+				},
+			};
+		}
+		const eligibleAccounts = cycleEmployees
+			.filter((e) => e.gdrive !== null && e.folders.length > 0)
+			.map((e) => ({ account: e.account }));
+		if (eligibleAccounts.length > 0) {
+			gdriveRestore = {
+				gdrive: companyGDrive.data,
+				targets: buildRestoreTargets(eligibleAccounts),
+			};
+		}
+	}
+
+	const requestBody = gdriveRestore
+		? { runnerConfig, employees: cycleEmployees, gdriveRestore }
+		: { runnerConfig, employees: cycleEmployees };
 
 	let response: Response;
 	try {
@@ -794,6 +824,30 @@ export async function getMigrationJobStatus(
 				clientName: deployment?.clientName ?? "(unknown)",
 				exitCode: parsed.data.exitCode ?? null,
 				logTail,
+			},
+			env,
+		);
+	}
+
+	if (
+		parsed.data.status === "done" &&
+		job.type === "scheduled-cycle" &&
+		env.TELEGRAM_BOT_TOKEN &&
+		isSuccessNotificationEnabled(env)
+	) {
+		const deployment = await getDeployment(job.deploymentId);
+		const startedAt = parsed.data.startedAt ? new Date(parsed.data.startedAt) : null;
+		const finishedAt = parsed.data.finishedAt ? new Date(parsed.data.finishedAt) : null;
+		const durationSeconds =
+			startedAt && finishedAt
+				? Math.max(0, Math.round((finishedAt.getTime() - startedAt.getTime()) / 1000))
+				: null;
+		await notifyJobSucceeded(
+			{
+				deploymentId: job.deploymentId,
+				jobId: job.id,
+				clientName: deployment?.clientName ?? "(unknown)",
+				durationSeconds,
 			},
 			env,
 		);

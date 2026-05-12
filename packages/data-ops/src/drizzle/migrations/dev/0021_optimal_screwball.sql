@@ -1,0 +1,1 @@
+ALTER TABLE "deployment_schedules" ADD COLUMN "include_gdrive_restore" boolean DEFAULT false NOT NULL;

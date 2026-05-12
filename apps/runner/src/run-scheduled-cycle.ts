@@ -1,6 +1,12 @@
-import type { ScheduledCycleRequest } from "@repo/data-ops/migration";
+import { access } from "node:fs/promises";
+import type { GDriveRestoreRequest, ScheduledCycleRequest } from "@repo/data-ops/migration";
 import type { LogEmitter } from "./app.js";
 import { buildRcloneB2Config, buildRcloneSyncArgs, type SpawnRcloneFn } from "./run-backup.js";
+import {
+	buildRcloneGDriveConfig,
+	buildRcloneGDriveRestoreArgs,
+	type PathExistsFn,
+} from "./run-gdrive-restore.js";
 import { buildRcloneIngestArgs, buildRcloneIngestConfig } from "./run-ingest.js";
 
 export type RunScheduledCycleFn = (
@@ -18,7 +24,23 @@ function nowStamp(): string {
 	);
 }
 
-export function createRunScheduledCycle(spawn: SpawnRcloneFn): RunScheduledCycleFn {
+function sanitizeEmail(email: string): string {
+	return email.replace(/[@.]/g, "_");
+}
+
+const defaultPathExists: PathExistsFn = async (p) => {
+	try {
+		await access(p);
+		return true;
+	} catch {
+		return false;
+	}
+};
+
+export function createRunScheduledCycle(
+	spawn: SpawnRcloneFn,
+	pathExists: PathExistsFn = defaultPathExists,
+): RunScheduledCycleFn {
 	return async (_jobId, req, emitLog) => {
 		const timestamp = nowStamp();
 
@@ -55,6 +77,55 @@ export function createRunScheduledCycle(spawn: SpawnRcloneFn): RunScheduledCycle
 
 		const backupConfig = buildRcloneB2Config(req.runnerConfig);
 		const backupArgs = buildRcloneSyncArgs(req.runnerConfig);
-		return spawn(backupArgs, { configContent: backupConfig, onLog: emitLog });
+		const backupExit = await spawn(backupArgs, { configContent: backupConfig, onLog: emitLog });
+
+		if (!req.gdriveRestore) return backupExit;
+
+		let anySuccess = false;
+		let anyFail = false;
+		let lastFailExit = 0;
+		for (const target of req.gdriveRestore.targets) {
+			const sourcePath = `${req.runnerConfig.backupPath}/${sanitizeEmail(target.account)}`;
+			if (!(await pathExists(sourcePath))) {
+				emitLog({
+					ts: new Date().toISOString(),
+					stream: "stdout",
+					line: `restore_skipped: ${target.account} (no_source)`,
+				});
+				continue;
+			}
+			emitLog({
+				ts: new Date().toISOString(),
+				stream: "stdout",
+				line: `restore_started: ${target.account}`,
+			});
+			const restoreReq: GDriveRestoreRequest = {
+				account: target.account,
+				runnerConfig: req.runnerConfig,
+				gdrive: { ...req.gdriveRestore.gdrive, targetFolder: target.targetFolder },
+			};
+			const restoreArgs = buildRcloneGDriveRestoreArgs(restoreReq);
+			const restoreConfig = buildRcloneGDriveConfig(restoreReq.gdrive);
+			const exit = await spawn(restoreArgs, { configContent: restoreConfig, onLog: emitLog });
+			if (exit === 0) {
+				anySuccess = true;
+				emitLog({
+					ts: new Date().toISOString(),
+					stream: "stdout",
+					line: `restore_done: ${target.account}`,
+				});
+			} else {
+				anyFail = true;
+				lastFailExit = exit;
+				emitLog({
+					ts: new Date().toISOString(),
+					stream: "stderr",
+					line: `restore_failed: ${target.account} (exit ${exit})`,
+				});
+			}
+		}
+		if (anyFail && anySuccess) return 7;
+		if (anyFail) return lastFailExit;
+		return backupExit;
 	};
 }

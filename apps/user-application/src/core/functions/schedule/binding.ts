@@ -15,6 +15,7 @@ export interface DeploymentScheduleDto {
 	nextRunAt: string | null;
 	lastJobId: string | null;
 	lastStatus: string | null;
+	includeGdriveRestore: boolean;
 	createdAt: string;
 	updatedAt: string;
 }
@@ -34,6 +35,7 @@ const SetScheduleInput = z.object({
 	enabled: z.boolean(),
 	intervalHours: IntervalHoursClient,
 	anchorTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+	includeGdriveRestore: z.boolean().optional().default(false),
 });
 
 export const getDeploymentSchedule = createServerFn({ method: "GET" })
@@ -69,6 +71,7 @@ export const setSchedule = createServerFn({ method: "POST" })
 				enabled: data.enabled,
 				intervalHours: data.intervalHours,
 				anchorTime: data.anchorTime,
+				includeGdriveRestore: data.includeGdriveRestore,
 			}),
 		});
 		if (!response.ok) {

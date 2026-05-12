@@ -57,11 +57,12 @@ interface ScheduleChange {
 	diff: Record<string, { from: unknown; to: unknown }>;
 }
 
-function detectScheduleChange(
+export function detectScheduleChange(
 	previous: DeploymentSchedule | null,
 	next: DeploymentSchedule,
 ): ScheduleChange | null {
 	const previousEnabled = previous?.enabled ?? false;
+	const previousRestore = previous?.includeGdriveRestore ?? false;
 	const diff: Record<string, { from: unknown; to: unknown }> = {};
 
 	if (previousEnabled !== next.enabled) {
@@ -72,6 +73,9 @@ function detectScheduleChange(
 	}
 	if ((previous?.anchorTime ?? null) !== next.anchorTime) {
 		diff.anchorTime = { from: previous?.anchorTime ?? null, to: next.anchorTime };
+	}
+	if (previousRestore !== next.includeGdriveRestore) {
+		diff.includeGdriveRestore = { from: previousRestore, to: next.includeGdriveRestore };
 	}
 
 	if (Object.keys(diff).length === 0) return null;

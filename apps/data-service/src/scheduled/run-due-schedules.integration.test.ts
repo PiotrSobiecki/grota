@@ -1,6 +1,7 @@
 import {
 	getDeployment,
 	setDeploymentServerConfig,
+	setWorkspaceOAuthToken,
 	updateDeployment,
 } from "@repo/data-ops/deployment";
 import {
@@ -31,6 +32,8 @@ function envForTest(): Env {
 		RESEND_API_KEY: "re_test",
 		OPERATOR_ALERT_EMAIL: "ops@example.com",
 		PUBLIC_APP_URL: "https://app.example.com",
+		GOOGLE_CLIENT_ID: "test-google-client-id",
+		GOOGLE_CLIENT_SECRET: "test-google-client-secret",
 	} as unknown as Env;
 }
 
@@ -296,6 +299,146 @@ describe("runDueSchedules (integration)", () => {
 		const after = await getSchedule(deploymentId);
 		expect(after?.lastStatus).toBe("ok");
 		expect(after?.retryAttemptsRemaining).toBe(0);
+	});
+
+	it("when includeGdriveRestore=true and workspace OAuth present, POSTs scheduled-cycle with gdriveRestore payload", async () => {
+		const deploymentId = await setupEligibleDeployment();
+		// Add workspace (company drive) OAuth token
+		const workspaceToken = {
+			access_token: "company-access-token",
+			refresh_token: "company-refresh-token",
+			expiry_date: Date.now() + 60 * 60 * 1000,
+		};
+		await setWorkspaceOAuthToken(
+			deploymentId,
+			await encrypt(JSON.stringify(workspaceToken), encryptionKey()),
+		);
+		await setSchedule(deploymentId, {
+			enabled: true,
+			intervalHours: 24,
+			anchorTime: "02:00",
+			includeGdriveRestore: true,
+		});
+
+		let capturedBody: unknown;
+		fetchSpy.mockImplementation(async (input, init) => {
+			const url = String(input);
+			if (url === "https://runner.example.com/jobs/scheduled-cycle") {
+				capturedBody = JSON.parse(init?.body as string);
+				return new Response(JSON.stringify({ jobId: "11111111-1111-4111-8111-111111111111" }), {
+					status: 200,
+					headers: { "content-type": "application/json" },
+				});
+			}
+			return originalFetch(input, init);
+		});
+
+		const result = await runDueSchedules(envForTest(), new Date());
+		expect(result.succeeded).toBe(1);
+
+		const body = capturedBody as {
+			gdriveRestore?: {
+				gdrive: { accessToken: string; clientId: string };
+				targets: Array<{ account: string; targetFolder: string }>;
+			};
+		};
+		expect(body.gdriveRestore).toBeDefined();
+		expect(body.gdriveRestore?.gdrive.accessToken).toBe("company-access-token");
+		expect(body.gdriveRestore?.gdrive.clientId).toBe("test-google-client-id");
+		expect(body.gdriveRestore?.targets).toEqual([
+			{ account: "alice@example.com", targetFolder: "alice@example.com" },
+		]);
+	});
+
+	it("when includeGdriveRestore=true but workspace OAuth missing, fails with CONFIG_INCOMPLETE_COMPANY_DRIVE and skips runner POST", async () => {
+		const deploymentId = await setupEligibleDeployment();
+		// NO setWorkspaceOAuthToken — company drive creds intentionally missing
+		await setSchedule(deploymentId, {
+			enabled: true,
+			intervalHours: 24,
+			anchorTime: "02:00",
+			includeGdriveRestore: true,
+		});
+
+		fetchSpy.mockImplementation(async (input, init) => {
+			const url = String(input);
+			if (url.startsWith("https://runner.example.com")) {
+				return new Response(JSON.stringify({ jobId: "33333333-3333-4333-8333-333333333333" }), {
+					status: 200,
+					headers: { "content-type": "application/json" },
+				});
+			}
+			return originalFetch(input, init);
+		});
+
+		const result = await runDueSchedules(envForTest(), new Date());
+
+		expect(result.attempted).toBe(1);
+		expect(result.failed).toBe(1);
+		expect(result.succeeded).toBe(0);
+
+		const runnerCalls = fetchSpy.mock.calls.filter((c) =>
+			String(c[0]).startsWith("https://runner.example.com/jobs/scheduled-cycle"),
+		);
+		expect(runnerCalls.length).toBe(0);
+
+		const after = await getSchedule(deploymentId);
+		expect(after?.lastStatus).toContain("CONFIG_INCOMPLETE_COMPANY_DRIVE");
+	});
+
+	it("when CONFIG_INCOMPLETE_COMPANY_DRIVE fires, sends Telegram + email failure alert", async () => {
+		const deploymentId = await setupEligibleDeployment();
+		// NO workspace OAuth — triggers CONFIG_INCOMPLETE_COMPANY_DRIVE
+		await setSchedule(deploymentId, {
+			enabled: true,
+			intervalHours: 24,
+			anchorTime: "02:00",
+			includeGdriveRestore: true,
+		});
+
+		fetchSpy.mockImplementation(async (input, init) => {
+			const url = String(input);
+			if (url.startsWith("https://api.telegram.org") || url.startsWith("https://api.resend.com")) {
+				return new Response("{}", { status: 200 });
+			}
+			return originalFetch(input, init);
+		});
+
+		const result = await runDueSchedules(envForTest(), new Date());
+		expect(result.failed).toBe(1);
+
+		const calls = fetchSpy.mock.calls;
+		expect(calls.find((c) => String(c[0]).startsWith("https://api.telegram.org"))).toBeDefined();
+		expect(calls.find((c) => String(c[0]).startsWith("https://api.resend.com"))).toBeDefined();
+	});
+
+	it("when includeGdriveRestore=false, POSTs scheduled-cycle WITHOUT gdriveRestore payload", async () => {
+		const deploymentId = await setupEligibleDeployment();
+		await setSchedule(deploymentId, {
+			enabled: true,
+			intervalHours: 24,
+			anchorTime: "02:00",
+			includeGdriveRestore: false,
+		});
+
+		let capturedBody: unknown;
+		fetchSpy.mockImplementation(async (input, init) => {
+			const url = String(input);
+			if (url === "https://runner.example.com/jobs/scheduled-cycle") {
+				capturedBody = JSON.parse(init?.body as string);
+				return new Response(JSON.stringify({ jobId: "22222222-2222-4222-8222-222222222222" }), {
+					status: 200,
+					headers: { "content-type": "application/json" },
+				});
+			}
+			return originalFetch(input, init);
+		});
+
+		const result = await runDueSchedules(envForTest(), new Date());
+		expect(result.succeeded).toBe(1);
+
+		const body = capturedBody as { gdriveRestore?: unknown };
+		expect(body.gdriveRestore).toBeUndefined();
 	});
 
 	it("counts schedule as failed when runner config is missing, leaves next_run_at untouched", async () => {
