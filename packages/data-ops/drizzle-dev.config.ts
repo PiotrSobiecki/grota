@@ -12,6 +12,7 @@ const config: Config = {
 		"./src/shared-drive/table.ts",
 		"./src/migration/table.ts",
 		"./src/audit-log/table.ts",
+		"./src/schedule/table.ts",
 	],
 	dialect: "postgresql",
 	dbCredentials: {

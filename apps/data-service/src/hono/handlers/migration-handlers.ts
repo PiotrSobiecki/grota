@@ -111,10 +111,7 @@ migrationHandlers.get(
 	zValidator("param", MigrationJobIdParamSchema),
 	async (c) => {
 		const { id } = c.req.valid("param");
-		return resultToResponse(
-			c,
-			await migrationService.getMigrationJobStatus(id, c.env.ENCRYPTION_KEY),
-		);
+		return resultToResponse(c, await migrationService.getMigrationJobStatus(id, c.env));
 	},
 );
 

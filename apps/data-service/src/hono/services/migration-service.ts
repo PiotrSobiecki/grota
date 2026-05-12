@@ -8,7 +8,12 @@ import {
 	setDeploymentServerConfig,
 	setWorkspaceOAuthToken,
 } from "@repo/data-ops/deployment";
-import { getDriveOAuthToken, getEmployeeById, setDriveOAuthToken } from "@repo/data-ops/employee";
+import {
+	getDriveOAuthToken,
+	getEmployeeById,
+	getEmployeesByDeployment,
+	setDriveOAuthToken,
+} from "@repo/data-ops/employee";
 import {
 	decrypt,
 	decryptServerConfig,
@@ -26,10 +31,12 @@ import {
 	type MigrationJob,
 	type RunnerJobConfig,
 	RunnerJobSchema,
+	type ScheduledCycleEmployee,
 	updateMigrationJobStatus,
 } from "@repo/data-ops/migration";
 import { getSharedDrivesByDeployment } from "@repo/data-ops/shared-drive";
 import type { Result } from "../types/result";
+import { notifyJobFailed } from "./alert-service";
 
 const NOT_FOUND = {
 	ok: false as const,
@@ -236,6 +243,180 @@ export async function triggerBackup(input: TriggerBackupInput): Promise<Result<M
 		dryRun: false,
 		runnerJobId: parsed.data.jobId,
 		triggeredByUserId: input.triggeredByUserId,
+	});
+
+	return { ok: true, data: job };
+}
+
+export interface TriggerScheduledCycleInput {
+	deploymentId: string;
+	triggeredByUserId: string;
+	triggeredByCron?: boolean;
+	env: Env;
+}
+
+export async function triggerScheduledCycle(
+	input: TriggerScheduledCycleInput,
+): Promise<Result<MigrationJob>> {
+	const { deploymentId, triggeredByUserId, env } = input;
+
+	const deployment = await getDeployment(deploymentId);
+	if (!deployment) return NOT_FOUND;
+
+	const active = await getActiveMigrationJob(deploymentId);
+	if (active) return JOB_ALREADY_RUNNING;
+
+	const stored = await getDeploymentServerConfig(deploymentId);
+	const config = stored ? await decryptServerConfig(stored, env.ENCRYPTION_KEY) : null;
+	if (!config?.runner_url || !config.runner_token) {
+		return {
+			ok: false,
+			error: {
+				code: "CONFIG_INCOMPLETE",
+				message: "Brak runner_url lub runner_token w konfiguracji",
+				status: 400,
+			},
+		};
+	}
+
+	const runnerConfig = buildRunnerJobConfig(deployment, config);
+	if (!runnerConfig) return CONFIG_INCOMPLETE_B2;
+
+	const allEmployees = await getEmployeesByDeployment(deploymentId);
+	if (allEmployees.length === 0) {
+		return {
+			ok: false,
+			error: {
+				code: "NO_EMPLOYEES",
+				message: "Brak pracownikow we wdrozeniu",
+				status: 400,
+			},
+		};
+	}
+
+	const sharedDrives = await getSharedDrivesByDeployment(deploymentId);
+	const sdNameById = new Map(sharedDrives.map((sd) => [sd.id, sd.name]));
+	const sdGoogleIdByDbId = new Map(sharedDrives.map((sd) => [sd.id, sd.googleDriveId ?? null]));
+
+	const cycleEmployees: ScheduledCycleEmployee[] = [];
+	let eligibleCount = 0;
+	for (const employee of allEmployees) {
+		if (employee.oauthStatus !== "authorized") {
+			cycleEmployees.push({
+				account: employee.email,
+				gdrive: null,
+				folders: [],
+				skipReason: "no_oauth",
+			});
+			continue;
+		}
+		if (employee.selectionStatus !== "completed") {
+			cycleEmployees.push({
+				account: employee.email,
+				gdrive: null,
+				folders: [],
+				skipReason: "no_selection",
+			});
+			continue;
+		}
+		const gdriveResult = await buildEmployeeGDriveCredentialsForRunner(employee.id, env);
+		if (!gdriveResult.ok) {
+			cycleEmployees.push({
+				account: employee.email,
+				gdrive: null,
+				folders: [],
+				skipReason: "oauth_refresh_failed",
+			});
+			continue;
+		}
+		const selections = await getFolderSelectionsByEmployee(employee.id);
+		if (selections.length === 0) {
+			cycleEmployees.push({
+				account: employee.email,
+				gdrive: gdriveResult.data,
+				folders: [],
+				skipReason: "no_folders",
+			});
+			continue;
+		}
+		const folders = selections.map((s) => ({
+			itemId: s.itemId,
+			itemName: s.itemName,
+			itemType: s.itemType,
+			parentFolderId: s.parentFolderId,
+			mimeType: s.mimeType,
+			sharedDriveName: s.sharedDriveId ? (sdNameById.get(s.sharedDriveId) ?? null) : null,
+			sharedDriveId: s.sharedDriveId ? (sdGoogleIdByDbId.get(s.sharedDriveId) ?? null) : null,
+		}));
+		cycleEmployees.push({ account: employee.email, gdrive: gdriveResult.data, folders });
+		eligibleCount++;
+	}
+
+	if (eligibleCount === 0) {
+		return {
+			ok: false,
+			error: {
+				code: "NO_ELIGIBLE_EMPLOYEES",
+				message: "Brak pracownikow gotowych do migracji (OAuth + foldery)",
+				status: 400,
+			},
+		};
+	}
+
+	const requestBody = { runnerConfig, employees: cycleEmployees };
+
+	let response: Response;
+	try {
+		response = await fetch(`${config.runner_url}/jobs/scheduled-cycle`, {
+			method: "POST",
+			headers: {
+				"content-type": "application/json",
+				authorization: `Bearer ${config.runner_token}`,
+			},
+			body: JSON.stringify(requestBody),
+		});
+	} catch (_err) {
+		return {
+			ok: false,
+			error: {
+				code: "RUNNER_UNREACHABLE",
+				message: "Nie udalo sie polaczyc z runnerem",
+				status: 502,
+			},
+		};
+	}
+
+	if (!response.ok) {
+		return {
+			ok: false,
+			error: {
+				code: "RUNNER_REJECTED",
+				message: `Runner odrzucil zadanie (${response.status})`,
+				status: 502,
+			},
+		};
+	}
+
+	const parsed = JobCreatedResponseSchema.safeParse(await response.json());
+	if (!parsed.success) {
+		return {
+			ok: false,
+			error: {
+				code: "RUNNER_INVALID_RESPONSE",
+				message: "Runner zwrocil nieprawidlowa odpowiedz",
+				status: 502,
+			},
+		};
+	}
+
+	const job = await createMigrationJob({
+		deploymentId,
+		type: "scheduled-cycle",
+		account: null,
+		dryRun: false,
+		runnerJobId: parsed.data.jobId,
+		triggeredByUserId,
+		triggeredByCron: input.triggeredByCron ?? false,
 	});
 
 	return { ok: true, data: job };
@@ -555,7 +736,7 @@ export async function triggerGDriveRestore(
 
 export async function getMigrationJobStatus(
 	jobId: string,
-	encryptionKey: string,
+	env: Env,
 ): Promise<Result<MigrationJob>> {
 	const job = await getMigrationJob(jobId);
 	if (!job) {
@@ -573,7 +754,7 @@ export async function getMigrationJobStatus(
 	}
 
 	const stored = await getDeploymentServerConfig(job.deploymentId);
-	const config = stored ? await decryptServerConfig(stored, encryptionKey) : null;
+	const config = stored ? await decryptServerConfig(stored, env.ENCRYPTION_KEY) : null;
 	if (!config?.runner_url || !config.runner_token) {
 		return { ok: true, data: job };
 	}
@@ -597,7 +778,47 @@ export async function getMigrationJobStatus(
 		status: parsed.data.status,
 		exitCode: parsed.data.exitCode,
 	});
+
+	if (parsed.data.status === "failed" && job.type === "scheduled-cycle" && env.TELEGRAM_BOT_TOKEN) {
+		const deployment = await getDeployment(job.deploymentId);
+		const logTail = await fetchRunnerLogTail(
+			config.runner_url,
+			config.runner_token,
+			job.runnerJobId,
+		);
+		await notifyJobFailed(
+			{
+				deploymentId: job.deploymentId,
+				jobId: job.id,
+				reason: "job_failed",
+				clientName: deployment?.clientName ?? "(unknown)",
+				exitCode: parsed.data.exitCode ?? null,
+				logTail,
+			},
+			env,
+		);
+	}
+
 	return { ok: true, data: updated ?? job };
+}
+
+async function fetchRunnerLogTail(
+	runnerUrl: string,
+	runnerToken: string,
+	runnerJobId: string,
+): Promise<string | null> {
+	try {
+		const resp = await fetch(`${runnerUrl}/jobs/${runnerJobId}/logs`, {
+			headers: { authorization: `Bearer ${runnerToken}` },
+		});
+		if (!resp.ok) return null;
+		const data = (await resp.json()) as { lines?: Array<{ text?: string; line?: string }> };
+		const lines = data.lines ?? [];
+		const last = lines.slice(-20).map((l) => l.text ?? l.line ?? "");
+		return last.length > 0 ? last.join("\n") : null;
+	} catch {
+		return null;
+	}
 }
 
 export async function streamJobLogs(

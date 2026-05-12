@@ -5,7 +5,13 @@ import { RunnerJobStatusSchema } from "./runner-protocol";
 // Enums
 // ============================================
 
-export const MigrationJobTypeSchema = z.enum(["backup", "migrate", "gdrive-restore", "ingest"]);
+export const MigrationJobTypeSchema = z.enum([
+	"backup",
+	"migrate",
+	"gdrive-restore",
+	"ingest",
+	"scheduled-cycle",
+]);
 export const MigrationJobStatusSchema = RunnerJobStatusSchema;
 
 // ============================================
@@ -24,6 +30,7 @@ export const MigrationJobSchema = z.object({
 	finishedAt: z.coerce.date().nullable(),
 	exitCode: z.number().int().nullable(),
 	triggeredByUserId: z.string(),
+	triggeredByCron: z.boolean(),
 });
 
 // ============================================

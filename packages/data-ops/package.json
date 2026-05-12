@@ -52,6 +52,10 @@
 			"types": "./dist/shared-drive/index.d.ts",
 			"default": "./dist/shared-drive/index.js"
 		},
+		"./schedule": {
+			"types": "./dist/schedule/index.d.ts",
+			"default": "./dist/schedule/index.js"
+		},
 		"./auth/*": {
 			"types": "./dist/auth/*.d.ts",
 			"default": "./dist/auth/*.js"

@@ -21,6 +21,8 @@
 	"dependencies": {
 		"@hono/zod-validator": "^0.7.6",
 		"@repo/data-ops": "workspace:*",
+		"date-fns": "^4.1.0",
+		"date-fns-tz": "^3.2.0",
 		"hono": "^4.12.2"
 	}
 }

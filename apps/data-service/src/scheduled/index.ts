@@ -1,5 +1,9 @@
+import { runDueSchedules } from "./run-due-schedules";
+
 export async function handleScheduled(
 	_controller: ScheduledController,
-	_env: Env,
-	_ctx: ExecutionContext,
-) {}
+	env: Env,
+	ctx: ExecutionContext,
+) {
+	ctx.waitUntil(runDueSchedules(env, new Date()));
+}

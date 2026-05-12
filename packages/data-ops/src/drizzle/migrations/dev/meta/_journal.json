@@ -113,6 +113,41 @@
       "when": 1778168655005,
       "tag": "0015_opposite_shadow_king",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1778532091044,
+      "tag": "0016_happy_reptil",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1778534886918,
+      "tag": "0017_gray_electro",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1778535914109,
+      "tag": "0018_stale_bloodscream",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1778569128652,
+      "tag": "0019_dazzling_shockwave",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1778572467125,
+      "tag": "0020_burly_midnight",
+      "breakpoints": true
     }
   ]
 }

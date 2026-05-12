@@ -7,17 +7,15 @@
 	"observability": {
 		"enabled": true
 	},
-	// "triggers": {
-	//   "crons": [
-	//     "0 * * * *"
-	//   ]
-	// },
 	"env": {
 		/**
 		 * Local / Development environment
 		 */
 		"dev": {
 			"name": "grota-ds-dev",
+			"triggers": {
+				"crons": ["*/5 * * * *"]
+			},
 			"r2_buckets": [
 				{
 					"binding": "CONFIG_BUCKET",
@@ -60,6 +58,9 @@
 				}
 			],
 			"name": "grota-ds-staging",
+			"triggers": {
+				"crons": ["*/5 * * * *"]
+			},
 			"r2_buckets": [
 				{
 					"binding": "CONFIG_BUCKET",
@@ -102,6 +103,9 @@
 				}
 			],
 			"name": "grota-ds-production",
+			"triggers": {
+				"crons": ["*/5 * * * *"]
+			},
 			"r2_buckets": [
 				{
 					"binding": "CONFIG_BUCKET",
