@@ -105,7 +105,12 @@ describe("runDueSchedules (integration)", () => {
 
 	it("fails with NO_EMPLOYEES when deployment has runner config but no employees, leaves next_run_at untouched", async () => {
 		const deploymentId = await setupReadyDeployment();
-		await setSchedule(deploymentId, { enabled: true, intervalHours: 24, anchorTime: "02:00", includeGdriveRestore: false });
+		await setSchedule(deploymentId, {
+			enabled: true,
+			intervalHours: 24,
+			anchorTime: "02:00",
+			includeGdriveRestore: false,
+		});
 		const before = await getSchedule(deploymentId);
 
 		const result = await runDueSchedules(envForTest(), new Date());
@@ -123,8 +128,18 @@ describe("runDueSchedules (integration)", () => {
 
 	it("skips disabled schedules", async () => {
 		const deploymentId = await setupReadyDeployment();
-		await setSchedule(deploymentId, { enabled: true, intervalHours: 24, anchorTime: "02:00", includeGdriveRestore: false });
-		await setSchedule(deploymentId, { enabled: false, intervalHours: 24, anchorTime: "02:00", includeGdriveRestore: false });
+		await setSchedule(deploymentId, {
+			enabled: true,
+			intervalHours: 24,
+			anchorTime: "02:00",
+			includeGdriveRestore: false,
+		});
+		await setSchedule(deploymentId, {
+			enabled: false,
+			intervalHours: 24,
+			anchorTime: "02:00",
+			includeGdriveRestore: false,
+		});
 
 		const result = await runDueSchedules(envForTest(), new Date());
 
@@ -147,7 +162,12 @@ describe("runDueSchedules (integration)", () => {
 			triggeredByUserId: deployment.createdBy,
 		});
 
-		await setSchedule(deploymentId, { enabled: true, intervalHours: 6, anchorTime: "02:00", includeGdriveRestore: false });
+		await setSchedule(deploymentId, {
+			enabled: true,
+			intervalHours: 6,
+			anchorTime: "02:00",
+			includeGdriveRestore: false,
+		});
 		const before = await getSchedule(deploymentId);
 		const tickAt = new Date();
 
@@ -176,7 +196,12 @@ describe("runDueSchedules (integration)", () => {
 
 	it("marks schedule retry_pending and pushes next_run_at by 5min on first runner POST failure", async () => {
 		const deploymentId = await setupEligibleDeployment();
-		await setSchedule(deploymentId, { enabled: true, intervalHours: 6, anchorTime: "02:00", includeGdriveRestore: false });
+		await setSchedule(deploymentId, {
+			enabled: true,
+			intervalHours: 6,
+			anchorTime: "02:00",
+			includeGdriveRestore: false,
+		});
 
 		fetchSpy.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
 			const url = String(input);
@@ -205,7 +230,12 @@ describe("runDueSchedules (integration)", () => {
 
 	it("marks schedule failed, pushes next_run_at by interval, and sends alert when retry exhausted", async () => {
 		const deploymentId = await setupEligibleDeployment();
-		await setSchedule(deploymentId, { enabled: true, intervalHours: 6, anchorTime: "02:00", includeGdriveRestore: false });
+		await setSchedule(deploymentId, {
+			enabled: true,
+			intervalHours: 6,
+			anchorTime: "02:00",
+			includeGdriveRestore: false,
+		});
 		await updateScheduleAfterRun(deploymentId, {
 			lastRunAt: new Date(Date.now() - 60_000),
 			nextRunAt: new Date(Date.now() - 1000),
@@ -249,7 +279,12 @@ describe("runDueSchedules (integration)", () => {
 
 	it("does NOT send alert on first transient failure (only retry_pending)", async () => {
 		const deploymentId = await setupEligibleDeployment();
-		await setSchedule(deploymentId, { enabled: true, intervalHours: 6, anchorTime: "02:00", includeGdriveRestore: false });
+		await setSchedule(deploymentId, {
+			enabled: true,
+			intervalHours: 6,
+			anchorTime: "02:00",
+			includeGdriveRestore: false,
+		});
 
 		fetchSpy.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
 			const url = String(input);
@@ -283,7 +318,12 @@ describe("runDueSchedules (integration)", () => {
 
 	it("resets retry counter and marks ok after a successful run following a pending retry", async () => {
 		const deploymentId = await setupEligibleDeployment();
-		await setSchedule(deploymentId, { enabled: true, intervalHours: 6, anchorTime: "02:00", includeGdriveRestore: false });
+		await setSchedule(deploymentId, {
+			enabled: true,
+			intervalHours: 6,
+			anchorTime: "02:00",
+			includeGdriveRestore: false,
+		});
 		await updateScheduleAfterRun(deploymentId, {
 			lastRunAt: new Date(Date.now() - 60_000),
 			nextRunAt: new Date(Date.now() - 1000),
@@ -463,7 +503,12 @@ describe("runDueSchedules (integration)", () => {
 
 	it("counts schedule as failed when runner config is missing, leaves next_run_at untouched", async () => {
 		const deployment = await createTestDeployment();
-		await setSchedule(deployment.id, { enabled: true, intervalHours: 24, anchorTime: "02:00", includeGdriveRestore: false });
+		await setSchedule(deployment.id, {
+			enabled: true,
+			intervalHours: 24,
+			anchorTime: "02:00",
+			includeGdriveRestore: false,
+		});
 		const before = await getSchedule(deployment.id);
 
 		const result = await runDueSchedules(envForTest(), new Date());
