@@ -39,6 +39,7 @@ describe("MigrationJobSchema", () => {
 		finishedAt: null,
 		exitCode: null,
 		triggeredByUserId: "user-abc",
+		triggeredByCron: false,
 	};
 
 	it("parses a valid in-flight job and coerces startedAt to Date", () => {

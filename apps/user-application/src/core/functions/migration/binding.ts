@@ -17,6 +17,7 @@ export interface MigrationJobDto {
 	finishedAt: string | null;
 	exitCode: number | null;
 	triggeredByUserId: string;
+	triggeredByCron: boolean;
 }
 
 const TriggerBackupInput = z.object({

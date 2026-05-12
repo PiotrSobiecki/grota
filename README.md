@@ -130,10 +130,26 @@ Po ukończeniu onboardingu operator zarządza migracją z poziomu UI. VPS klient
 
 - Akcje globalne (wszyscy pracownicy) + per-pracownik
 - Single-job-at-a-time per deployment (lock w UI + 409 z runnera)
-- Historia jobów (status, typ, account, czas startu, duration, exit code)
+- Historia jobów (status, typ, account, czas startu, duration, exit code, badge **Auto** / **Admin**)
 - Polling co 2s na aktywny job + **live logi SSE z runnera** w karcie Aktywny job
 - Confirm dialog na destrukcyjne akcje
-- Rate limit per-deployment + audit log zmian konfiguracji
+- Rate limit per-deployment + audit log zmian konfiguracji + audit log harmonogramu
+
+### Harmonogram (auto-cykl)
+
+W panelu migracji widget „Harmonogram" — Cloudflare Cron Trigger (co 5 min) w `data-service` wywołuje `scheduled-cycle` (ingest wszystkich gotowych pracowników → backup do B2). Konfiguracja:
+
+- **Toggle** włącz/wyłącz
+- **Interwał** (presety): 1h / 6h / 12h / 24h / 7d
+- **Godzina kotwicy** (`anchor_time`, default 02:00, strefa `Europe/Warsaw`)
+- Status: `Następne uruchomienie`, `Ostatnie: <data> — Sukces/Pominięto/Ponawianie/Błąd`
+
+Zachowanie dispatchera:
+- Lock detection: jeśli istnieje aktywny job → `skipped:locked`, `next_run_at += interval`
+- VPS-down retry: network/HTTP error → `retry_pending`, `next_run_at = now + 5min`; drugi fail → `failed` + alert
+- Skip pracowników bez OAuth / bez folderów / z błędem refresh tokenu (log w jobie: `oauth_refresh_failed`)
+
+Alerty (Telegram + email przez Resend) wysyłane przy `scheduled-cycle: failed` lub `retry_exhausted`. Email: env `OPERATOR_ALERT_EMAIL` (default `piotr@sobiecki.org`).
 
 ### Konfiguracja runnera (UI)
 

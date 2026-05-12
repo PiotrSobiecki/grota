@@ -44,6 +44,7 @@ export const migrationJobs = pgTable(
 		triggeredByUserId: text("triggered_by_user_id")
 			.notNull()
 			.references(() => auth_user.id, { onDelete: "restrict" }),
+		triggeredByCron: boolean("triggered_by_cron").notNull().default(false),
 	},
 	(table) => ({
 		deploymentStartedIdx: index("migration_jobs_deployment_started_idx").on(

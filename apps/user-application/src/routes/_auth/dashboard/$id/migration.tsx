@@ -129,6 +129,15 @@ function formatScheduleDate(iso: string | null): string | null {
 	}).format(d);
 }
 
+function formatLastStatus(status: string | null): string | null {
+	if (!status) return null;
+	if (status === "ok") return "Sukces";
+	if (status === "skipped:locked") return "Pominięto";
+	if (status === "retry_pending") return "Ponawianie";
+	if (status === "failed" || status.startsWith("failed:")) return "Błąd";
+	return status;
+}
+
 function ScheduleWidget({
 	schedule,
 	loading,
@@ -206,7 +215,9 @@ function ScheduleWidget({
 					{lastRun && (
 						<span>
 							Ostatnie: {lastRun}
-							{schedule?.lastStatus ? ` — ${schedule.lastStatus}` : ""}
+							{formatLastStatus(schedule?.lastStatus ?? null)
+								? ` — ${formatLastStatus(schedule?.lastStatus ?? null)}`
+								: ""}
 						</span>
 					)}
 				</div>
@@ -659,6 +670,9 @@ function JobRow({ job }: { job: MigrationJobDto }) {
 		<div className="flex items-center justify-between rounded border border-border p-3 text-sm">
 			<div className="flex items-center gap-3">
 				<Badge variant={badge.variant}>{badge.label}</Badge>
+				<Badge variant={job.triggeredByCron ? "outline" : "secondary"}>
+					{job.triggeredByCron ? "Auto" : "Admin"}
+				</Badge>
 				<span className="text-foreground">
 					{TYPE_LABEL[job.type]}
 					{job.dryRun ? " (dry-run)" : ""}

@@ -23,6 +23,7 @@ export const DeploymentScheduleSchema = z.object({
 	nextRunAt: z.coerce.date().nullable(),
 	lastJobId: z.string().uuid().nullable(),
 	lastStatus: z.string().nullable(),
+	retryAttemptsRemaining: z.number().int().nonnegative(),
 	createdAt: z.coerce.date(),
 	updatedAt: z.coerce.date(),
 });

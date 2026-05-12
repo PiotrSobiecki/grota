@@ -57,6 +57,7 @@ export async function updateScheduleAfterRun(
 		nextRunAt: Date;
 		lastJobId?: string | null;
 		lastStatus?: string | null;
+		retryAttemptsRemaining?: number;
 	},
 ): Promise<void> {
 	const db = getDb();
@@ -66,6 +67,8 @@ export async function updateScheduleAfterRun(
 	};
 	if (values.lastJobId !== undefined) setValues.lastJobId = values.lastJobId;
 	if (values.lastStatus !== undefined) setValues.lastStatus = values.lastStatus;
+	if (values.retryAttemptsRemaining !== undefined)
+		setValues.retryAttemptsRemaining = values.retryAttemptsRemaining;
 	await db
 		.update(deploymentSchedules)
 		.set(setValues)

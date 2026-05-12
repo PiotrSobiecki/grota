@@ -28,16 +28,29 @@ async function setupReadyDeployment(): Promise<string> {
 	return deployment.id;
 }
 
-async function seedJob(opts: { deploymentId: string; runnerJobId?: string }) {
+type SeedJobType = "backup" | "migrate" | "gdrive-restore" | "ingest" | "scheduled-cycle";
+
+async function seedJob(opts: { deploymentId: string; runnerJobId?: string; type?: SeedJobType }) {
 	const user = await createTestUser();
 	return createMigrationJob({
 		deploymentId: opts.deploymentId,
-		type: "backup",
+		type: opts.type ?? "backup",
 		account: null,
 		dryRun: false,
 		runnerJobId: opts.runnerJobId ?? randomUUID(),
 		triggeredByUserId: user.id,
 	});
+}
+
+function envForTest(): Env {
+	return {
+		ENCRYPTION_KEY: process.env.ENCRYPTION_KEY ?? "",
+		TELEGRAM_BOT_TOKEN: "test-bot-token",
+		TELEGRAM_CHAT_ID: "-100test",
+		RESEND_API_KEY: "re_test",
+		OPERATOR_ALERT_EMAIL: "ops@example.com",
+		PUBLIC_APP_URL: "https://app.example.com",
+	} as unknown as Env;
 }
 
 describe("getMigrationJobStatus (integration)", () => {
@@ -81,7 +94,7 @@ describe("getMigrationJobStatus (integration)", () => {
 	it("returns NOT_FOUND for unknown job id", async () => {
 		const result = await getMigrationJobStatus(
 			"00000000-0000-4000-8000-000000000000",
-			encryptionKey(),
+			envForTest(),
 		);
 		expect(result.ok).toBe(false);
 		if (!result.ok) expect(result.error.code).toBe("NOT_FOUND");
@@ -94,7 +107,7 @@ describe("getMigrationJobStatus (integration)", () => {
 		const { updateMigrationJobStatus } = await import("@repo/data-ops/migration");
 		await updateMigrationJobStatus(job.id, { status: "done", exitCode: 0 });
 
-		const result = await getMigrationJobStatus(job.id, encryptionKey());
+		const result = await getMigrationJobStatus(job.id, envForTest());
 		expect(result.ok).toBe(true);
 		if (!result.ok) return;
 		expect(result.data.status).toBe("done");
@@ -115,7 +128,7 @@ describe("getMigrationJobStatus (integration)", () => {
 		const job = await seedJob({ deploymentId, runnerJobId });
 		mockRunnerJobStatus({ id: runnerJobId, status: "done", exitCode: 0 });
 
-		const result = await getMigrationJobStatus(job.id, encryptionKey());
+		const result = await getMigrationJobStatus(job.id, envForTest());
 		expect(result.ok).toBe(true);
 		if (!result.ok) return;
 		expect(result.data.status).toBe("done");
@@ -141,6 +154,57 @@ describe("getMigrationJobStatus (integration)", () => {
 		expect(headers.get("authorization")).toBe("Bearer secret-token");
 	});
 
+	it("sends alert when a scheduled-cycle job transitions to failed", async () => {
+		const deploymentId = await setupReadyDeployment();
+		const runnerJobId = randomUUID();
+		const job = await seedJob({ deploymentId, runnerJobId, type: "scheduled-cycle" });
+
+		fetchSpy.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+			const url = typeof input === "string" ? input : input.toString();
+			if (url.startsWith("https://runner.example.com")) {
+				return new Response(
+					JSON.stringify({
+						id: runnerJobId,
+						status: "failed",
+						startedAt: new Date().toISOString(),
+						finishedAt: new Date().toISOString(),
+						exitCode: 137,
+					}),
+					{ status: 200, headers: { "content-type": "application/json" } },
+				);
+			}
+			if (url.startsWith("https://api.telegram.org") || url.startsWith("https://api.resend.com")) {
+				return new Response("{}", { status: 200 });
+			}
+			return originalFetch(input, init);
+		});
+
+		const result = await getMigrationJobStatus(job.id, envForTest());
+		expect(result.ok).toBe(true);
+
+		const calls = fetchSpy.mock.calls as unknown as [RequestInfo | URL, RequestInit?][];
+		const tgCall = calls.find((c) => String(c[0]).startsWith("https://api.telegram.org"));
+		const mailCall = calls.find((c) => String(c[0]).startsWith("https://api.resend.com"));
+		expect(tgCall).toBeDefined();
+		expect(mailCall).toBeDefined();
+	});
+
+	it("does NOT send alert when a manual backup job transitions to failed", async () => {
+		const deploymentId = await setupReadyDeployment();
+		const runnerJobId = randomUUID();
+		const job = await seedJob({ deploymentId, runnerJobId, type: "backup" });
+		mockRunnerJobStatus({ id: runnerJobId, status: "failed", exitCode: 1 });
+
+		const result = await getMigrationJobStatus(job.id, envForTest());
+		expect(result.ok).toBe(true);
+
+		const calls = fetchSpy.mock.calls as unknown as [RequestInfo | URL, RequestInit?][];
+		const tgCall = calls.find((c) => String(c[0]).startsWith("https://api.telegram.org"));
+		const mailCall = calls.find((c) => String(c[0]).startsWith("https://api.resend.com"));
+		expect(tgCall).toBeUndefined();
+		expect(mailCall).toBeUndefined();
+	});
+
 	it("returns stale DB row when runner is unreachable for non-terminal job", async () => {
 		const deploymentId = await setupReadyDeployment();
 		const job = await seedJob({ deploymentId });
@@ -152,7 +216,7 @@ describe("getMigrationJobStatus (integration)", () => {
 			return originalFetch(input, init);
 		});
 
-		const result = await getMigrationJobStatus(job.id, encryptionKey());
+		const result = await getMigrationJobStatus(job.id, envForTest());
 		expect(result.ok).toBe(true);
 		if (!result.ok) return;
 		expect(result.data.id).toBe(job.id);

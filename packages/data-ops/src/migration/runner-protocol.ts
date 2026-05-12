@@ -72,10 +72,18 @@ export const IngestRequestSchema = z.object({
 	folders: z.array(IngestFolderSchema).min(1),
 });
 
+export const ScheduledCycleSkipReasonSchema = z.enum([
+	"no_oauth",
+	"no_selection",
+	"no_folders",
+	"oauth_refresh_failed",
+]);
+
 export const ScheduledCycleEmployeeSchema = z.object({
 	account: z.string().email(),
 	gdrive: GDriveCredentialsSchema.nullable(),
 	folders: z.array(IngestFolderSchema),
+	skipReason: ScheduledCycleSkipReasonSchema.nullable().optional(),
 });
 
 export const ScheduledCycleRequestSchema = z.object({

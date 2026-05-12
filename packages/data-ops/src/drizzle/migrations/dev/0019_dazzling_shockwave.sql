@@ -1,0 +1,1 @@
+ALTER TABLE "deployment_schedules" ADD COLUMN "retry_attempts_remaining" integer DEFAULT 0 NOT NULL;

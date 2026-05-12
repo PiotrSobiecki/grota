@@ -10,6 +10,7 @@ export interface CreateMigrationJobInput {
 	dryRun: boolean;
 	runnerJobId: string;
 	triggeredByUserId: string;
+	triggeredByCron?: boolean;
 }
 
 export async function createMigrationJob(input: CreateMigrationJobInput): Promise<MigrationJob> {
@@ -23,6 +24,7 @@ export async function createMigrationJob(input: CreateMigrationJobInput): Promis
 			dryRun: input.dryRun,
 			runnerJobId: input.runnerJobId,
 			triggeredByUserId: input.triggeredByUserId,
+			triggeredByCron: input.triggeredByCron ?? false,
 		})
 		.returning();
 	const row = result[0];

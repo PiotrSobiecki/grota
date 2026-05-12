@@ -26,7 +26,11 @@ scheduleHandlers.put(
 	async (c) => {
 		const { id } = c.req.valid("param");
 		const input = c.req.valid("json");
-		return resultToResponse(c, await scheduleService.setScheduleForDeployment(id, input));
+		const operatorId = c.req.header("X-Operator-Id") ?? null;
+		return resultToResponse(
+			c,
+			await scheduleService.setScheduleForDeployment(id, input, operatorId),
+		);
 	},
 );
 

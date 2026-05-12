@@ -30,6 +30,7 @@ export const MigrationJobSchema = z.object({
 	finishedAt: z.coerce.date().nullable(),
 	exitCode: z.number().int().nullable(),
 	triggeredByUserId: z.string(),
+	triggeredByCron: z.boolean(),
 });
 
 // ============================================

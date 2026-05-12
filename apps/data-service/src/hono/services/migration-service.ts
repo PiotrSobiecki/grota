@@ -36,6 +36,7 @@ import {
 } from "@repo/data-ops/migration";
 import { getSharedDrivesByDeployment } from "@repo/data-ops/shared-drive";
 import type { Result } from "../types/result";
+import { notifyJobFailed } from "./alert-service";
 
 const NOT_FOUND = {
 	ok: false as const,
@@ -250,6 +251,7 @@ export async function triggerBackup(input: TriggerBackupInput): Promise<Result<M
 export interface TriggerScheduledCycleInput {
 	deploymentId: string;
 	triggeredByUserId: string;
+	triggeredByCron?: boolean;
 	env: Env;
 }
 
@@ -300,21 +302,41 @@ export async function triggerScheduledCycle(
 	let eligibleCount = 0;
 	for (const employee of allEmployees) {
 		if (employee.oauthStatus !== "authorized") {
-			cycleEmployees.push({ account: employee.email, gdrive: null, folders: [] });
+			cycleEmployees.push({
+				account: employee.email,
+				gdrive: null,
+				folders: [],
+				skipReason: "no_oauth",
+			});
 			continue;
 		}
 		if (employee.selectionStatus !== "completed") {
-			cycleEmployees.push({ account: employee.email, gdrive: null, folders: [] });
+			cycleEmployees.push({
+				account: employee.email,
+				gdrive: null,
+				folders: [],
+				skipReason: "no_selection",
+			});
 			continue;
 		}
 		const gdriveResult = await buildEmployeeGDriveCredentialsForRunner(employee.id, env);
 		if (!gdriveResult.ok) {
-			cycleEmployees.push({ account: employee.email, gdrive: null, folders: [] });
+			cycleEmployees.push({
+				account: employee.email,
+				gdrive: null,
+				folders: [],
+				skipReason: "oauth_refresh_failed",
+			});
 			continue;
 		}
 		const selections = await getFolderSelectionsByEmployee(employee.id);
 		if (selections.length === 0) {
-			cycleEmployees.push({ account: employee.email, gdrive: gdriveResult.data, folders: [] });
+			cycleEmployees.push({
+				account: employee.email,
+				gdrive: gdriveResult.data,
+				folders: [],
+				skipReason: "no_folders",
+			});
 			continue;
 		}
 		const folders = selections.map((s) => ({
@@ -394,6 +416,7 @@ export async function triggerScheduledCycle(
 		dryRun: false,
 		runnerJobId: parsed.data.jobId,
 		triggeredByUserId,
+		triggeredByCron: input.triggeredByCron ?? false,
 	});
 
 	return { ok: true, data: job };
@@ -713,7 +736,7 @@ export async function triggerGDriveRestore(
 
 export async function getMigrationJobStatus(
 	jobId: string,
-	encryptionKey: string,
+	env: Env,
 ): Promise<Result<MigrationJob>> {
 	const job = await getMigrationJob(jobId);
 	if (!job) {
@@ -731,7 +754,7 @@ export async function getMigrationJobStatus(
 	}
 
 	const stored = await getDeploymentServerConfig(job.deploymentId);
-	const config = stored ? await decryptServerConfig(stored, encryptionKey) : null;
+	const config = stored ? await decryptServerConfig(stored, env.ENCRYPTION_KEY) : null;
 	if (!config?.runner_url || !config.runner_token) {
 		return { ok: true, data: job };
 	}
@@ -755,7 +778,47 @@ export async function getMigrationJobStatus(
 		status: parsed.data.status,
 		exitCode: parsed.data.exitCode,
 	});
+
+	if (parsed.data.status === "failed" && job.type === "scheduled-cycle" && env.TELEGRAM_BOT_TOKEN) {
+		const deployment = await getDeployment(job.deploymentId);
+		const logTail = await fetchRunnerLogTail(
+			config.runner_url,
+			config.runner_token,
+			job.runnerJobId,
+		);
+		await notifyJobFailed(
+			{
+				deploymentId: job.deploymentId,
+				jobId: job.id,
+				reason: "job_failed",
+				clientName: deployment?.clientName ?? "(unknown)",
+				exitCode: parsed.data.exitCode ?? null,
+				logTail,
+			},
+			env,
+		);
+	}
+
 	return { ok: true, data: updated ?? job };
+}
+
+async function fetchRunnerLogTail(
+	runnerUrl: string,
+	runnerToken: string,
+	runnerJobId: string,
+): Promise<string | null> {
+	try {
+		const resp = await fetch(`${runnerUrl}/jobs/${runnerJobId}/logs`, {
+			headers: { authorization: `Bearer ${runnerToken}` },
+		});
+		if (!resp.ok) return null;
+		const data = (await resp.json()) as { lines?: Array<{ text?: string; line?: string }> };
+		const lines = data.lines ?? [];
+		const last = lines.slice(-20).map((l) => l.text ?? l.line ?? "");
+		return last.length > 0 ? last.join("\n") : null;
+	} catch {
+		return null;
+	}
 }
 
 export async function streamJobLogs(

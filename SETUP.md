@@ -51,6 +51,7 @@ wrangler secret put ENCRYPTION_KEY --env staging        # 32 bajty base64: opens
 wrangler secret put RESEND_API_KEY --env staging
 wrangler secret put GOOGLE_CLIENT_SECRET --env staging
 wrangler secret put TELEGRAM_BOT_TOKEN --env staging    # opcjonalne
+wrangler secret put OPERATOR_ALERT_EMAIL --env staging  # alerty harmonogramu (008 Phase 5)
 # (i analogicznie --env production)
 
 # user-application

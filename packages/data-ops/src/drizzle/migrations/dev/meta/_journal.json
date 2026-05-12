@@ -134,6 +134,20 @@
       "when": 1778535914109,
       "tag": "0018_stale_bloodscream",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1778569128652,
+      "tag": "0019_dazzling_shockwave",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1778572467125,
+      "tag": "0020_burly_midnight",
+      "breakpoints": true
     }
   ]
 }

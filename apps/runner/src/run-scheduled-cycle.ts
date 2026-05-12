@@ -24,18 +24,20 @@ export function createRunScheduledCycle(spawn: SpawnRcloneFn): RunScheduledCycle
 
 		for (const employee of req.employees) {
 			if (!employee.gdrive) {
+				const reason = employee.skipReason ?? "no_oauth";
 				emitLog({
 					ts: new Date().toISOString(),
 					stream: "stdout",
-					line: `skipped: ${employee.account} (no_oauth)`,
+					line: `skipped: ${employee.account} (${reason})`,
 				});
 				continue;
 			}
 			if (employee.folders.length === 0) {
+				const reason = employee.skipReason ?? "no_folders";
 				emitLog({
 					ts: new Date().toISOString(),
 					stream: "stdout",
-					line: `skipped: ${employee.account} (no_folders)`,
+					line: `skipped: ${employee.account} (${reason})`,
 				});
 				continue;
 			}
