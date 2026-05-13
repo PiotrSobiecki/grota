@@ -552,6 +552,7 @@ function MigrationPage() {
 	const backupMutation = useMutation({
 		mutationFn: (input: { account?: string }) =>
 			triggerBackupJob({ data: { deploymentId, account: input.account } }),
+		onMutate: () => setGlobalOpJobs([]),
 		onSuccess: () => {
 			toast.success("Zapis kopii uruchomiony");
 			refetchJobs();
@@ -564,6 +565,7 @@ function MigrationPage() {
 			triggerMigrateJob({
 				data: { deploymentId, account: input.account, dryRun: input.dryRun },
 			}),
+		onMutate: () => setGlobalOpJobs([]),
 		onSuccess: (job) => {
 			toast.success(
 				job.dryRun ? "Podgląd przywracania uruchomiony" : "Przywracanie kopii uruchomione",
@@ -578,6 +580,7 @@ function MigrationPage() {
 			triggerGDriveRestoreJob({
 				data: { deploymentId, account: input.account },
 			}),
+		onMutate: () => setGlobalOpJobs([]),
 		onSuccess: () => {
 			toast.success("Wysyłka na dysk firmowy uruchomiona");
 			refetchJobs();
@@ -590,6 +593,7 @@ function MigrationPage() {
 			triggerIngestJob({
 				data: { deploymentId, employeeId: input.employeeId },
 			}),
+		onMutate: () => setGlobalOpJobs([]),
 		onSuccess: () => {
 			toast.success("Pobieranie danych uruchomione");
 			refetchJobs();
@@ -633,6 +637,7 @@ function MigrationPage() {
 				data: { deploymentId, account: input.account },
 			});
 		},
+		onMutate: () => setGlobalOpJobs([]),
 		onSuccess: () => {
 			toast.success("Pobieranie danych i wysylka na dysk firmowy uruchomione");
 			refetchJobs();
