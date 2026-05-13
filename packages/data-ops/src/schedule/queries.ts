@@ -23,12 +23,14 @@ export async function setSchedule(
 		enabled: input.enabled,
 		intervalHours: input.intervalHours,
 		anchorTime: input.anchorTime,
+		includeGdriveRestore: input.includeGdriveRestore,
 		...(input.enabled ? { nextRunAt: now } : {}),
 	};
 	const updateSet: Record<string, unknown> = {
 		enabled: input.enabled,
 		intervalHours: input.intervalHours,
 		anchorTime: input.anchorTime,
+		includeGdriveRestore: input.includeGdriveRestore,
 		updatedAt: now,
 	};
 	if (input.enabled) updateSet.nextRunAt = now;

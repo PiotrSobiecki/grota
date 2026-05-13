@@ -15,6 +15,7 @@ export const deploymentSchedules = pgTable("deployment_schedules", {
 	lastJobId: uuid("last_job_id").references(() => migrationJobs.id, { onDelete: "set null" }),
 	lastStatus: text("last_status"),
 	retryAttemptsRemaining: integer("retry_attempts_remaining").notNull().default(0),
+	includeGdriveRestore: boolean("include_gdrive_restore").notNull().default(false),
 	createdAt: timestamp("created_at").defaultNow().notNull(),
 	updatedAt: timestamp("updated_at")
 		.defaultNow()

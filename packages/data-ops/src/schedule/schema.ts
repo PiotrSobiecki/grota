@@ -24,6 +24,7 @@ export const DeploymentScheduleSchema = z.object({
 	lastJobId: z.string().uuid().nullable(),
 	lastStatus: z.string().nullable(),
 	retryAttemptsRemaining: z.number().int().nonnegative(),
+	includeGdriveRestore: z.boolean(),
 	createdAt: z.coerce.date(),
 	updatedAt: z.coerce.date(),
 });
@@ -32,6 +33,7 @@ export const SetScheduleRequestSchema = z.object({
 	enabled: z.boolean(),
 	intervalHours: IntervalHoursSchema,
 	anchorTime: AnchorTimeSchema,
+	includeGdriveRestore: z.boolean().optional().default(false),
 });
 
 export type DeploymentSchedule = z.infer<typeof DeploymentScheduleSchema>;

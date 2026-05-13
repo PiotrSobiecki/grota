@@ -9,6 +9,7 @@ import {
 	RunnerJobConfigSchema,
 	RunnerJobSchema,
 	RunnerJobStatusSchema,
+	ScheduledCycleRequestSchema,
 } from "./runner-protocol";
 
 const validRunnerConfig = {
@@ -190,6 +191,73 @@ describe("GDriveRestoreRequestSchema", () => {
 	it("rejects invalid email", () => {
 		expect(
 			GDriveRestoreRequestSchema.safeParse({ ...validRequest, account: "not-email" }).success,
+		).toBe(false);
+	});
+});
+
+describe("ScheduledCycleRequestSchema gdriveRestore", () => {
+	const validGDrive = {
+		clientId: "google-client-id",
+		clientSecret: "google-client-secret",
+		accessToken: "ya29.a0Af...",
+		refreshToken: "1//0g...",
+		expiry: "2026-05-07T12:00:00.000Z",
+	};
+
+	const minimalRequest = {
+		runnerConfig: validRunnerConfig,
+		employees: [{ account: "a@example.com", gdrive: validGDrive, folders: [] }],
+	};
+
+	it("accepts request without gdriveRestore (back-compat)", () => {
+		expect(ScheduledCycleRequestSchema.safeParse(minimalRequest).success).toBe(true);
+	});
+
+	it("accepts request with gdriveRestore + 1 target", () => {
+		expect(
+			ScheduledCycleRequestSchema.safeParse({
+				...minimalRequest,
+				gdriveRestore: {
+					gdrive: { ...validGDrive, sharedDriveId: "company-sd" },
+					targets: [{ account: "a@example.com", targetFolder: "a@example.com" }],
+				},
+			}).success,
+		).toBe(true);
+	});
+
+	it("rejects gdriveRestore with empty targets array", () => {
+		expect(
+			ScheduledCycleRequestSchema.safeParse({
+				...minimalRequest,
+				gdriveRestore: {
+					gdrive: validGDrive,
+					targets: [],
+				},
+			}).success,
+		).toBe(false);
+	});
+
+	it("rejects gdriveRestore target with empty targetFolder", () => {
+		expect(
+			ScheduledCycleRequestSchema.safeParse({
+				...minimalRequest,
+				gdriveRestore: {
+					gdrive: validGDrive,
+					targets: [{ account: "a@example.com", targetFolder: "" }],
+				},
+			}).success,
+		).toBe(false);
+	});
+
+	it("rejects gdriveRestore target with non-email account", () => {
+		expect(
+			ScheduledCycleRequestSchema.safeParse({
+				...minimalRequest,
+				gdriveRestore: {
+					gdrive: validGDrive,
+					targets: [{ account: "not-email", targetFolder: "folder" }],
+				},
+			}).success,
 		).toBe(false);
 	});
 });

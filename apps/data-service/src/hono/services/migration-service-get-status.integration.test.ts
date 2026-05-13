@@ -147,8 +147,8 @@ describe("getMigrationJobStatus (integration)", () => {
 			return url.startsWith("https://runner.example.com");
 		});
 		expect(runnerCalls).toHaveLength(1);
-		const [url, init] = runnerCalls[0]!;
-		const urlStr = typeof url === "string" ? url : url.toString();
+		const [url, init] = runnerCalls[0] ?? [];
+		const urlStr = typeof url === "string" ? url : String(url);
 		expect(urlStr).toBe(`https://runner.example.com/jobs/${runnerJobId}`);
 		const headers = new Headers(init?.headers);
 		expect(headers.get("authorization")).toBe("Bearer secret-token");
@@ -203,6 +203,71 @@ describe("getMigrationJobStatus (integration)", () => {
 		const mailCall = calls.find((c) => String(c[0]).startsWith("https://api.resend.com"));
 		expect(tgCall).toBeUndefined();
 		expect(mailCall).toBeUndefined();
+	});
+
+	it("sends Telegram success notification when a scheduled-cycle job transitions to done", async () => {
+		const deploymentId = await setupReadyDeployment();
+		const runnerJobId = randomUUID();
+		const job = await seedJob({ deploymentId, runnerJobId, type: "scheduled-cycle" });
+
+		fetchSpy.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+			const url = typeof input === "string" ? input : input.toString();
+			if (url.startsWith("https://runner.example.com")) {
+				return new Response(
+					JSON.stringify({
+						id: runnerJobId,
+						status: "done",
+						startedAt: new Date().toISOString(),
+						finishedAt: new Date().toISOString(),
+						exitCode: 0,
+					}),
+					{ status: 200, headers: { "content-type": "application/json" } },
+				);
+			}
+			if (url.startsWith("https://api.telegram.org")) {
+				return new Response("{}", { status: 200 });
+			}
+			return originalFetch(input, init);
+		});
+
+		const result = await getMigrationJobStatus(job.id, envForTest());
+		expect(result.ok).toBe(true);
+
+		const calls = fetchSpy.mock.calls as unknown as [RequestInfo | URL, RequestInit?][];
+		const tgCall = calls.find((c) => String(c[0]).startsWith("https://api.telegram.org"));
+		expect(tgCall).toBeDefined();
+		const tgBody = JSON.parse(tgCall?.[1]?.body as string) as { text: string };
+		expect(tgBody.text).toContain("https://app.example.com/dashboard/");
+		// no email — success path is Telegram-only in v1
+		const mailCall = calls.find((c) => String(c[0]).startsWith("https://api.resend.com"));
+		expect(mailCall).toBeUndefined();
+	});
+
+	it("does NOT send success notification when a manual backup job transitions to done", async () => {
+		const deploymentId = await setupReadyDeployment();
+		const runnerJobId = randomUUID();
+		const job = await seedJob({ deploymentId, runnerJobId, type: "backup" });
+		mockRunnerJobStatus({ id: runnerJobId, status: "done", exitCode: 0 });
+
+		const result = await getMigrationJobStatus(job.id, envForTest());
+		expect(result.ok).toBe(true);
+
+		const calls = fetchSpy.mock.calls as unknown as [RequestInfo | URL, RequestInit?][];
+		expect(calls.find((c) => String(c[0]).startsWith("https://api.telegram.org"))).toBeUndefined();
+	});
+
+	it("does NOT send success notification when OPERATOR_NOTIFY_SUCCESS=false", async () => {
+		const deploymentId = await setupReadyDeployment();
+		const runnerJobId = randomUUID();
+		const job = await seedJob({ deploymentId, runnerJobId, type: "scheduled-cycle" });
+		mockRunnerJobStatus({ id: runnerJobId, status: "done", exitCode: 0 });
+
+		const env = { ...envForTest(), OPERATOR_NOTIFY_SUCCESS: "false" } as unknown as Env;
+		const result = await getMigrationJobStatus(job.id, env);
+		expect(result.ok).toBe(true);
+
+		const calls = fetchSpy.mock.calls as unknown as [RequestInfo | URL, RequestInit?][];
+		expect(calls.find((c) => String(c[0]).startsWith("https://api.telegram.org"))).toBeUndefined();
 	});
 
 	it("returns stale DB row when runner is unreachable for non-terminal job", async () => {

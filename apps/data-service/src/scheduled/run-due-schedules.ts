@@ -92,6 +92,17 @@ async function dispatchOne(
 			nextRunAt: schedule.nextRunAt ?? now,
 			lastStatus: `failed:${result.error.code}`,
 		});
+		await notifyJobFailed(
+			{
+				deploymentId: schedule.deploymentId,
+				jobId: null,
+				reason: "job_failed",
+				clientName: deployment.clientName,
+				exitCode: null,
+				logTail: result.error.message,
+			},
+			env,
+		);
 	}
 	return "failed";
 }

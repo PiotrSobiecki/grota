@@ -86,9 +86,20 @@ export const ScheduledCycleEmployeeSchema = z.object({
 	skipReason: ScheduledCycleSkipReasonSchema.nullable().optional(),
 });
 
+export const ScheduledCycleRestoreTargetSchema = z.object({
+	account: z.string().email(),
+	targetFolder: z.string().min(1),
+});
+
+export const ScheduledCycleRestoreSchema = z.object({
+	gdrive: GDriveCredentialsSchema,
+	targets: z.array(ScheduledCycleRestoreTargetSchema).min(1),
+});
+
 export const ScheduledCycleRequestSchema = z.object({
 	runnerConfig: RunnerJobConfigSchema,
 	employees: z.array(ScheduledCycleEmployeeSchema).min(1),
+	gdriveRestore: ScheduledCycleRestoreSchema.optional(),
 });
 
 export const B2VerifyRequestSchema = z.object({
@@ -116,4 +127,6 @@ export type GDriveRestoreRequest = z.infer<typeof GDriveRestoreRequestSchema>;
 export type IngestFolder = z.infer<typeof IngestFolderSchema>;
 export type IngestRequest = z.infer<typeof IngestRequestSchema>;
 export type ScheduledCycleEmployee = z.infer<typeof ScheduledCycleEmployeeSchema>;
+export type ScheduledCycleRestoreTarget = z.infer<typeof ScheduledCycleRestoreTargetSchema>;
+export type ScheduledCycleRestore = z.infer<typeof ScheduledCycleRestoreSchema>;
 export type ScheduledCycleRequest = z.infer<typeof ScheduledCycleRequestSchema>;

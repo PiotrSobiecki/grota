@@ -105,7 +105,7 @@ describe("notifyJobFailed", () => {
 	});
 
 	it("does not block email when Telegram fetch throws", async () => {
-		captured.spy.mockImplementation(async (input, init) => {
+		captured.spy.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
 			const url = String(input);
 			if (url.includes("api.telegram.org")) {
 				throw new TypeError("telegram unreachable");
