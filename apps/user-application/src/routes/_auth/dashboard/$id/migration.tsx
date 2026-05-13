@@ -68,9 +68,7 @@ function ActiveJobPanelGroup({
 	globalOpJobs: GlobalOpJob[];
 }) {
 	if (globalOpJobs.length > 0) {
-		return (
-			<GlobalOpPanel activeJob={activeJob} jobs={jobs} globalOpJobs={globalOpJobs} />
-		);
+		return <GlobalOpPanel activeJob={activeJob} jobs={jobs} globalOpJobs={globalOpJobs} />;
 	}
 	const latestJob = jobs[0];
 	const logsJobId = activeJob?.id ?? latestJob?.id ?? null;
@@ -500,10 +498,7 @@ function MigrationPage() {
 						data: { deploymentId, employeeId: emp.id },
 					}),
 				);
-				setGlobalOpJobs((prev) => [
-					...prev,
-					{ jobId: job.id, label: emp.email, kind: "ingest" },
-				]);
+				setGlobalOpJobs((prev) => [...prev, { jobId: job.id, label: emp.email, kind: "ingest" }]);
 				await refetchJobs();
 				await waitForJobDone(job.id);
 				await refetchJobs();
