@@ -57,10 +57,17 @@ const TYPE_LABEL: Record<MigrationJobDto["type"], string> = {
 function ActiveJobPanelGroup({
 	activeJob,
 	jobs,
+	globalOpJobs,
 }: {
 	activeJob: MigrationJobDto | undefined;
 	jobs: MigrationJobDto[];
+	globalOpJobs: GlobalOpJob[];
 }) {
+	if (globalOpJobs.length > 0) {
+		return (
+			<GlobalOpPanel activeJob={activeJob} jobs={jobs} globalOpJobs={globalOpJobs} />
+		);
+	}
 	const latestJob = jobs[0];
 	const logsJobId = activeJob?.id ?? latestJob?.id ?? null;
 	const logsJob = logsJobId ? jobs.find((j) => j.id === logsJobId) : undefined;
@@ -104,6 +111,59 @@ function ActiveJobPanelGroup({
 			{logsJobId ? (
 				<LiveLogsPanel jobId={logsJobId} subtitle={logSubtitle} streamLogs={streamLogs} />
 			) : null}
+		</>
+	);
+}
+
+function GlobalOpPanel({
+	activeJob,
+	jobs,
+	globalOpJobs,
+}: {
+	activeJob: MigrationJobDto | undefined;
+	jobs: MigrationJobDto[];
+	globalOpJobs: GlobalOpJob[];
+}) {
+	const kindLabel = globalOpJobs[0]?.kind === "ingest" ? "Pobieranie danych" : "Wysyłka na dysk firmowy";
+	const finishedCount = globalOpJobs.filter((g) => {
+		const job = jobs.find((j) => j.id === g.jobId);
+		return job?.status === "done" || job?.status === "failed";
+	}).length;
+	const inProgress = !!activeJob && globalOpJobs.some((g) => g.jobId === activeJob.id);
+	return (
+		<>
+			<Card>
+				<CardHeader>
+					<CardTitle>Akcja globalna: {kindLabel}</CardTitle>
+					<CardDescription>
+						{inProgress
+							? `W trakcie — ${finishedCount}/${globalOpJobs.length} pracownikow zakonczone.`
+							: `Zakonczone — ${finishedCount}/${globalOpJobs.length} pracownikow.`}
+					</CardDescription>
+				</CardHeader>
+				<CardContent>
+					<p className="text-sm text-muted-foreground">
+						Ponizej logi dla kazdego pracownika z tej akcji globalnej. Aktywny job streamuje
+						logi na zywo; zakonczone pokazuja ostatnie linie z bazy.
+					</p>
+				</CardContent>
+			</Card>
+			{globalOpJobs.map((g) => {
+				const job = jobs.find((j) => j.id === g.jobId);
+				const isActive = !!job && (job.status === "queued" || job.status === "running");
+				const subtitle = isActive
+					? `Na zywo z runnera (SSE) — ${g.label}`
+					: `Logi z bazy — ${g.label}`;
+				return (
+					<div key={g.jobId} className="space-y-2">
+						<div className="flex items-center justify-between">
+							<p className="text-sm font-medium text-foreground">{g.label}</p>
+							{job ? <JobRow job={job} /> : null}
+						</div>
+						<LiveLogsPanel jobId={g.jobId} subtitle={subtitle} streamLogs={isActive} />
+					</div>
+				);
+			})}
 		</>
 	);
 }
@@ -248,9 +308,17 @@ function ScheduleWidget({
 	);
 }
 
+type GlobalOpJob = {
+	jobId: string;
+	label: string;
+	kind: "ingest" | "gdrive-restore";
+};
+
 function MigrationPage() {
 	const deployment = Route.useLoaderData();
 	const deploymentId = deployment.id;
+
+	const [globalOpJobs, setGlobalOpJobs] = useState<GlobalOpJob[]>([]);
 
 	const employeesQuery = useQuery({
 		queryKey: ["employees", deploymentId],
@@ -301,18 +369,23 @@ function MigrationPage() {
 	};
 
 	const ingestAllMutation = useMutation({
-		mutationFn: async (input: { employeeIds: string[] }) => {
-			for (const employeeId of input.employeeIds) {
+		mutationFn: async (input: { employees: Array<{ id: string; email: string }> }) => {
+			setGlobalOpJobs([]);
+			for (const emp of input.employees) {
 				const job = await triggerJobWithRetry(() =>
 					triggerIngestJob({
-						data: { deploymentId, employeeId },
+						data: { deploymentId, employeeId: emp.id },
 					}),
 				);
+				setGlobalOpJobs((prev) => [
+					...prev,
+					{ jobId: job.id, label: emp.email, kind: "ingest" },
+				]);
 				await refetchJobs();
 				await waitForJobDone(job.id);
 				await refetchJobs();
 			}
-			return input.employeeIds.length;
+			return input.employees.length;
 		},
 		onSuccess: (count) => {
 			toast.success(`Pobieranie danych uruchomione dla ${count} pracownikow`);
@@ -323,12 +396,17 @@ function MigrationPage() {
 
 	const gdriveRestoreAllMutation = useMutation({
 		mutationFn: async (input: { accounts: string[] }) => {
+			setGlobalOpJobs([]);
 			for (const account of input.accounts) {
 				const job = await triggerJobWithRetry(() =>
 					triggerGDriveRestoreJob({
 						data: { deploymentId, account },
 					}),
 				);
+				setGlobalOpJobs((prev) => [
+					...prev,
+					{ jobId: job.id, label: account, kind: "gdrive-restore" },
+				]);
 				await refetchJobs();
 				await waitForJobDone(job.id);
 				await refetchJobs();
@@ -439,6 +517,8 @@ function MigrationPage() {
 	);
 	const jobs = jobsQuery.data ?? [];
 	const activeJob = jobs.find((j) => j.status === "running" || j.status === "queued");
+	const globalOpInProgress = ingestAllMutation.isPending || gdriveRestoreAllMutation.isPending;
+	const disableActions = !!activeJob || globalOpInProgress;
 
 	useQuery({
 		queryKey: ["migration-job-status", activeJob?.id],
@@ -463,7 +543,7 @@ function MigrationPage() {
 				<h1 className="text-2xl font-bold text-foreground">Migracja: {deployment.clientName}</h1>
 			</div>
 
-			<ActiveJobPanelGroup activeJob={activeJob} jobs={jobs} />
+			<ActiveJobPanelGroup activeJob={activeJob} jobs={jobs} globalOpJobs={globalOpJobs} />
 
 			<Card>
 				<CardHeader>
@@ -480,22 +560,25 @@ function MigrationPage() {
 						<IngestAllButton
 							onConfirm={() =>
 								ingestAllMutation.mutate({
-									employeeIds: readyEmployees.map((employee) => employee.id),
+									employees: readyEmployees.map((employee) => ({
+										id: employee.id,
+										email: employee.email,
+									})),
 								})
 							}
-							disabled={ingestAllMutation.isPending || !!activeJob || readyEmployees.length === 0}
+							disabled={disableActions || readyEmployees.length === 0}
 							count={readyEmployees.length}
 						/>
 						<Button
 							variant="destructive"
 							onClick={() => backupMutation.mutate({})}
-							disabled={backupMutation.isPending || !!activeJob}
+							disabled={disableActions || backupMutation.isPending}
 						>
 							Zapisz kopie
 						</Button>
 						<MigrateAllButton
 							onConfirm={() => migrateMutation.mutate({ dryRun: false })}
-							disabled={migrateMutation.isPending || !!activeJob}
+							disabled={disableActions || migrateMutation.isPending}
 						/>
 						<GDriveRestoreAllButton
 							onConfirm={() =>
@@ -503,9 +586,7 @@ function MigrationPage() {
 									accounts: readyEmployees.map((employee) => employee.email),
 								})
 							}
-							disabled={
-								gdriveRestoreAllMutation.isPending || !!activeJob || readyEmployees.length === 0
-							}
+							disabled={disableActions || readyEmployees.length === 0}
 							count={readyEmployees.length}
 						/>
 					</div>
@@ -529,7 +610,7 @@ function MigrationPage() {
 									name={emp.name}
 									oauthStatus={emp.oauthStatus}
 									selectionStatus={emp.selectionStatus}
-									disabled={!!activeJob}
+									disabled={disableActions}
 									onIngest={() => ingestMutation.mutate({ employeeId: emp.id })}
 									onBackup={() => backupMutation.mutate({ account: emp.email })}
 									onDryRun={() => migrateMutation.mutate({ account: emp.email, dryRun: true })}
