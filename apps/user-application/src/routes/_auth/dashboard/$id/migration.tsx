@@ -918,8 +918,12 @@ function JobHistoryCard({ jobs }: { jobs: MigrationJobDto[] }) {
 					<p className="text-sm text-muted-foreground">Brak historii migracji.</p>
 				) : (
 					<div className="space-y-2">
-						{visible.map((job) => (
-							<JobRow key={job.id} job={job} />
+						{visible.map((job, i) => (
+							<JobRow
+								key={job.id}
+								job={job}
+								canExpand={page === 1 && i < HISTORY_PAGE_SIZE}
+							/>
 						))}
 						{totalPages > 1 && (
 							<div className="flex items-center justify-between pt-2">
@@ -953,7 +957,8 @@ function JobHistoryCard({ jobs }: { jobs: MigrationJobDto[] }) {
 	);
 }
 
-function JobRow({ job }: { job: MigrationJobDto }) {
+function JobRow({ job, canExpand = false }: { job: MigrationJobDto; canExpand?: boolean }) {
+	const [expanded, setExpanded] = useState(false);
 	const badge = STATUS_BADGE[job.status];
 	const startedAt = new Date(job.startedAt);
 	const finishedAt = job.finishedAt ? new Date(job.finishedAt) : null;
@@ -961,23 +966,53 @@ function JobRow({ job }: { job: MigrationJobDto }) {
 		? `${Math.max(1, Math.round((finishedAt.getTime() - startedAt.getTime()) / 1000))}s`
 		: "—";
 	return (
-		<div className="flex items-center justify-between rounded border border-border p-3 text-sm">
-			<div className="flex items-center gap-3">
-				<Badge variant={badge.variant}>{badge.label}</Badge>
-				<Badge variant={job.triggeredByCron ? "outline" : "secondary"}>
-					{job.triggeredByCron ? "Auto" : "Admin"}
-				</Badge>
-				<span className="text-foreground">
-					{TYPE_LABEL[job.type]}
-					{job.dryRun ? " (dry-run)" : ""}
-				</span>
-				<span className="text-muted-foreground">{job.account ?? "wszyscy"}</span>
+		<div className="rounded border border-border">
+			<div
+				className={`flex items-center justify-between p-3 text-sm ${canExpand ? "cursor-pointer hover:bg-muted/50" : ""}`}
+				onClick={canExpand ? () => setExpanded((v) => !v) : undefined}
+			>
+				<div className="flex items-center gap-3">
+					<Badge variant={badge.variant}>{badge.label}</Badge>
+					<Badge variant={job.triggeredByCron ? "outline" : "secondary"}>
+						{job.triggeredByCron ? "Auto" : "Admin"}
+					</Badge>
+					<span className="text-foreground">
+						{TYPE_LABEL[job.type]}
+						{job.dryRun ? " (dry-run)" : ""}
+					</span>
+					<span className="text-muted-foreground">{job.account ?? "wszyscy"}</span>
+				</div>
+				<div className="flex items-center gap-3 text-xs text-muted-foreground">
+					<span>{formatScheduleDate(job.startedAt)}</span>
+					<span>czas: {duration}</span>
+					{job.exitCode !== null && <span>exit: {job.exitCode}</span>}
+					{canExpand && (
+						<span className="text-muted-foreground">{expanded ? "▲" : "▼"}</span>
+					)}
+				</div>
 			</div>
-			<div className="flex items-center gap-3 text-xs text-muted-foreground">
-				<span>{formatScheduleDate(job.startedAt)}</span>
-				<span>czas: {duration}</span>
-				{job.exitCode !== null && <span>exit: {job.exitCode}</span>}
-			</div>
+			{expanded && <JobRowLogs jobId={job.id} />}
+		</div>
+	);
+}
+
+function JobRowLogs({ jobId }: { jobId: string }) {
+	const state = useMigrationJobLogs(jobId, true);
+
+	return (
+		<div className="max-h-[12rem] overflow-y-auto overflow-x-auto border-t border-border bg-muted/40 p-2 font-mono text-xs leading-snug">
+			{state.lines.length === 0 ? (
+				<p className="text-muted-foreground">
+					{state.connected ? "Oczekiwanie na logi..." : state.error ?? "Brak logow (bufor runnera wygasl)"}
+				</p>
+			) : (
+				state.lines.map((l, i) => (
+					<div key={`${l.ts}-${i}`} className={migrationLogLineClassName(l.line)}>
+						<span className="text-muted-foreground">{formatLogTime(l.ts)} </span>
+						{l.line}
+					</div>
+				))
+			)}
 		</div>
 	);
 }
