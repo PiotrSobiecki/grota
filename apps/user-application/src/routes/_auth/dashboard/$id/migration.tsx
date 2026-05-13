@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, Copy } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
 	AlertDialog,
@@ -29,7 +29,11 @@ import {
 	triggerMigrateJob,
 } from "@/core/functions/migration/binding";
 import { getDeploymentSchedule, setSchedule } from "@/core/functions/schedule/binding";
-import { type MigrationLogState, useMigrationJobLogs } from "@/core/hooks/use-migration-job-logs";
+import {
+	type MigrationLogLine,
+	type MigrationLogState,
+	useMigrationJobLogs,
+} from "@/core/hooks/use-migration-job-logs";
 
 export const Route = createFileRoute("/_auth/dashboard/$id/migration")({
 	loader: ({ params }) => getDeploymentById({ data: { id: params.id } }),
@@ -115,6 +119,29 @@ function ActiveJobPanelGroup({
 	);
 }
 
+interface PerJobLines {
+	label: string;
+	lines: MigrationLogLine[];
+}
+
+function JobLogStreamer({
+	jobId,
+	label,
+	streamLogs,
+	onLines,
+}: {
+	jobId: string;
+	label: string;
+	streamLogs: boolean;
+	onLines: (jobId: string, label: string, lines: MigrationLogLine[]) => void;
+}) {
+	const state = useMigrationJobLogs(jobId, streamLogs);
+	useEffect(() => {
+		onLines(jobId, label, state.lines);
+	}, [jobId, label, state.lines, onLines]);
+	return null;
+}
+
 function GlobalOpPanel({
 	activeJob,
 	jobs,
@@ -124,14 +151,66 @@ function GlobalOpPanel({
 	jobs: MigrationJobDto[];
 	globalOpJobs: GlobalOpJob[];
 }) {
-	const kindLabel = globalOpJobs[0]?.kind === "ingest" ? "Pobieranie danych" : "Wysyłka na dysk firmowy";
+	const kindLabel =
+		globalOpJobs[0]?.kind === "ingest" ? "Pobieranie danych" : "Wysyłka na dysk firmowy";
 	const finishedCount = globalOpJobs.filter((g) => {
 		const job = jobs.find((j) => j.id === g.jobId);
 		return job?.status === "done" || job?.status === "failed";
 	}).length;
 	const inProgress = !!activeJob && globalOpJobs.some((g) => g.jobId === activeJob.id);
+
+	const [perJobLines, setPerJobLines] = useState<Record<string, PerJobLines>>({});
+	const handleLines = useCallback((jobId: string, label: string, lines: MigrationLogLine[]) => {
+		setPerJobLines((prev) => ({ ...prev, [jobId]: { label, lines } }));
+	}, []);
+
+	const [autoscroll, setAutoscroll] = useState(true);
+	const scrollRef = useRef<HTMLDivElement | null>(null);
+
+	const aggregated = globalOpJobs.flatMap((g) => {
+		const entry = perJobLines[g.jobId];
+		if (!entry) return [];
+		return entry.lines.map((l) => ({ ...l, label: g.label }));
+	});
+
+	// biome-ignore lint/correctness/useExhaustiveDependencies: musi reagowac na nowe linie
+	useEffect(() => {
+		if (autoscroll && scrollRef.current) {
+			scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+		}
+	}, [aggregated.length, autoscroll]);
+
+	const copyAllLogs = async () => {
+		if (aggregated.length === 0) return;
+		const text = aggregated
+			.map(
+				(l) =>
+					`${l.stream === "stderr" ? "[stderr] " : ""}${l.ts.slice(11, 19)} [${l.label}] ${l.line}`,
+			)
+			.join("\n");
+		try {
+			await navigator.clipboard.writeText(text);
+			toast.success("Skopiowano logi do schowka");
+		} catch {
+			toast.error("Nie udalo sie skopiowac (np. brak uprawnien przegladarki)");
+		}
+	};
+
 	return (
 		<>
+			{globalOpJobs.map((g) => {
+				const job = jobs.find((j) => j.id === g.jobId);
+				const isActive = !!job && (job.status === "queued" || job.status === "running");
+				return (
+					<JobLogStreamer
+						key={g.jobId}
+						jobId={g.jobId}
+						label={g.label}
+						streamLogs={isActive}
+						onLines={handleLines}
+					/>
+				);
+			})}
 			<Card>
 				<CardHeader>
 					<CardTitle>Akcja globalna: {kindLabel}</CardTitle>
@@ -141,29 +220,73 @@ function GlobalOpPanel({
 							: `Zakonczone — ${finishedCount}/${globalOpJobs.length} pracownikow.`}
 					</CardDescription>
 				</CardHeader>
-				<CardContent>
-					<p className="text-sm text-muted-foreground">
-						Ponizej logi dla kazdego pracownika z tej akcji globalnej. Aktywny job streamuje
-						logi na zywo; zakonczone pokazuja ostatnie linie z bazy.
-					</p>
+				<CardContent className="space-y-3">
+					<div className="flex flex-wrap gap-2">
+						{globalOpJobs.map((g) => {
+							const job = jobs.find((j) => j.id === g.jobId);
+							const status = job?.status ?? "queued";
+							const variant: "default" | "secondary" | "destructive" | "outline" =
+								status === "done"
+									? "secondary"
+									: status === "failed"
+										? "destructive"
+										: status === "running"
+											? "default"
+											: "outline";
+							return (
+								<Badge key={g.jobId} variant={variant}>
+									{g.label} · {status}
+								</Badge>
+							);
+						})}
+					</div>
 				</CardContent>
 			</Card>
-			{globalOpJobs.map((g) => {
-				const job = jobs.find((j) => j.id === g.jobId);
-				const isActive = !!job && (job.status === "queued" || job.status === "running");
-				const subtitle = isActive
-					? `Na zywo z runnera (SSE) — ${g.label}`
-					: `Logi z bazy — ${g.label}`;
-				return (
-					<div key={g.jobId} className="space-y-2">
-						<div className="flex items-center justify-between">
-							<p className="text-sm font-medium text-foreground">{g.label}</p>
-							{job ? <JobRow job={job} /> : null}
-						</div>
-						<LiveLogsPanel jobId={g.jobId} subtitle={subtitle} streamLogs={isActive} />
+			<Card>
+				<CardHeader className="flex flex-row items-center justify-between space-y-0">
+					<div>
+						<CardTitle>Logi (zagregowane)</CardTitle>
+						<CardDescription>
+							Linie ze wszystkich pracownikow w tej akcji globalnej, z prefiksem [email].
+						</CardDescription>
 					</div>
-				);
-			})}
+					<div className="flex items-center gap-2">
+						<label className="flex items-center gap-1 text-xs text-muted-foreground">
+							<input
+								type="checkbox"
+								className="h-3 w-3 accent-primary"
+								checked={autoscroll}
+								onChange={(e) => setAutoscroll(e.target.checked)}
+							/>
+							Autoscroll
+						</label>
+						<Button variant="outline" size="sm" onClick={copyAllLogs}>
+							<Copy className="mr-1 h-3 w-3" />
+							Kopiuj
+						</Button>
+					</div>
+				</CardHeader>
+				<CardContent>
+					<div
+						ref={scrollRef}
+						className="h-96 overflow-y-auto rounded-md border border-border bg-muted/30 p-3 font-mono text-xs"
+					>
+						{aggregated.length === 0 ? (
+							<p className="text-muted-foreground">Brak logow.</p>
+						) : (
+							aggregated.map((l, i) => (
+								<div
+									key={`${l.ts}-${i}`}
+									className={l.stream === "stderr" ? "text-destructive" : "text-foreground"}
+								>
+									<span className="text-muted-foreground">{l.ts.slice(11, 19)}</span>{" "}
+									<span className="text-muted-foreground">[{l.label}]</span> {l.line}
+								</div>
+							))
+						)}
+					</div>
+				</CardContent>
+			</Card>
 		</>
 	);
 }
