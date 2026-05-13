@@ -997,16 +997,47 @@ function JobRow({ job, canExpand = false }: { job: MigrationJobDto; canExpand?: 
 }
 
 function JobRowLogs({ jobId }: { jobId: string }) {
-	const state = useMigrationJobLogs(jobId, true);
+	const [lines, setLines] = useState<MigrationLogLine[]>([]);
+	const [status, setStatus] = useState<"loading" | "done" | "error">("loading");
+
+	useEffect(() => {
+		const buf: MigrationLogLine[] = [];
+		const es = new EventSource(`/api/migration/jobs/${jobId}/logs/stream`);
+
+		const onLine = (ev: MessageEvent) => {
+			try {
+				buf.push(JSON.parse(ev.data) as MigrationLogLine);
+				setLines([...buf]);
+			} catch {
+				/* ignore */
+			}
+		};
+
+		es.addEventListener("log", onLine);
+		es.addEventListener("message", onLine);
+		es.onopen = () => setStatus("done");
+		es.onerror = () => {
+			es.close();
+			setStatus(buf.length > 0 ? "done" : "error");
+		};
+
+		return () => {
+			es.removeEventListener("log", onLine);
+			es.removeEventListener("message", onLine);
+			es.close();
+		};
+	}, [jobId]);
 
 	return (
 		<div className="max-h-[12rem] overflow-y-auto overflow-x-auto border-t border-border bg-muted/40 p-2 font-mono text-xs leading-snug">
-			{state.lines.length === 0 ? (
-				<p className="text-muted-foreground">
-					{state.connected ? "Oczekiwanie na logi..." : state.error ?? "Brak logow (bufor runnera wygasl)"}
-				</p>
+			{status === "error" ? (
+				<p className="text-muted-foreground">Brak logów (bufor runnera wygasł)</p>
+			) : status === "loading" && lines.length === 0 ? (
+				<p className="text-muted-foreground">Ładowanie...</p>
+			) : lines.length === 0 ? (
+				<p className="text-muted-foreground">Brak logów (pusty bufor)</p>
 			) : (
-				state.lines.map((l, i) => (
+				lines.map((l, i) => (
 					<div key={`${l.ts}-${i}`} className={migrationLogLineClassName(l.line)}>
 						<span className="text-muted-foreground">{formatLogTime(l.ts)} </span>
 						{l.line}
