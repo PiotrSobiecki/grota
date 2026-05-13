@@ -68,9 +68,14 @@ const JOB_ALREADY_RUNNING = {
 	},
 };
 
+function sanitizeEmailForPath(email: string): string {
+	return email.replace(/[@.]/g, "_");
+}
+
 function buildRunnerJobConfig(
 	deployment: Deployment,
 	serverConfig: ServerConfig,
+	backupIncludeAccounts?: string[],
 ): RunnerJobConfig | null {
 	const b2 = deployment.b2Config;
 	const backupPath = serverConfig.backup_path;
@@ -82,6 +87,9 @@ function buildRunnerJobConfig(
 		backupPath,
 	};
 	if (serverConfig.bwlimit) cfg.bwlimit = serverConfig.bwlimit;
+	if (backupIncludeAccounts && backupIncludeAccounts.length > 0) {
+		cfg.backupIncludeAccounts = backupIncludeAccounts;
+	}
 	return cfg;
 }
 
@@ -189,7 +197,12 @@ export async function triggerBackup(input: TriggerBackupInput): Promise<Result<M
 		};
 	}
 
-	const runnerConfig = buildRunnerJobConfig(deployment, config);
+	const backupAccounts = input.account
+		? [sanitizeEmailForPath(input.account)]
+		: (await getEmployeesByDeployment(input.deploymentId)).map((e) =>
+				sanitizeEmailForPath(e.email),
+			);
+	const runnerConfig = buildRunnerJobConfig(deployment, config, backupAccounts);
 	if (!runnerConfig) return CONFIG_INCOMPLETE_B2;
 
 	const requestBody: { account?: string; runnerConfig: RunnerJobConfig } = { runnerConfig };
@@ -282,9 +295,6 @@ export async function triggerScheduledCycle(
 		};
 	}
 
-	const runnerConfig = buildRunnerJobConfig(deployment, config);
-	if (!runnerConfig) return CONFIG_INCOMPLETE_B2;
-
 	const allEmployees = await getEmployeesByDeployment(deploymentId);
 	if (allEmployees.length === 0) {
 		return {
@@ -296,6 +306,13 @@ export async function triggerScheduledCycle(
 			},
 		};
 	}
+
+	const runnerConfig = buildRunnerJobConfig(
+		deployment,
+		config,
+		allEmployees.map((e) => sanitizeEmailForPath(e.email)),
+	);
+	if (!runnerConfig) return CONFIG_INCOMPLETE_B2;
 
 	const sharedDrives = await getSharedDrivesByDeployment(deploymentId);
 	const sdNameById = new Map(sharedDrives.map((sd) => [sd.id, sd.name]));
@@ -380,12 +397,25 @@ export async function triggerScheduledCycle(
 				},
 			};
 		}
+		const restoreSharedDriveId =
+			sharedDrives.find((d) => d.googleDriveId)?.googleDriveId ?? null;
+		if (!restoreSharedDriveId) {
+			return {
+				ok: false,
+				error: {
+					code: "NO_SHARED_DRIVE",
+					message:
+						"Brak shared drive dla wdrozenia. Skonfiguruj shared drive w panelu admina.",
+					status: 400,
+				},
+			};
+		}
 		const eligibleAccounts = cycleEmployees
 			.filter((e) => e.gdrive !== null && e.folders.length > 0)
 			.map((e) => ({ account: e.account }));
 		if (eligibleAccounts.length > 0) {
 			gdriveRestore = {
-				gdrive: companyGDrive.data,
+				gdrive: { ...companyGDrive.data, sharedDriveId: restoreSharedDriveId },
 				targets: buildRestoreTargets(eligibleAccounts),
 			};
 		}

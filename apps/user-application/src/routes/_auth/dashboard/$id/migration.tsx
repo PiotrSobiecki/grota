@@ -403,7 +403,14 @@ function MigrationPage() {
 			includeGdriveRestore: boolean;
 		}) => setSchedule({ data: { deploymentId, ...input } }),
 		onSuccess: (data) => {
-			toast.success(data.enabled ? "Harmonogram zapisany" : "Harmonogram wyłączony");
+			const wasEnabled = scheduleQuery.data?.enabled ?? false;
+			if (data.enabled && !wasEnabled) {
+				toast.success("Harmonogram uruchomiony");
+			} else if (!data.enabled && wasEnabled) {
+				toast.success("Harmonogram wyłączony");
+			} else {
+				toast.success("Harmonogram zapisany");
+			}
 			scheduleQuery.refetch();
 		},
 		onError: (e) => toast.error(e.message),
