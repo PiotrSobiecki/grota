@@ -54,6 +54,7 @@ export const GDriveRestoreRequestSchema = z.object({
 	account: z.string().email(),
 	runnerConfig: RunnerJobConfigSchema,
 	gdrive: GDriveCredentialsSchema,
+	includePaths: z.array(z.string().min(1)).optional(),
 });
 
 export const IngestFolderSchema = z.object({
@@ -90,6 +91,7 @@ export const ScheduledCycleEmployeeSchema = z.object({
 export const ScheduledCycleRestoreTargetSchema = z.object({
 	account: z.string().email(),
 	targetFolder: z.string().min(1),
+	includePaths: z.array(z.string().min(1)).optional(),
 });
 
 export const ScheduledCycleRestoreSchema = z.object({

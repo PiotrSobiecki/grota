@@ -101,6 +101,19 @@ function buildBackupIncludePaths(
 	return paths;
 }
 
+function buildRestoreIncludePaths(selections: FolderSelectionForPath[]): string[] {
+	const paths: string[] = [];
+	for (const s of selections) {
+		if (!s.sharedDriveName) continue;
+		if (s.itemType === "file") {
+			paths.push(`${s.sharedDriveName}/_files/${s.itemName}`);
+		} else {
+			paths.push(`${s.sharedDriveName}/${s.itemName}`);
+		}
+	}
+	return paths;
+}
+
 function buildRunnerJobConfig(
 	deployment: Deployment,
 	serverConfig: ServerConfig,
@@ -447,22 +460,29 @@ export async function triggerScheduledCycle(
 				},
 			};
 		}
-		const restoreSharedDriveId =
-			sharedDrives.find((d) => d.googleDriveId)?.googleDriveId ?? null;
+		const restoreSharedDriveId = sharedDrives.find((d) => d.googleDriveId)?.googleDriveId ?? null;
 		if (!restoreSharedDriveId) {
 			return {
 				ok: false,
 				error: {
 					code: "NO_SHARED_DRIVE",
-					message:
-						"Brak shared drive dla wdrozenia. Skonfiguruj shared drive w panelu admina.",
+					message: "Brak shared drive dla wdrozenia. Skonfiguruj shared drive w panelu admina.",
 					status: 400,
 				},
 			};
 		}
 		const eligibleAccounts = cycleEmployees
 			.filter((e) => e.gdrive !== null && e.folders.length > 0)
-			.map((e) => ({ account: e.account }));
+			.map((e) => ({
+				account: e.account,
+				includePaths: buildRestoreIncludePaths(
+					e.folders.map((f) => ({
+						itemName: f.itemName,
+						itemType: f.itemType,
+						sharedDriveName: f.sharedDriveName,
+					})),
+				),
+			}));
 		if (eligibleAccounts.length > 0) {
 			gdriveRestore = {
 				gdrive: { ...companyGDrive.data, sharedDriveId: restoreSharedDriveId },
@@ -778,14 +798,27 @@ export async function triggerGDriveRestore(
 			},
 		};
 	}
+	const sdNameForRestore = new Map(sharedDrives.map((sd) => [sd.id, sd.name]));
 
 	const gdriveResult = await buildGDriveCredentialsForRunner(deploymentId, env);
 	if (!gdriveResult.ok) return gdriveResult;
 
+	const allEmployeesForRestore = await getEmployeesByDeployment(deploymentId);
+	const employee = allEmployeesForRestore.find((e) => e.email === account);
+	const restoreIncludePaths = employee
+		? buildRestoreIncludePaths(
+				(await getFolderSelectionsByEmployee(employee.id)).map((s) => ({
+					itemName: s.itemName,
+					itemType: s.itemType,
+					sharedDriveName: s.sharedDriveId ? (sdNameForRestore.get(s.sharedDriveId) ?? null) : null,
+				})),
+			)
+		: [];
 	const requestBody = {
 		account,
 		runnerConfig,
 		gdrive: { ...gdriveResult.data, sharedDriveId },
+		...(restoreIncludePaths.length > 0 ? { includePaths: restoreIncludePaths } : {}),
 	};
 
 	let response: Response;

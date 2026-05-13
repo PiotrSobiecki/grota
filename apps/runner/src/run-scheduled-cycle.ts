@@ -103,6 +103,7 @@ export function createRunScheduledCycle(
 				account: target.account,
 				runnerConfig: req.runnerConfig,
 				gdrive: { ...req.gdriveRestore.gdrive, targetFolder: target.targetFolder },
+				...(target.includePaths ? { includePaths: target.includePaths } : {}),
 			};
 			const restoreArgs = buildRcloneGDriveRestoreArgs(restoreReq);
 			const restoreConfig = buildRcloneGDriveConfig(restoreReq.gdrive);

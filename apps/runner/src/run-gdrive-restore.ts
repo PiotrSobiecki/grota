@@ -38,7 +38,7 @@ export function buildRcloneGDriveConfig(creds: GDriveCredentials): string {
 export function buildRcloneGDriveRestoreArgs(req: GDriveRestoreRequest): string[] {
 	const targetFolder = req.gdrive.targetFolder ?? req.account;
 	const sourcePath = `${req.runnerConfig.backupPath}/${sanitizeEmail(req.account)}`;
-	return [
+	const args = [
 		"sync",
 		sourcePath,
 		`gdrive:${targetFolder}`,
@@ -47,6 +47,12 @@ export function buildRcloneGDriveRestoreArgs(req: GDriveRestoreRequest): string[
 		"--copy-links",
 		"-v",
 	];
+	if (req.includePaths && req.includePaths.length > 0) {
+		for (const path of req.includePaths) {
+			args.push("--include", `${path}/**`);
+		}
+	}
+	return args;
 }
 
 export function createRunGDriveRestore(
