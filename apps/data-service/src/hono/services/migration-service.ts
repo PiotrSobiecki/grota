@@ -72,10 +72,39 @@ function sanitizeEmailForPath(email: string): string {
 	return email.replace(/[@.]/g, "_");
 }
 
+interface FolderSelectionForPath {
+	itemName: string;
+	itemType: "file" | "folder";
+	sharedDriveName: string | null;
+}
+
+function buildBackupIncludePaths(
+	employees: Array<{ email: string; selections: FolderSelectionForPath[] }>,
+): string[] {
+	const paths: string[] = [];
+	for (const emp of employees) {
+		const sanitized = sanitizeEmailForPath(emp.email);
+		let hasAny = false;
+		for (const s of emp.selections) {
+			if (!s.sharedDriveName) continue;
+			hasAny = true;
+			if (s.itemType === "file") {
+				paths.push(`${sanitized}/${s.sharedDriveName}/_files/${s.itemName}`);
+			} else {
+				paths.push(`${sanitized}/${s.sharedDriveName}/${s.itemName}`);
+			}
+		}
+		if (hasAny) {
+			paths.push(`.versions/${sanitized}`);
+		}
+	}
+	return paths;
+}
+
 function buildRunnerJobConfig(
 	deployment: Deployment,
 	serverConfig: ServerConfig,
-	backupIncludeAccounts?: string[],
+	backupIncludePaths?: string[],
 ): RunnerJobConfig | null {
 	const b2 = deployment.b2Config;
 	const backupPath = serverConfig.backup_path;
@@ -87,8 +116,8 @@ function buildRunnerJobConfig(
 		backupPath,
 	};
 	if (serverConfig.bwlimit) cfg.bwlimit = serverConfig.bwlimit;
-	if (backupIncludeAccounts && backupIncludeAccounts.length > 0) {
-		cfg.backupIncludeAccounts = backupIncludeAccounts;
+	if (backupIncludePaths && backupIncludePaths.length > 0) {
+		cfg.backupIncludePaths = backupIncludePaths;
 	}
 	return cfg;
 }
@@ -197,12 +226,27 @@ export async function triggerBackup(input: TriggerBackupInput): Promise<Result<M
 		};
 	}
 
-	const backupAccounts = input.account
-		? [sanitizeEmailForPath(input.account)]
-		: (await getEmployeesByDeployment(input.deploymentId)).map((e) =>
-				sanitizeEmailForPath(e.email),
-			);
-	const runnerConfig = buildRunnerJobConfig(deployment, config, backupAccounts);
+	const allEmployees = await getEmployeesByDeployment(input.deploymentId);
+	const backupEmployees = input.account
+		? allEmployees.filter((e) => e.email === input.account)
+		: allEmployees;
+	const sharedDrives = await getSharedDrivesByDeployment(input.deploymentId);
+	const sdNameById = new Map(sharedDrives.map((sd) => [sd.id, sd.name]));
+	const employeesWithSelections = await Promise.all(
+		backupEmployees.map(async (e) => {
+			const selections = await getFolderSelectionsByEmployee(e.id);
+			return {
+				email: e.email,
+				selections: selections.map((s) => ({
+					itemName: s.itemName,
+					itemType: s.itemType,
+					sharedDriveName: s.sharedDriveId ? (sdNameById.get(s.sharedDriveId) ?? null) : null,
+				})),
+			};
+		}),
+	);
+	const backupPaths = buildBackupIncludePaths(employeesWithSelections);
+	const runnerConfig = buildRunnerJobConfig(deployment, config, backupPaths);
 	if (!runnerConfig) return CONFIG_INCOMPLETE_B2;
 
 	const requestBody: { account?: string; runnerConfig: RunnerJobConfig } = { runnerConfig };
@@ -307,13 +351,6 @@ export async function triggerScheduledCycle(
 		};
 	}
 
-	const runnerConfig = buildRunnerJobConfig(
-		deployment,
-		config,
-		allEmployees.map((e) => sanitizeEmailForPath(e.email)),
-	);
-	if (!runnerConfig) return CONFIG_INCOMPLETE_B2;
-
 	const sharedDrives = await getSharedDrivesByDeployment(deploymentId);
 	const sdNameById = new Map(sharedDrives.map((sd) => [sd.id, sd.name]));
 	const sdGoogleIdByDbId = new Map(sharedDrives.map((sd) => [sd.id, sd.googleDriveId ?? null]));
@@ -382,6 +419,19 @@ export async function triggerScheduledCycle(
 			},
 		};
 	}
+
+	const backupPaths = buildBackupIncludePaths(
+		cycleEmployees.map((e) => ({
+			email: e.account,
+			selections: e.folders.map((f) => ({
+				itemName: f.itemName,
+				itemType: f.itemType,
+				sharedDriveName: f.sharedDriveName,
+			})),
+		})),
+	);
+	const runnerConfig = buildRunnerJobConfig(deployment, config, backupPaths);
+	if (!runnerConfig) return CONFIG_INCOMPLETE_B2;
 
 	const schedule = await getSchedule(deploymentId);
 	let gdriveRestore: ScheduledCycleRestore | undefined;

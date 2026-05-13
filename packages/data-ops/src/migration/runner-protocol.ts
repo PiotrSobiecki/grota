@@ -16,7 +16,7 @@ export const RunnerJobConfigSchema = z.object({
 	bucketPrefix: z.string().min(1),
 	backupPath: z.string().min(1),
 	bwlimit: z.string().min(1).optional(),
-	backupIncludeAccounts: z.array(z.string().min(1)).optional(),
+	backupIncludePaths: z.array(z.string().min(1)).optional(),
 });
 
 export const BackupRequestSchema = z.object({

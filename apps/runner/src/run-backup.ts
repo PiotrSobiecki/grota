@@ -36,9 +36,9 @@ export function buildRcloneSyncArgs(cfg: RunnerJobConfig): string[] {
 	if (cfg.bwlimit) {
 		args.push("--bwlimit", cfg.bwlimit);
 	}
-	if (cfg.backupIncludeAccounts && cfg.backupIncludeAccounts.length > 0) {
-		for (const account of cfg.backupIncludeAccounts) {
-			args.push("--include", `${account}/**`);
+	if (cfg.backupIncludePaths && cfg.backupIncludePaths.length > 0) {
+		for (const path of cfg.backupIncludePaths) {
+			args.push("--include", `${path}/**`);
 		}
 	}
 	return args;
