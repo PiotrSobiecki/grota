@@ -183,7 +183,7 @@ function GlobalOpPanel({
 		const text = aggregated
 			.map(
 				(l) =>
-					`${l.stream === "stderr" ? "[stderr] " : ""}${l.ts.slice(11, 19)} [${l.label}] ${l.line}`,
+					`${l.stream === "stderr" ? "[stderr] " : ""}${formatLogTime(l.ts)} [${l.label}] ${l.line}`,
 			)
 			.join("\n");
 		try {
@@ -287,7 +287,7 @@ function GlobalOpPanel({
 						) : (
 							aggregated.map((l, i) => (
 								<div key={`${l.ts}-${i}`} className={migrationLogLineClassName(l.line)}>
-									<span className="text-muted-foreground">{l.ts.slice(11, 19)} </span>
+									<span className="text-muted-foreground">{formatLogTime(l.ts)} </span>
 									<span className="text-muted-foreground">[{l.label}] </span>
 									{l.line}
 								</div>
@@ -319,6 +319,18 @@ function formatScheduleDate(iso: string | null): string | null {
 		timeStyle: "short",
 		timeZone: "Europe/Warsaw",
 	}).format(d);
+}
+
+const logTimeFmt = new Intl.DateTimeFormat("pl-PL", {
+	hour: "2-digit",
+	minute: "2-digit",
+	second: "2-digit",
+	hour12: false,
+	timeZone: "Europe/Warsaw",
+});
+
+function formatLogTime(iso: string): string {
+	return logTimeFmt.format(new Date(iso));
 }
 
 function formatLastStatus(status: string | null): string | null {
@@ -403,7 +415,7 @@ function ScheduleWidget({
 					</select>
 				</label>
 				<label className="flex items-center gap-2 text-sm text-muted-foreground">
-					Godzina kotwicy:
+					Godzina startu:
 					<input
 						type="time"
 						className="rounded-sm border border-input bg-background px-2 py-1 text-sm text-foreground"
@@ -763,22 +775,7 @@ function MigrationPage() {
 				</CardContent>
 			</Card>
 
-			<Card>
-				<CardHeader>
-					<CardTitle>Historia ({jobs.length})</CardTitle>
-				</CardHeader>
-				<CardContent>
-					{jobs.length === 0 ? (
-						<p className="text-sm text-muted-foreground">Brak historii migracji.</p>
-					) : (
-						<div className="space-y-2">
-							{jobs.map((job) => (
-								<JobRow key={job.id} job={job} />
-							))}
-						</div>
-					)}
-				</CardContent>
-			</Card>
+			<JobHistoryCard jobs={jobs} />
 		</div>
 	);
 }
@@ -904,6 +901,58 @@ function GDriveRestoreRowButton({
 	);
 }
 
+const HISTORY_PAGE_SIZE = 8;
+
+function JobHistoryCard({ jobs }: { jobs: MigrationJobDto[] }) {
+	const [page, setPage] = useState(1);
+	const totalPages = Math.max(1, Math.ceil(jobs.length / HISTORY_PAGE_SIZE));
+	const visible = jobs.slice((page - 1) * HISTORY_PAGE_SIZE, page * HISTORY_PAGE_SIZE);
+
+	return (
+		<Card>
+			<CardHeader>
+				<CardTitle>Historia ({jobs.length})</CardTitle>
+			</CardHeader>
+			<CardContent>
+				{jobs.length === 0 ? (
+					<p className="text-sm text-muted-foreground">Brak historii migracji.</p>
+				) : (
+					<div className="space-y-2">
+						{visible.map((job) => (
+							<JobRow key={job.id} job={job} />
+						))}
+						{totalPages > 1 && (
+							<div className="flex items-center justify-between pt-2">
+								<span className="text-sm text-muted-foreground">
+									Strona {page} z {totalPages}
+								</span>
+								<div className="flex gap-2">
+									<Button
+										variant="outline"
+										size="sm"
+										disabled={page <= 1}
+										onClick={() => setPage((p) => p - 1)}
+									>
+										Poprzednia
+									</Button>
+									<Button
+										variant="outline"
+										size="sm"
+										disabled={page >= totalPages}
+										onClick={() => setPage((p) => p + 1)}
+									>
+										Następna
+									</Button>
+								</div>
+							</div>
+						)}
+					</div>
+				)}
+			</CardContent>
+		</Card>
+	);
+}
+
 function JobRow({ job }: { job: MigrationJobDto }) {
 	const badge = STATUS_BADGE[job.status];
 	const startedAt = new Date(job.startedAt);
@@ -925,7 +974,7 @@ function JobRow({ job }: { job: MigrationJobDto }) {
 				<span className="text-muted-foreground">{job.account ?? "wszyscy"}</span>
 			</div>
 			<div className="flex items-center gap-3 text-xs text-muted-foreground">
-				<span>{startedAt.toLocaleString()}</span>
+				<span>{formatScheduleDate(job.startedAt)}</span>
 				<span>czas: {duration}</span>
 				{job.exitCode !== null && <span>exit: {job.exitCode}</span>}
 			</div>
@@ -986,7 +1035,7 @@ function LiveLogsScrollContent({
 	}
 	return lines.map((l, i) => (
 		<div key={`${l.ts}-${i}`} className={migrationLogLineClassName(l.line)}>
-			<span className="text-muted-foreground">{l.ts.slice(11, 19)} </span>
+			<span className="text-muted-foreground">{formatLogTime(l.ts)} </span>
 			{l.line}
 		</div>
 	));
@@ -1008,7 +1057,7 @@ function LiveLogsPanel({
 	const copyAllLogs = async () => {
 		if (state.lines.length === 0) return;
 		const text = state.lines
-			.map((l) => `${l.stream === "stderr" ? "[stderr] " : ""}${l.ts.slice(11, 19)} ${l.line}`)
+			.map((l) => `${l.stream === "stderr" ? "[stderr] " : ""}${formatLogTime(l.ts)} ${l.line}`)
 			.join("\n");
 		try {
 			await navigator.clipboard.writeText(text);

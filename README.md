@@ -141,7 +141,7 @@ W panelu migracji widget „Harmonogram" — Cloudflare Cron Trigger (co 5 min) 
 
 - **Toggle** włącz/wyłącz
 - **Interwał** (presety): 1h / 6h / 12h / 24h / 7d
-- **Godzina kotwicy** (`anchor_time`, default 02:00, strefa `Europe/Warsaw`)
+- **Godzina startu** (`anchor_time`, default 02:00, strefa `Europe/Warsaw`)
 - Status: `Następne uruchomienie`, `Ostatnie: <data> — Sukces/Pominięto/Ponawianie/Błąd`
 
 Zachowanie dispatchera:
