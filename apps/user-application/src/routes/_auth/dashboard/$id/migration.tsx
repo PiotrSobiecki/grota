@@ -241,44 +241,55 @@ function GlobalOpPanel({
 				</CardContent>
 			</Card>
 			<Card>
-				<CardHeader className="flex flex-row items-center justify-between space-y-0">
-					<div>
-						<CardTitle>Logi (zagregowane)</CardTitle>
-						<CardDescription>
-							Linie ze wszystkich pracownikow w tej akcji globalnej, z prefiksem [email].
-						</CardDescription>
-					</div>
-					<div className="flex items-center gap-2">
-						<label className="flex items-center gap-1 text-xs text-muted-foreground">
-							<input
-								type="checkbox"
-								className="h-3 w-3 accent-primary"
-								checked={autoscroll}
-								onChange={(e) => setAutoscroll(e.target.checked)}
-							/>
-							Autoscroll
-						</label>
-						<Button variant="outline" size="sm" onClick={copyAllLogs}>
-							<Copy className="mr-1 h-3 w-3" />
-							Kopiuj
-						</Button>
-					</div>
+				<CardHeader>
+					<CardTitle className="flex flex-wrap items-center justify-between gap-3">
+						<span>
+							Live logi (zagregowane)
+							{aggregated.length > 0 ? (
+								<span className="ml-2 text-sm font-normal text-muted-foreground">
+									({aggregated.length} linii)
+								</span>
+							) : null}
+						</span>
+						<div className="flex items-center gap-3 text-sm font-normal">
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon"
+								className="shrink-0"
+								disabled={aggregated.length === 0}
+								onClick={() => void copyAllLogs()}
+								title="Kopiuj wszystkie logi"
+							>
+								<Copy className="h-4 w-4" />
+							</Button>
+							<label className="flex cursor-pointer items-center gap-1 text-muted-foreground">
+								<input
+									type="checkbox"
+									checked={autoscroll}
+									onChange={(e) => setAutoscroll(e.target.checked)}
+								/>
+								autoscroll
+							</label>
+						</div>
+					</CardTitle>
+					<CardDescription>
+						Linie ze wszystkich pracownikow w tej akcji globalnej, z prefiksem [email].
+					</CardDescription>
 				</CardHeader>
 				<CardContent>
 					<div
 						ref={scrollRef}
-						className="h-96 overflow-y-auto rounded-md border border-border bg-muted/30 p-3 font-mono text-xs"
+						className="h-[7rem] max-h-[7rem] overflow-y-auto overflow-x-auto rounded border border-border bg-muted/40 p-2 font-mono text-xs leading-snug text-foreground"
 					>
 						{aggregated.length === 0 ? (
 							<p className="text-muted-foreground">Brak logow.</p>
 						) : (
 							aggregated.map((l, i) => (
-								<div
-									key={`${l.ts}-${i}`}
-									className={l.stream === "stderr" ? "text-destructive" : "text-foreground"}
-								>
-									<span className="text-muted-foreground">{l.ts.slice(11, 19)}</span>{" "}
-									<span className="text-muted-foreground">[{l.label}]</span> {l.line}
+								<div key={`${l.ts}-${i}`} className={migrationLogLineClassName(l.line)}>
+									<span className="text-muted-foreground">{l.ts.slice(11, 19)} </span>
+									<span className="text-muted-foreground">[{l.label}] </span>
+									{l.line}
 								</div>
 							))
 						)}
