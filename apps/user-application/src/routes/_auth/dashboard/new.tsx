@@ -174,7 +174,6 @@ function CreateDeploymentPage() {
 									/>
 									<p className="text-xs text-muted-foreground">
 										Konto w domenie klienta do przypisania roli w Google Admin (krok 3 onboardingu).
-										Nie uzywaj adresu logowania do Grota.
 									</p>
 									{field.state.meta.errors.length > 0 && (
 										<p className="text-sm text-destructive">{field.state.meta.errors[0]}</p>

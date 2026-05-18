@@ -529,8 +529,7 @@ function DelegateChecklistStep({
 				<p className="text-muted-foreground">
 					Aby kontynuowac, w Google Admin przypisz ponizszy adres (konto w domenie{" "}
 					<span className="font-semibold text-foreground">{domain}</span>) jako administratora z
-					uprawnieniami do zarzadzania Dyskiem i Grupami. To nie jest adres logowania do portalu
-					Grota — musi to byc uzytkownik Workspace klienta.
+					uprawnieniami do zarzadzania Dyskiem i Grupami.
 				</p>
 
 				<div className="flex items-center gap-2 rounded-md border border-border bg-muted px-3 py-2">
