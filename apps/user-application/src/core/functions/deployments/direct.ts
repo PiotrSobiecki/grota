@@ -75,9 +75,16 @@ export const updateExistingDeployment = createServerFn({ method: "POST" })
 		}),
 	)
 	.handler(async ({ data }) => {
-		const deployment = await updateDeployment(data.id, data.updates);
-		if (!deployment) {
-			throw new AppError("Wdrozenie nie zostalo znalezione", "NOT_FOUND", 404);
+		try {
+			const deployment = await updateDeployment(data.id, data.updates);
+			if (!deployment) {
+				throw new AppError("Wdrozenie nie zostalo znalezione", "NOT_FOUND", 404);
+			}
+			return deployment;
+		} catch (error) {
+			if (error instanceof Error && error.message.includes("delegata")) {
+				throw new AppError(error.message, "VALIDATION_ERROR", 400);
+			}
+			throw error;
 		}
-		return deployment;
 	});

@@ -22,6 +22,9 @@ export const deployments = pgTable("deployments", {
 	// Client admin (resolves B1)
 	adminEmail: text("admin_email"),
 	adminName: text("admin_name"),
+
+	// Workspace user to assign delegated admin role during onboarding (must be @{domain})
+	workspaceDelegateEmail: text("workspace_delegate_email"),
 	adminMagicLinkToken: text("admin_magic_link_token"),
 	adminMagicLinkExpiresAt: timestamp("admin_magic_link_expires_at"),
 

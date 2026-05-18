@@ -1,4 +1,8 @@
-import type { B2Config, ServerConfig } from "@repo/data-ops/deployment";
+import {
+	type B2Config,
+	type ServerConfig,
+	validateWorkspaceDelegateEmailForDomain,
+} from "@repo/data-ops/deployment";
 import { slugify } from "@repo/data-ops/utils";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -254,6 +258,7 @@ interface ClientDataCardProps {
 		domain: string;
 		adminName: string | null;
 		adminEmail: string | null;
+		workspaceDelegateEmail: string | null;
 		status: string;
 	};
 	onUpdated: () => void;
@@ -268,6 +273,7 @@ function ClientDataCard({ deployment, onUpdated }: ClientDataCardProps) {
 			domain?: string;
 			adminName?: string;
 			adminEmail?: string;
+			workspaceDelegateEmail?: string;
 		}) => updateExistingDeployment({ data: { id: deployment.id, updates } }),
 		onSuccess: () => {
 			onUpdated();
@@ -283,6 +289,7 @@ function ClientDataCard({ deployment, onUpdated }: ClientDataCardProps) {
 			domain: deployment.domain,
 			adminName: deployment.adminName ?? "",
 			adminEmail: deployment.adminEmail ?? "",
+			workspaceDelegateEmail: deployment.workspaceDelegateEmail ?? "",
 		},
 		onSubmit: async ({ value }) => {
 			const updates: Record<string, string> = {};
@@ -290,6 +297,9 @@ function ClientDataCard({ deployment, onUpdated }: ClientDataCardProps) {
 			if (value.domain !== deployment.domain) updates.domain = value.domain;
 			if (value.adminName !== (deployment.adminName ?? "")) updates.adminName = value.adminName;
 			if (value.adminEmail !== (deployment.adminEmail ?? "")) updates.adminEmail = value.adminEmail;
+			if (value.workspaceDelegateEmail !== (deployment.workspaceDelegateEmail ?? "")) {
+				updates.workspaceDelegateEmail = value.workspaceDelegateEmail;
+			}
 
 			if (Object.keys(updates).length === 0) {
 				setIsEditing(false);
@@ -377,7 +387,7 @@ function ClientDataCard({ deployment, onUpdated }: ClientDataCardProps) {
 						<form.Field name="adminEmail">
 							{(field) => (
 								<label className="text-sm text-muted-foreground">
-									Email
+									Email administratora
 									<Input
 										type="email"
 										value={field.state.value}
@@ -385,6 +395,33 @@ function ClientDataCard({ deployment, onUpdated }: ClientDataCardProps) {
 										onBlur={field.handleBlur}
 										className="h-8"
 									/>
+								</label>
+							)}
+						</form.Field>
+						<form.Field
+							name="workspaceDelegateEmail"
+							validators={{
+								onChange: ({ value, fieldApi }) => {
+									if (!value) return "Email delegata Workspace jest wymagany";
+									const domain = fieldApi.form.getFieldValue("domain");
+									if (!domain) return undefined;
+									return validateWorkspaceDelegateEmailForDomain(value, domain);
+								},
+							}}
+						>
+							{(field) => (
+								<label className="text-sm text-muted-foreground">
+									Email delegata Workspace
+									<Input
+										type="email"
+										value={field.state.value}
+										onChange={(e) => field.handleChange(e.target.value)}
+										onBlur={field.handleBlur}
+										className="h-8"
+									/>
+									{field.state.meta.errors[0] && (
+										<span className="text-destructive">{field.state.meta.errors[0]}</span>
+									)}
 								</label>
 							)}
 						</form.Field>
@@ -411,8 +448,12 @@ function ClientDataCard({ deployment, onUpdated }: ClientDataCardProps) {
 							<span className="text-foreground">{deployment.adminName ?? "—"}</span>
 						</div>
 						<div className="text-sm">
-							<span className="text-muted-foreground">Email: </span>
+							<span className="text-muted-foreground">Email administratora: </span>
 							<span className="text-foreground">{deployment.adminEmail ?? "—"}</span>
+						</div>
+						<div className="text-sm">
+							<span className="text-muted-foreground">Delegat Workspace: </span>
+							<span className="text-foreground">{deployment.workspaceDelegateEmail ?? "—"}</span>
 						</div>
 					</>
 				)}

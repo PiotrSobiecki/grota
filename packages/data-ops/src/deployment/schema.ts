@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { validateBandwidthLimit } from "./server-config-schema";
+import { validateWorkspaceDelegateEmailForDomain } from "./workspace-delegate-email";
 
 // ============================================
 // Enums
@@ -52,6 +53,7 @@ export const DeploymentSchema = z.object({
 	onboardingStep: z.number(),
 	adminEmail: z.string().email().nullable(),
 	adminName: z.string().nullable(),
+	workspaceDelegateEmail: z.string().email().nullable(),
 	adminMagicLinkToken: z.string().nullable(),
 	adminMagicLinkExpiresAt: z.coerce.date().nullable(),
 	workspaceOauthToken: z.string().nullable(),
@@ -78,6 +80,21 @@ export const DeploymentCreateRequestSchema = z.object({
 		.max(253, "Domena moze miec maksymalnie 253 znaki"),
 	adminEmail: z.string().email("Nieprawidlowy format email").optional(),
 	adminName: z.string().min(1).max(100).optional(),
+	workspaceDelegateEmail: z
+		.string()
+		.email("Nieprawidlowy format email delegata Workspace"),
+}).superRefine((data, ctx) => {
+	const message = validateWorkspaceDelegateEmailForDomain(
+		data.workspaceDelegateEmail,
+		data.domain,
+	);
+	if (message) {
+		ctx.addIssue({
+			code: "custom",
+			path: ["workspaceDelegateEmail"],
+			message,
+		});
+	}
 });
 
 export const DeploymentUpdateRequestSchema = z
@@ -86,6 +103,7 @@ export const DeploymentUpdateRequestSchema = z
 		domain: z.string().min(1).max(253).optional(),
 		adminEmail: z.string().email().optional(),
 		adminName: z.string().min(1).max(100).optional(),
+		workspaceDelegateEmail: z.string().email().optional(),
 		b2Config: B2ConfigSchema.optional(),
 		serverConfig: ServerConfigSchema.optional(),
 		r2ConfigKey: z.string().optional(),
@@ -96,6 +114,7 @@ export const DeploymentUpdateRequestSchema = z
 			data.domain ||
 			data.adminEmail ||
 			data.adminName ||
+			data.workspaceDelegateEmail ||
 			data.b2Config ||
 			data.serverConfig ||
 			data.r2ConfigKey,

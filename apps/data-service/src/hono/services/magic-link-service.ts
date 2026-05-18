@@ -95,7 +95,7 @@ interface AdminTokenData {
 	domain: string;
 	adminEmail: string | null;
 	adminName: string | null;
-	operatorEmail: string;
+	workspaceDelegateEmail: string | null;
 }
 
 export async function verifyAdminToken(token: string): Promise<Result<AdminTokenData>> {
@@ -128,7 +128,7 @@ export async function verifyAdminToken(token: string): Promise<Result<AdminToken
 			domain: deployment.domain,
 			adminEmail: deployment.adminEmail,
 			adminName: deployment.adminName,
-			operatorEmail: deployment.operatorEmail,
+			workspaceDelegateEmail: deployment.workspaceDelegateEmail,
 		},
 	};
 }

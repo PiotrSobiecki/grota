@@ -1,0 +1,1 @@
+ALTER TABLE "deployments" ADD COLUMN "workspace_delegate_email" text;

@@ -33,6 +33,7 @@ export async function createTestDeployment(): Promise<{ id: string }> {
 		.values({
 			clientName: "Test Client",
 			domain: "test.example.com",
+			workspaceDelegateEmail: "delegate@test.example.com",
 			createdBy: user.id,
 		})
 		.returning({ id: deployments.id });

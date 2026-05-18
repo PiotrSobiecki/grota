@@ -6,6 +6,7 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { validateWorkspaceDelegateEmailForDomain } from "@repo/data-ops/deployment";
 import { createNewDeployment } from "@/core/functions/deployments/direct";
 
 export const Route = createFileRoute("/_auth/dashboard/new")({
@@ -20,6 +21,7 @@ function CreateDeploymentPage() {
 			clientName: string;
 			domain: string;
 			adminEmail: string;
+			workspaceDelegateEmail: string;
 			adminName?: string;
 		}) => {
 			return createNewDeployment({ data });
@@ -31,6 +33,7 @@ function CreateDeploymentPage() {
 			clientName: "",
 			domain: "",
 			adminEmail: "",
+			workspaceDelegateEmail: "",
 			adminName: "",
 		},
 		onSubmit: async ({ value }) => {
@@ -39,6 +42,7 @@ function CreateDeploymentPage() {
 				clientName: value.clientName,
 				domain: value.domain,
 				adminEmail: value.adminEmail,
+				workspaceDelegateEmail: value.workspaceDelegateEmail,
 				adminName: value.adminName || undefined,
 			});
 			toast.success("Wdrozenie utworzone");
@@ -134,6 +138,44 @@ function CreateDeploymentPage() {
 										onBlur={field.handleBlur}
 										placeholder="admin@firma.pl"
 									/>
+									{field.state.meta.errors.length > 0 && (
+										<p className="text-sm text-destructive">{field.state.meta.errors[0]}</p>
+									)}
+								</div>
+							)}
+						</form.Field>
+
+						<form.Field
+							name="workspaceDelegateEmail"
+							validators={{
+								onChange: ({ value, fieldApi }) => {
+									if (!value) return "Email delegata Workspace jest wymagany";
+									const domain = fieldApi.form.getFieldValue("domain");
+									if (!domain) return undefined;
+									return validateWorkspaceDelegateEmailForDomain(value, domain);
+								},
+							}}
+						>
+							{(field) => (
+								<div className="space-y-2">
+									<label
+										htmlFor="workspaceDelegateEmail"
+										className="text-sm font-medium text-foreground"
+									>
+										Email delegata Workspace
+									</label>
+									<Input
+										id="workspaceDelegateEmail"
+										type="email"
+										value={field.state.value}
+										onChange={(e) => field.handleChange(e.target.value)}
+										onBlur={field.handleBlur}
+										placeholder="grota@firma.pl"
+									/>
+									<p className="text-xs text-muted-foreground">
+										Konto w domenie klienta do przypisania roli w Google Admin (krok 3 onboardingu).
+										Nie uzywaj adresu logowania do Grota.
+									</p>
 									{field.state.meta.errors.length > 0 && (
 										<p className="text-sm text-destructive">{field.state.meta.errors[0]}</p>
 									)}

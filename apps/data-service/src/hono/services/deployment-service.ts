@@ -42,12 +42,22 @@ export async function updateDeployment(
 	id: string,
 	data: DeploymentUpdateInput,
 ): Promise<Result<Deployment>> {
-	const deployment = await updateDeploymentQuery(id, data);
-	if (!deployment) {
-		return {
-			ok: false,
-			error: { code: "NOT_FOUND", message: "Wdrozenie nie zostalo znalezione", status: 404 },
-		};
+	try {
+		const deployment = await updateDeploymentQuery(id, data);
+		if (!deployment) {
+			return {
+				ok: false,
+				error: { code: "NOT_FOUND", message: "Wdrozenie nie zostalo znalezione", status: 404 },
+			};
+		}
+		return { ok: true, data: deployment };
+	} catch (error) {
+		if (error instanceof Error) {
+			return {
+				ok: false,
+				error: { code: "VALIDATION_ERROR", message: error.message, status: 400 },
+			};
+		}
+		throw error;
 	}
-	return { ok: true, data: deployment };
 }

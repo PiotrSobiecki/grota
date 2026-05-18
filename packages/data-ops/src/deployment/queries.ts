@@ -10,6 +10,32 @@ import type {
 	ServerConfig,
 } from "./schema";
 import { deployments } from "./table";
+import { validateWorkspaceDelegateEmailForDomain } from "./workspace-delegate-email";
+
+async function assertWorkspaceDelegateEmailUpdate(
+	deploymentId: string,
+	data: DeploymentUpdateInput,
+): Promise<void> {
+	if (data.workspaceDelegateEmail === undefined && data.domain === undefined) {
+		return;
+	}
+
+	const existing = await getDeployment(deploymentId);
+	if (!existing) {
+		return;
+	}
+
+	const domain = data.domain ?? existing.domain;
+	const email = data.workspaceDelegateEmail ?? existing.workspaceDelegateEmail;
+	if (!email) {
+		throw new Error("Email delegata Workspace jest wymagany");
+	}
+
+	const message = validateWorkspaceDelegateEmailForDomain(email, domain);
+	if (message) {
+		throw new Error(message);
+	}
+}
 
 export async function getDeploymentServerConfig(
 	deploymentId: string,
@@ -87,6 +113,7 @@ export async function createDeployment(
 			domain: data.domain,
 			adminEmail: data.adminEmail ?? null,
 			adminName: data.adminName ?? null,
+			workspaceDelegateEmail: data.workspaceDelegateEmail,
 			createdBy: data.createdBy,
 		})
 		.returning();
@@ -100,6 +127,8 @@ export async function updateDeployment(
 	deploymentId: string,
 	data: DeploymentUpdateInput,
 ): Promise<Deployment | null> {
+	await assertWorkspaceDelegateEmailUpdate(deploymentId, data);
+
 	const db = getDb();
 	const result = await db
 		.update(deployments)

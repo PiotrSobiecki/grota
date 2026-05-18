@@ -110,7 +110,8 @@ function OnboardingWizard() {
 				)}
 				{currentStep === 3 && (
 					<DelegateChecklistStep
-						operatorEmail={loaderData.operatorEmail}
+						workspaceDelegateEmail={loaderData.workspaceDelegateEmail}
+						domain={loaderData.domain}
 						onNext={() => goTo(4)}
 						onBack={() => goTo(2)}
 					/>
@@ -477,20 +478,47 @@ function OAuthConsentStep({
 }
 
 interface DelegateChecklistStepProps {
-	operatorEmail: string;
+	workspaceDelegateEmail: string | null;
+	domain: string;
 	onNext: () => void;
 	onBack: () => void;
 }
 
-function DelegateChecklistStep({ operatorEmail, onNext, onBack }: DelegateChecklistStepProps) {
+function DelegateChecklistStep({
+	workspaceDelegateEmail,
+	domain,
+	onNext,
+	onBack,
+}: DelegateChecklistStepProps) {
 	const [confirmed, setConfirmed] = useState(false);
 	const [copied, setCopied] = useState(false);
 
 	const handleCopy = async () => {
-		await navigator.clipboard.writeText(operatorEmail);
+		if (!workspaceDelegateEmail) return;
+		await navigator.clipboard.writeText(workspaceDelegateEmail);
 		setCopied(true);
 		setTimeout(() => setCopied(false), 2000);
 	};
+
+	if (!workspaceDelegateEmail) {
+		return (
+			<Card>
+				<CardHeader>
+					<CardTitle>Krok 3: Delegat administracyjny</CardTitle>
+				</CardHeader>
+				<CardContent className="space-y-4">
+					<Alert variant="destructive">
+						Brak adresu delegata Workspace dla domeny {domain}. Popros operatora Grota o uzupelnienie
+						pola „Email delegata Workspace” w panelu wdrozenia, a nastepnie odswiez strone.
+					</Alert>
+					<Button variant="outline" onClick={onBack}>
+						<ArrowLeft className="mr-2 h-4 w-4" />
+						Wstecz
+					</Button>
+				</CardContent>
+			</Card>
+		);
+	}
 
 	return (
 		<Card>
@@ -499,13 +527,14 @@ function DelegateChecklistStep({ operatorEmail, onNext, onBack }: DelegateCheckl
 			</CardHeader>
 			<CardContent className="space-y-4">
 				<p className="text-muted-foreground">
-					Aby kontynuowac, dodaj{" "}
-					<span className="font-semibold text-foreground">{operatorEmail}</span> jako administratora
-					z uprawnieniami do zarzadzania Dyskiem i Grupami w Google Workspace.
+					Aby kontynuowac, w Google Admin przypisz ponizszy adres (konto w domenie{" "}
+					<span className="font-semibold text-foreground">{domain}</span>) jako administratora z
+					uprawnieniami do zarzadzania Dyskiem i Grupami. To nie jest adres logowania do portalu
+					Grota — musi to byc uzytkownik Workspace klienta.
 				</p>
 
 				<div className="flex items-center gap-2 rounded-md border border-border bg-muted px-3 py-2">
-					<span className="flex-1 font-mono text-sm text-foreground">{operatorEmail}</span>
+					<span className="flex-1 font-mono text-sm text-foreground">{workspaceDelegateEmail}</span>
 					<Button variant="ghost" size="icon" onClick={handleCopy} title="Kopiuj email">
 						{copied ? (
 							<CheckCircle2 className="h-4 w-4 text-primary" />

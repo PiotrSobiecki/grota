@@ -50,6 +50,6 @@ export const verifyAdminToken = createServerFn({ method: "GET" })
 			domain: string;
 			adminEmail: string | null;
 			adminName: string | null;
-			operatorEmail: string;
+			workspaceDelegateEmail: string | null;
 		};
 	});
