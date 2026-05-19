@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { validateBandwidthLimit } from "./server-config-schema";
-import { validateWorkspaceDelegateEmailForDomain } from "./workspace-delegate-email";
+// import { validateWorkspaceDelegateEmailForDomain } from "./workspace-delegate-email";
 
 // ============================================
 // Enums
@@ -80,22 +80,26 @@ export const DeploymentCreateRequestSchema = z.object({
 		.max(253, "Domena moze miec maksymalnie 253 znaki"),
 	adminEmail: z.string().email("Nieprawidlowy format email").optional(),
 	adminName: z.string().min(1).max(100).optional(),
+	// TODO: delegata Workspace tymczasowo wylaczony - patrz plans/auto-workspace-delegate-role.md
 	workspaceDelegateEmail: z
 		.string()
-		.email("Nieprawidlowy format email delegata Workspace"),
-}).superRefine((data, ctx) => {
-	const message = validateWorkspaceDelegateEmailForDomain(
-		data.workspaceDelegateEmail,
-		data.domain,
-	);
-	if (message) {
-		ctx.addIssue({
-			code: "custom",
-			path: ["workspaceDelegateEmail"],
-			message,
-		});
-	}
+		.email("Nieprawidlowy format email delegata Workspace")
+		.optional(),
 });
+// .superRefine((data, ctx) => {
+// 	if (!data.workspaceDelegateEmail) return;
+// 	const message = validateWorkspaceDelegateEmailForDomain(
+// 		data.workspaceDelegateEmail,
+// 		data.domain,
+// 	);
+// 	if (message) {
+// 		ctx.addIssue({
+// 			code: "custom",
+// 			path: ["workspaceDelegateEmail"],
+// 			message,
+// 		});
+// 	}
+// });
 
 export const DeploymentUpdateRequestSchema = z
 	.object({

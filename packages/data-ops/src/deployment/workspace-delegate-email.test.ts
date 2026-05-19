@@ -3,7 +3,9 @@ import { validateWorkspaceDelegateEmailForDomain } from "./workspace-delegate-em
 
 describe("validateWorkspaceDelegateEmailForDomain", () => {
 	it("accepts email in client domain", () => {
-		expect(validateWorkspaceDelegateEmailForDomain("grota@sobiecki.org", "sobiecki.org")).toBeUndefined();
+		expect(
+			validateWorkspaceDelegateEmailForDomain("grota@sobiecki.org", "sobiecki.org"),
+		).toBeUndefined();
 	});
 
 	it("rejects email outside client domain", () => {

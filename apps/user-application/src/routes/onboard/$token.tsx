@@ -508,8 +508,9 @@ function DelegateChecklistStep({
 				</CardHeader>
 				<CardContent className="space-y-4">
 					<Alert variant="destructive">
-						Brak adresu delegata Workspace dla domeny {domain}. Popros operatora Grota o uzupelnienie
-						pola „Email delegata Workspace” w panelu wdrozenia, a nastepnie odswiez strone.
+						Brak adresu delegata Workspace dla domeny {domain}. Popros operatora Grota o
+						uzupelnienie pola „Email delegata Workspace” w panelu wdrozenia, a nastepnie odswiez
+						strone.
 					</Alert>
 					<Button variant="outline" onClick={onBack}>
 						<ArrowLeft className="mr-2 h-4 w-4" />

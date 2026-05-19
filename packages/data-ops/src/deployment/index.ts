@@ -34,5 +34,5 @@ export {
 	ServerConfigUpdateRequestSchema,
 } from "./schema";
 export { deploymentStatusEnum, deployments } from "./table";
-export { validateWorkspaceDelegateEmailForDomain } from "./workspace-delegate-email";
 export { getWorkspaceOAuthToken, setWorkspaceOAuthToken } from "./token-queries";
+export { validateWorkspaceDelegateEmailForDomain } from "./workspace-delegate-email";

@@ -113,7 +113,7 @@ export async function createDeployment(
 			domain: data.domain,
 			adminEmail: data.adminEmail ?? null,
 			adminName: data.adminName ?? null,
-			workspaceDelegateEmail: data.workspaceDelegateEmail,
+			workspaceDelegateEmail: data.workspaceDelegateEmail ?? null,
 			createdBy: data.createdBy,
 		})
 		.returning();

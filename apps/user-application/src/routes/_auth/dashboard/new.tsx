@@ -6,7 +6,7 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { validateWorkspaceDelegateEmailForDomain } from "@repo/data-ops/deployment";
+// import { validateWorkspaceDelegateEmailForDomain } from "@repo/data-ops/deployment";
 import { createNewDeployment } from "@/core/functions/deployments/direct";
 
 export const Route = createFileRoute("/_auth/dashboard/new")({
@@ -21,7 +21,7 @@ function CreateDeploymentPage() {
 			clientName: string;
 			domain: string;
 			adminEmail: string;
-			workspaceDelegateEmail: string;
+			// workspaceDelegateEmail: string;
 			adminName?: string;
 		}) => {
 			return createNewDeployment({ data });
@@ -33,7 +33,7 @@ function CreateDeploymentPage() {
 			clientName: "",
 			domain: "",
 			adminEmail: "",
-			workspaceDelegateEmail: "",
+			// workspaceDelegateEmail: "",
 			adminName: "",
 		},
 		onSubmit: async ({ value }) => {
@@ -42,7 +42,7 @@ function CreateDeploymentPage() {
 				clientName: value.clientName,
 				domain: value.domain,
 				adminEmail: value.adminEmail,
-				workspaceDelegateEmail: value.workspaceDelegateEmail,
+				// workspaceDelegateEmail: value.workspaceDelegateEmail,
 				adminName: value.adminName || undefined,
 			});
 			toast.success("Wdrozenie utworzone");
@@ -145,6 +145,7 @@ function CreateDeploymentPage() {
 							)}
 						</form.Field>
 
+						{/* TODO: delegata Workspace tymczasowo wylaczony - patrz plans/auto-workspace-delegate-role.md
 						<form.Field
 							name="workspaceDelegateEmail"
 							validators={{
@@ -181,6 +182,7 @@ function CreateDeploymentPage() {
 								</div>
 							)}
 						</form.Field>
+						*/}
 
 						<form.Field name="adminName">
 							{(field) => (

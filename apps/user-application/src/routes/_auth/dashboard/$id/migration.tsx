@@ -919,11 +919,7 @@ function JobHistoryCard({ jobs }: { jobs: MigrationJobDto[] }) {
 				) : (
 					<div className="space-y-2">
 						{visible.map((job, i) => (
-							<JobRow
-								key={job.id}
-								job={job}
-								canExpand={page === 1 && i < HISTORY_PAGE_SIZE}
-							/>
+							<JobRow key={job.id} job={job} canExpand={page === 1 && i < HISTORY_PAGE_SIZE} />
 						))}
 						{totalPages > 1 && (
 							<div className="flex items-center justify-between pt-2">
@@ -986,9 +982,7 @@ function JobRow({ job, canExpand = false }: { job: MigrationJobDto; canExpand?: 
 					<span>{formatScheduleDate(job.startedAt)}</span>
 					<span>czas: {duration}</span>
 					{job.exitCode !== null && <span>exit: {job.exitCode}</span>}
-					{canExpand && (
-						<span className="text-muted-foreground">{expanded ? "▲" : "▼"}</span>
-					)}
+					{canExpand && <span className="text-muted-foreground">{expanded ? "▲" : "▼"}</span>}
 				</div>
 			</div>
 			{expanded && <JobRowLogs jobId={job.id} />}
