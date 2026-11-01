@@ -29,6 +29,7 @@ export const createNewDeployment = createServerFn({ method: "POST" })
 	});
 
 export const getDeploymentById = createServerFn({ method: "GET" })
+	.middleware([protectedFunctionMiddleware])
 	.inputValidator(z.object({ id: z.string().uuid() }))
 	.handler(async ({ data }) => {
 		const deployment = await getDeployment(data.id);
@@ -68,6 +69,7 @@ export const markDeploymentReady = createServerFn({ method: "POST" })
 	});
 
 export const updateExistingDeployment = createServerFn({ method: "POST" })
+	.middleware([protectedFunctionMiddleware])
 	.inputValidator(
 		z.object({
 			id: z.string().uuid(),
