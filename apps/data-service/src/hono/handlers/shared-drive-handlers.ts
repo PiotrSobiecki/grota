@@ -13,6 +13,7 @@ const sharedDriveHandlers = new Hono<{ Bindings: Env }>();
 
 sharedDriveHandlers.get(
 	"/:deploymentId",
+	(c, next) => authMiddleware(c.env.API_TOKEN)(c, next),
 	zValidator("param", SharedDriveDeploymentParamSchema),
 	async (c) => {
 		const { deploymentId } = c.req.valid("param");
@@ -22,6 +23,7 @@ sharedDriveHandlers.get(
 
 sharedDriveHandlers.put(
 	"/:deploymentId",
+	(c, next) => authMiddleware(c.env.API_TOKEN)(c, next),
 	zValidator("param", SharedDriveDeploymentParamSchema),
 	zValidator("json", SharedDriveBulkUpsertRequestSchema),
 	async (c) => {
@@ -33,6 +35,7 @@ sharedDriveHandlers.put(
 
 sharedDriveHandlers.post(
 	"/:deploymentId/create",
+	(c, next) => authMiddleware(c.env.API_TOKEN)(c, next),
 	zValidator("param", SharedDriveDeploymentParamSchema),
 	zValidator("json", SharedDriveCreateRequestSchema),
 	async (c) => {
@@ -60,6 +63,7 @@ sharedDriveHandlers.post(
 
 sharedDriveHandlers.delete(
 	"/:deploymentId",
+	(c, next) => authMiddleware(c.env.API_TOKEN)(c, next),
 	zValidator("param", SharedDriveDeploymentParamSchema),
 	async (c) => {
 		const { deploymentId } = c.req.valid("param");
