@@ -133,6 +133,15 @@ export async function verifyAdminToken(token: string): Promise<Result<AdminToken
 	};
 }
 
+function escapeHtml(value: string): string {
+	return value
+		.replace(/&/g, "&amp;")
+		.replace(/</g, "&lt;")
+		.replace(/>/g, "&gt;")
+		.replace(/"/g, "&quot;")
+		.replace(/'/g, "&#39;");
+}
+
 /** Map Resend error name to a user-friendly Polish message. */
 function getResendErrorMessage(error: ResendErrorResponse): string {
 	switch (error.name) {
@@ -205,7 +214,7 @@ export async function sendMagicLinkEmail(
 					</tr>
 					<tr>
 						<td style="padding:8px 24px 0 24px;">
-							<p style="margin:0 0 12px 0;font-size:16px;line-height:1.6;color:#f3f4f6;">Czesc ${name},</p>
+							<p style="margin:0 0 12px 0;font-size:16px;line-height:1.6;color:#f3f4f6;">Czesc ${escapeHtml(name)},</p>
 							<p style="margin:0 0 12px 0;font-size:15px;line-height:1.6;color:#cbd5e1;">${intro}</p>
 							<p style="margin:0 0 18px 0;font-size:14px;line-height:1.6;color:#93c5fd;"><strong>Rola:</strong> ${roleLabel}</p>
 						</td>
