@@ -1,6 +1,7 @@
 import { setWorkspaceOAuthToken, updateOnboardingStep } from "@repo/data-ops/deployment";
 import { getEmployeeByToken, setDriveOAuthToken } from "@repo/data-ops/employee";
 import { encrypt } from "@repo/data-ops/encryption";
+import { getDeploymentByAdminToken, isMagicLinkValid } from "@repo/data-ops/magic-link";
 import type { Result } from "../types/result";
 
 const ADMIN_SCOPES = [
@@ -62,6 +63,36 @@ export async function handleCallback(
 	try {
 		state = JSON.parse(atob(stateParam)) as OAuthState;
 	} catch {
+		return {
+			ok: false,
+			error: { code: "INVALID_STATE", message: "Invalid OAuth state", status: 400 },
+		};
+	}
+
+	// Bind the callback to a valid magic link before exchanging the code: the authorize
+	// endpoint is public, so without this anyone knowing a deployment id could attach
+	// their own Google account to it.
+	if (state.type === "admin") {
+		const deployment = state.token ? await getDeploymentByAdminToken(state.token) : null;
+		if (
+			!deployment ||
+			deployment.id !== state.id ||
+			!isMagicLinkValid(deployment.adminMagicLinkExpiresAt)
+		) {
+			return {
+				ok: false,
+				error: { code: "INVALID_STATE", message: "Invalid OAuth state", status: 401 },
+			};
+		}
+	} else if (state.type === "employee") {
+		const employee = await getEmployeeByToken(state.id);
+		if (!employee || !isMagicLinkValid(employee.magicLinkExpiresAt)) {
+			return {
+				ok: false,
+				error: { code: "INVALID_STATE", message: "Invalid OAuth state", status: 401 },
+			};
+		}
+	} else {
 		return {
 			ok: false,
 			error: { code: "INVALID_STATE", message: "Invalid OAuth state", status: 400 },

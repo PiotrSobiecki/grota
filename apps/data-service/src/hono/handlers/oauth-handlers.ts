@@ -30,7 +30,7 @@ oauthHandlers.get("/google/callback", async (c) => {
 
 	if (error) {
 		const frontendOrigin = getFrontendOrigin(c.env);
-		return c.redirect(`${frontendOrigin}/?oauth_error=${error}`);
+		return c.redirect(`${frontendOrigin}/?oauth_error=${encodeURIComponent(error)}`);
 	}
 
 	if (!code || !state) {
@@ -42,7 +42,7 @@ oauthHandlers.get("/google/callback", async (c) => {
 
 	if (!result.ok) {
 		const frontendOrigin = getFrontendOrigin(c.env);
-		return c.redirect(`${frontendOrigin}/?oauth_error=${result.error.code}`);
+		return c.redirect(`${frontendOrigin}/?oauth_error=${encodeURIComponent(result.error.code)}`);
 	}
 
 	return c.redirect(result.data.redirectTo);
